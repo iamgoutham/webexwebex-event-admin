@@ -1,6 +1,38 @@
-import { PrismaClient, Role } from "@prisma/client";
+import { Prisma, PrismaClient, Role } from "@prisma/client";
+import { randomBytes } from "crypto";
 
 const prisma = new PrismaClient();
+
+const generateShortId = () => randomBytes(6).toString("hex");
+
+const isUniqueConstraintError = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === "P2002";
+
+const ensureShortId = async (userId: string, current?: string | null) => {
+  if (current) {
+    return current;
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const shortId = generateShortId();
+    try {
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { shortId },
+        select: { shortId: true },
+      });
+      return updated.shortId;
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error("Unable to generate a unique shortId");
+};
 
 async function main() {
   const seedTenantEnabled = process.env.SEED_TENANT !== "false";
@@ -21,7 +53,7 @@ async function main() {
 
   const superAdminEmail = process.env.SEED_SUPERADMIN_EMAIL;
   if (superAdminEmail) {
-    await prisma.user.upsert({
+    const superAdmin = await prisma.user.upsert({
       where: { email: superAdminEmail },
       update: { name: process.env.SEED_SUPERADMIN_NAME ?? "SuperAdmin" },
       create: {
@@ -29,12 +61,14 @@ async function main() {
         name: process.env.SEED_SUPERADMIN_NAME ?? "SuperAdmin",
         role: Role.SUPERADMIN,
       },
+      select: { id: true, shortId: true },
     });
+    await ensureShortId(superAdmin.id, superAdmin.shortId);
   }
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL;
   if (adminEmail && tenantId) {
-    await prisma.user.upsert({
+    const admin = await prisma.user.upsert({
       where: { email: adminEmail },
       update: { name: process.env.SEED_ADMIN_NAME ?? "Tenant Admin" },
       create: {
@@ -43,7 +77,9 @@ async function main() {
         role: Role.ADMIN,
         tenantId,
       },
+      select: { id: true, shortId: true },
     });
+    await ensureShortId(admin.id, admin.shortId);
   }
 }
 

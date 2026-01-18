@@ -27,6 +27,7 @@ model User {
   name      String?
   email     String?  @unique
   image     String?
+  shortId   String?  @unique
   role      Role     @default(HOST)
   tenantId  String?
   tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)

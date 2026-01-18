@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import WebexProvider from "@/lib/webex-provider";
+import { ensureUserShortId } from "@/lib/user-short-id";
 import { Role } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
@@ -21,19 +22,23 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        const shortId = await ensureUserShortId(user.id, user.shortId);
         token.role = user.role;
         token.tenantId = user.tenantId;
+        token.shortId = shortId;
       }
 
       if (!user && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
-          select: { id: true, role: true, tenantId: true },
+          select: { id: true, role: true, tenantId: true, shortId: true },
         });
         if (dbUser) {
+          const shortId = await ensureUserShortId(dbUser.id, dbUser.shortId);
           token.sub = dbUser.id;
           token.role = dbUser.role;
           token.tenantId = dbUser.tenantId;
+          token.shortId = shortId;
         }
       }
 
@@ -44,6 +49,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.sub ?? "";
         session.user.role = token.role ?? Role.HOST;
         session.user.tenantId = token.tenantId ?? null;
+        session.user.shortId = token.shortId ?? null;
       }
       return session;
     },
@@ -68,6 +74,8 @@ export const authOptions: NextAuthOptions = {
           data: { tenantId: resolvedTenantId },
         });
       }
+
+      await ensureUserShortId(user.id, user.shortId);
     },
   },
 };

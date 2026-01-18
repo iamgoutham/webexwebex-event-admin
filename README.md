@@ -79,6 +79,16 @@ Role and tenant checks are enforced in:
 | `/api/tenants/:tenantId` | GET | Admin, SuperAdmin | Tenant details |
 | `/api/users` | GET/POST | Admin, SuperAdmin | Tenant user management |
 | `/api/uploads/presign` | POST | Admin, SuperAdmin | S3 presigned URL |
+| `/api/uploads/complete` | POST | Admin, SuperAdmin | Complete multipart upload |
+
+## Multipart uploads
+
+- `POST /api/uploads/presign` expects `filename`, `contentType`, `partCount`,
+  and optional `folder`. The response includes `uploadId`, `key`, and
+  pre-signed part URLs.
+- `POST /api/uploads/complete` finalizes the upload with the `uploadId`, `key`,
+  and each part’s `ETag`.
+- Uploaded object keys include the user `shortId` for traceability.
 
 ## Seed Data
 
