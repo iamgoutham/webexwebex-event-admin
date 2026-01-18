@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Role } from "@prisma/client";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { requireApiAuth } from "@/lib/api-guards";
 import { s3Bucket, s3Client } from "@/lib/s3";
+import { ensureUserShortId } from "@/lib/user-short-id";
 
 const presignSchema = z.object({
   filename: z.string().min(1),
   contentType: z.string().min(1),
   folder: z.string().optional(),
+  partCount: z.number().int().min(1).max(10000),
 });
 
 const safeSegment = (value: string) =>
@@ -35,6 +40,12 @@ export async function POST(request: Request) {
   }
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (session.user.role === Role.ADMIN && !session.user.tenantId) {
+    return NextResponse.json(
+      { error: "Tenant is required for admin uploads" },
+      { status: 400 },
+    );
   }
 
   if (!s3Bucket) {
@@ -70,6 +81,9 @@ export async function POST(request: Request) {
       ? "global"
       : session.user.tenantId ?? "tenant-unknown";
 
+  const shortId = await ensureUserShortId(session.user.id, session.user.shortId);
+  const shortIdSegment = safeSegment(shortId);
+
   const folderSegments = parsed.data.folder
     ? parsed.data.folder
         .split("/")
@@ -80,20 +94,41 @@ export async function POST(request: Request) {
   const key = [
     tenantPrefix,
     ...folderSegments,
-    `${Date.now()}-${safeFilename(parsed.data.filename)}`,
+    `${shortIdSegment}-${Date.now()}-${safeFilename(parsed.data.filename)}`,
   ].join("/");
 
-  const command = new PutObjectCommand({
+  const createCommand = new CreateMultipartUploadCommand({
     Bucket: s3Bucket,
     Key: key,
     ContentType: parsed.data.contentType,
   });
 
-  const url = await getSignedUrl(s3Client, command, { expiresIn });
+  const createResult = await s3Client.send(createCommand);
+  if (!createResult.UploadId) {
+    return NextResponse.json(
+      { error: "Unable to initiate multipart upload" },
+      { status: 500 },
+    );
+  }
+
+  const parts = await Promise.all(
+    Array.from({ length: parsed.data.partCount }, async (_, index) => {
+      const partNumber = index + 1;
+      const partCommand = new UploadPartCommand({
+        Bucket: s3Bucket,
+        Key: key,
+        UploadId: createResult.UploadId,
+        PartNumber: partNumber,
+      });
+      const url = await getSignedUrl(s3Client, partCommand, { expiresIn });
+      return { partNumber, url };
+    }),
+  );
 
   return NextResponse.json({
-    url,
+    uploadId: createResult.UploadId,
     key,
+    parts,
     bucket: s3Bucket,
     expiresIn,
   });
