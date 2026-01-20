@@ -1,7 +1,10 @@
 import { Prisma, PrismaClient, Role } from "@prisma/client";
 import { randomBytes } from "crypto";
+import { createPrismaAdapter } from "../src/lib/prisma-adapter";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: createPrismaAdapter(),
+});
 
 const generateShortId = () => randomBytes(6).toString("hex");
 
