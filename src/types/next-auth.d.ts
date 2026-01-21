@@ -12,9 +12,9 @@ declare module "next-auth" {
   }
 
   interface User {
-    role: Role;
-    tenantId: string | null;
-    shortId: string | null;
+    role?: Role;
+    tenantId?: string | null;
+    shortId?: string | null;
   }
 }
 

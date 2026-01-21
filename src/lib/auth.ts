@@ -71,7 +71,11 @@ export const authOptions: NextAuthOptions = {
       if (resolvedTenantId && !user.tenantId) {
         await prisma.user.update({
           where: { id: user.id },
-          data: { tenantId: resolvedTenantId },
+          data: {
+            tenant: {
+              connect: { id: resolvedTenantId },
+            },
+          },
         });
       }
 
