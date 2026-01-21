@@ -1,4 +1,5 @@
 import type { OAuthConfig, OAuthUserConfig } from "next-auth/providers/oauth";
+import { Role } from "@prisma/client";
 
 export interface WebexProfile {
   id: string;
@@ -22,12 +23,15 @@ export default function WebexProvider<P extends WebexProfile>(
     },
     token: "https://webexapis.com/v1/access_token",
     userinfo: "https://webexapis.com/v1/people/me",
-    profile(profile) {
+    profile(profile, _tokens) {
       return {
         id: profile.id,
         name: profile.displayName ?? null,
         email: profile.emails?.[0] ?? null,
         image: profile.avatar ?? null,
+        role: Role.HOST,
+        tenantId: null,
+        shortId: null,
       };
     },
     ...options,
