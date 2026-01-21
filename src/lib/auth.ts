@@ -7,6 +7,18 @@ import { Role } from "@prisma/client";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+  debug: true,
+  logger: {
+    debug(code, metadata) {
+      console.debug("[next-auth][debug]", code, metadata);
+    },
+    warn(code) {
+      console.warn("[next-auth][warn]", code);
+    },
+    error(code, metadata) {
+      console.error("[next-auth][error]", code, metadata);
+    },
+  },
   session: {
     strategy: "jwt",
   },
