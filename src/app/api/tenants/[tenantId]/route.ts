@@ -1,17 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
 import { hasTenantAccess } from "@/lib/rbac";
 
 type RouteContext = {
-  params: { tenantId: string };
+  params: Promise<{ tenantId: string }>;
 };
 
 export async function GET(
-  _request: Request,
+  _request: NextRequest,
   { params }: RouteContext,
 ) {
+  const { tenantId } = await params;
   const { session, response } = await requireApiAuth([
     Role.ADMIN,
     Role.SUPERADMIN,
@@ -23,14 +24,12 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (
-    !hasTenantAccess(session.user.role, session.user.tenantId, params.tenantId)
-  ) {
+  if (!hasTenantAccess(session.user.role, session.user.tenantId, tenantId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const tenant = await prisma.tenant.findUnique({
-    where: { id: params.tenantId },
+    where: { id: tenantId },
     select: {
       id: true,
       name: true,
