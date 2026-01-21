@@ -18,7 +18,7 @@ export default async function SiteHeader() {
             <Link href="/dashboard" className="hover:text-white">
               Dashboard
             </Link>
-            {user?.role && [Role.ADMIN, Role.SUPERADMIN].includes(user.role) ? (
+            {user?.role === Role.ADMIN || user?.role === Role.SUPERADMIN ? (
               <Link href="/dashboard/admin" className="hover:text-white">
                 Admin
               </Link>
