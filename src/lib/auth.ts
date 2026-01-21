@@ -29,6 +29,7 @@ export const authOptions: NextAuthOptions = {
     WebexProvider({
       clientId: process.env.WEBEX_CLIENT_ID ?? "",
       clientSecret: process.env.WEBEX_CLIENT_SECRET ?? "",
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   callbacks: {
