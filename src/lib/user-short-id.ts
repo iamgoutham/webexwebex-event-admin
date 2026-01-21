@@ -9,7 +9,7 @@ const isUniqueConstraintError = (error: unknown) =>
 export const ensureUserShortId = async (
   userId: string,
   current?: string | null,
-) => {
+): Promise<string> => {
   if (current) {
     return current;
   }
@@ -22,6 +22,9 @@ export const ensureUserShortId = async (
         data: { shortId },
         select: { shortId: true },
       });
+      if (!updated.shortId) {
+        throw new Error("ShortId generation returned empty value");
+      }
       return updated.shortId;
     } catch (error) {
       if (isUniqueConstraintError(error)) {
