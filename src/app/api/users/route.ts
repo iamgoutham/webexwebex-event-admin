@@ -117,7 +117,17 @@ export async function POST(request: Request) {
       data: {
         name: parsed.data.name ?? existing.name,
         role: desiredRole,
-        tenantId: targetTenantId,
+        ...(targetTenantId
+          ? {
+              tenant: {
+                connect: { id: targetTenantId },
+              },
+            }
+          : {
+              tenant: {
+                disconnect: true,
+              },
+            }),
       },
       select: {
         id: true,
@@ -136,7 +146,13 @@ export async function POST(request: Request) {
       name: parsed.data.name ?? null,
       email: parsed.data.email,
       role: desiredRole,
-      tenantId: targetTenantId,
+      ...(targetTenantId
+        ? {
+            tenant: {
+              connect: { id: targetTenantId },
+            },
+          }
+        : {}),
     },
     select: {
       id: true,

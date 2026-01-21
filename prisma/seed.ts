@@ -78,7 +78,9 @@ async function main() {
         email: adminEmail,
         name: process.env.SEED_ADMIN_NAME ?? "Tenant Admin",
         role: Role.ADMIN,
-        tenantId,
+        tenant: {
+          connect: { id: tenantId },
+        },
       },
       select: { id: true, shortId: true },
     });
