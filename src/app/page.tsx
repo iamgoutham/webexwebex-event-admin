@@ -33,19 +33,19 @@ export default async function Home() {
       <section className="grid gap-6 md:grid-cols-3">
         {[
           {
-            title: "Webex OAuth",
+            title: "Webex Meeting Link",
             detail:
-              "Custom OAuth provider, secure session handling, and tenant-aware profile storage.",
+              "Each host manages a single meeting with using the custom link provided here.",
           },
           {
-            title: "RBAC Guardrails",
+            title: "Chant chapter 15. Instructions",
             detail:
-              "Host by default, tenant Admin, and global SuperAdmin roles with API + UI enforcement.",
+              "Running the meeting and ensuring you follow the guiness rules is important.",
           },
           {
-            title: "S3 Presigned Uploads",
+            title: "Upload OBS meeting recording",
             detail:
-              "Scoped uploads per tenant using AWS SDK v3 and short-lived presigned URLs.",
+              "Once meeting is complete upload the meeting recording here.",
           },
         ].map((card) => (
           <div
