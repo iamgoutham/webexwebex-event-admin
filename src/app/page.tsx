@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import AuthButtons from "@/components/auth-buttons";
 import { getServerAuthSession } from "@/lib/session";
@@ -16,7 +17,8 @@ export default async function Home() {
             Chinmaya Gita Samarpanam
           </h1>
           <p className="max-w-2xl text-base text-[#5b3b2b] md:text-lg">
-	    Welcome to host portal. You will find all resources needed to successfully host the guiness record breaking webex meet. 
+            Welcome to host portal. You will find all resources needed to
+            successfully host the guiness record breaking webex meet.
           </p>
           <div className="flex flex-wrap items-center gap-4">
             <AuthButtons isAuthenticated={!!session?.user} variant="brand" />
@@ -27,6 +29,18 @@ export default async function Home() {
               View dashboard
             </Link>
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[#e5c18e] bg-[#fff9ef]">
+          <Image
+            src="https://drive.google.com/uc?export=view&id=1cHt_QAUd8deVzrpYeCFAlhbTjqP-ayOc"
+            alt="Global Gita Chanting"
+            fill
+            sizes="(min-width: 1024px) 960px, 100vw"
+            className="object-cover"
+          />
         </div>
       </section>
 
