@@ -2,9 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 import AuthButtons from "@/components/auth-buttons";
 import { getServerAuthSession } from "@/lib/session";
+import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
 
 export default async function Home() {
   const session = await getServerAuthSession();
+  const tenantConfig = await getTenantConfigFromHeaders();
+  const providerId = tenantConfig?.providerId ?? "webex";
 
   return (
     <div className="space-y-10 rounded-[32px] bg-[#fdf6e9] px-8 py-10 text-[#2b1f13] shadow-[0_30px_80px_rgba(58,25,15,0.15)]">
@@ -21,7 +24,11 @@ export default async function Home() {
             successfully host the guiness record breaking webex meet.
           </p>
           <div className="flex flex-wrap items-center gap-4">
-            <AuthButtons isAuthenticated={!!session?.user} variant="brand" />
+            <AuthButtons
+              isAuthenticated={!!session?.user}
+              variant="brand"
+              providerId={providerId}
+            />
             <Link
               href="/dashboard"
               className="rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-medium text-[#3b1a1f] transition hover:border-[#7a3b2a]"

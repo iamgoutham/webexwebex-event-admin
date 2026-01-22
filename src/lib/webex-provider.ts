@@ -7,17 +7,30 @@ export interface WebexProfile {
   avatar?: string;
 }
 
+type WebexProviderOptions<P> = OAuthUserConfig<P> & {
+  providerId?: string;
+  scopes?: string;
+};
+
 export default function WebexProvider<P extends WebexProfile>(
-  options: OAuthUserConfig<P>,
+  options: WebexProviderOptions<P>,
 ): OAuthConfig<P> {
+  const scope =
+    options.scopes ??
+    options.authorization?.params?.scope ??
+    process.env.WEBEX_SCOPES ??
+    "spark:people_read";
+  const { providerId, scopes, authorization, ...rest } = options;
+  const authParams = authorization?.params ?? {};
   return {
-    id: "webex",
-    name: "Webex",
+    id: providerId ?? "webex",
+    name: options.name ?? "Webex",
     type: "oauth",
     authorization: {
       url: "https://webexapis.com/v1/authorize",
       params: {
-        scope: process.env.WEBEX_SCOPES ?? "spark:people_read",
+        ...authParams,
+        scope,
       },
     },
     token: "https://webexapis.com/v1/access_token",
@@ -30,6 +43,6 @@ export default function WebexProvider<P extends WebexProfile>(
         image: profile.avatar ?? null,
       };
     },
-    ...options,
+    ...rest,
   };
 }

@@ -5,6 +5,7 @@ import { signIn, signOut } from "next-auth/react";
 type AuthButtonsProps = {
   isAuthenticated: boolean;
   variant?: "dark" | "brand";
+  providerId?: string;
 };
 
 const styles = {
@@ -25,6 +26,7 @@ const styles = {
 export default function AuthButtons({
   isAuthenticated,
   variant = "dark",
+  providerId = "webex",
 }: AuthButtonsProps) {
   const classes = styles[variant];
   if (isAuthenticated) {
@@ -42,7 +44,7 @@ export default function AuthButtons({
   return (
     <button
       type="button"
-      onClick={() => signIn("webex", { callbackUrl: "/dashboard" })}
+      onClick={() => signIn(providerId, { callbackUrl: "/dashboard" })}
       className={classes.signIn}
     >
       Sign in with Webex

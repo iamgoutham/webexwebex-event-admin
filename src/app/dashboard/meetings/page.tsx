@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
+import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
 
 type WebexMeeting = {
   id?: string;
@@ -32,10 +33,12 @@ const formatDateTime = (value?: string) => {
 
 export default async function MeetingsPage() {
   const session = await requireAuth();
-  const siteUrl = process.env.WEBEX_SITE_URL;
+  const tenantConfig = await getTenantConfigFromHeaders();
+  const siteUrl = tenantConfig?.siteUrl ?? process.env.WEBEX_SITE_URL;
+  const providerId = tenantConfig?.providerId ?? "webex";
 
   const account = await prisma.account.findFirst({
-    where: { userId: session.user.id, provider: "webex" },
+    where: { userId: session.user.id, provider: providerId },
     select: { access_token: true },
   });
 
