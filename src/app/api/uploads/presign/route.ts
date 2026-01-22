@@ -42,9 +42,9 @@ export async function POST(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role === Role.ADMIN && !session.user.tenantId) {
+  if (session.user.role !== Role.SUPERADMIN && !session.user.tenantId) {
     return NextResponse.json(
-      { error: "Tenant is required for admin uploads" },
+      { error: "Tenant is required for uploads" },
       { status: 400 },
     );
   }
@@ -78,9 +78,7 @@ export async function POST(request: Request) {
   const expiresIn = Number(process.env.S3_PRESIGN_EXPIRES ?? "900");
 
   const tenantPrefix =
-    session.user.role === Role.SUPERADMIN
-      ? "global"
-      : session.user.tenantId ?? "tenant-unknown";
+    session.user.role === Role.SUPERADMIN ? "global" : session.user.tenantId!;
 
   const shortId = await ensureUserShortId(session.user.id, session.user.shortId);
   const shortIdSegment = safeSegment(shortId);
