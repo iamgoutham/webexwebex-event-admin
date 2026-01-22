@@ -20,6 +20,7 @@ const completeSchema = z.object({
 
 export async function POST(request: Request) {
   const { session, response } = await requireApiAuth([
+    Role.HOST,
     Role.ADMIN,
     Role.SUPERADMIN,
   ]);

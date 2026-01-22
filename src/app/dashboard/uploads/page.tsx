@@ -1,9 +1,8 @@
 import UploadPanel from "@/components/upload-panel";
-import { requireRole } from "@/lib/guards";
-import { ADMIN_ROLES } from "@/lib/rbac";
+import { requireAuth } from "@/lib/guards";
 
 export default async function UploadsPage() {
-  await requireRole(ADMIN_ROLES);
+  await requireAuth();
 
   return (
     <div className="space-y-6 text-[#3b1a1f]">
