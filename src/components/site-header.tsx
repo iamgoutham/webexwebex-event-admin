@@ -19,9 +19,14 @@ export default async function SiteHeader() {
               Dashboard
             </Link>
             {user?.role === Role.ADMIN || user?.role === Role.SUPERADMIN ? (
-              <Link href="/dashboard/admin" className="hover:text-white">
-                Admin
-              </Link>
+              <>
+                <Link href="/dashboard/admin" className="hover:text-white">
+                  Admin
+                </Link>
+                <Link href="/dashboard/uploads" className="hover:text-white">
+                  Uploads
+                </Link>
+              </>
             ) : null}
             {user?.role === Role.SUPERADMIN ? (
               <Link href="/dashboard/superadmin" className="hover:text-white">
