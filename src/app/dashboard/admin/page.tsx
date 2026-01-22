@@ -30,18 +30,18 @@ export default async function AdminDashboardPage() {
       : [];
 
   return (
-    <div className="space-y-8 text-white">
-      <div className="rounded-3xl border border-white/10 bg-zinc-950 p-8">
+    <div className="space-y-8 text-[#3b1a1f]">
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
         <h1 className="text-2xl font-semibold">Admin dashboard</h1>
-        <p className="mt-2 text-sm text-white/70">
+        <p className="mt-2 text-sm text-[#6b4e3d]">
           Manage tenant-scoped users, roles, and uploads.
         </p>
       </div>
 
       {session.user.role === Role.SUPERADMIN ? (
-        <div className="rounded-2xl border border-white/10 bg-zinc-950 p-6">
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6">
           <h2 className="text-lg font-semibold">Tenant overview</h2>
-          <p className="mt-2 text-sm text-white/70">
+          <p className="mt-2 text-sm text-[#6b4e3d]">
             Use the Users API with a tenantId query parameter to drill into a
             tenant’s roster.
           </p>
@@ -49,29 +49,29 @@ export default async function AdminDashboardPage() {
             {tenantSummaries.map((item) => (
               <div
                 key={item.id}
-                className="rounded-2xl border border-white/10 bg-black/40 p-4"
+                className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4"
               >
                 <p className="text-sm font-semibold">{item.name}</p>
-                <p className="text-xs text-white/60">{item.slug}</p>
-                <p className="mt-2 text-xs text-white/60">
+                <p className="text-xs text-[#8a5b44]">{item.slug}</p>
+                <p className="mt-2 text-xs text-[#8a5b44]">
                   Users: {item._count.users}
                 </p>
               </div>
             ))}
             {!tenantSummaries.length ? (
-              <p className="text-sm text-white/60">No tenants available yet.</p>
+              <p className="text-sm text-[#8a5b44]">No tenants available yet.</p>
             ) : null}
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-white/10 bg-zinc-950 p-6">
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6">
           <h2 className="text-lg font-semibold">Tenant users</h2>
-          <p className="mt-2 text-sm text-white/70">
+          <p className="mt-2 text-sm text-[#6b4e3d]">
             Current tenant: {tenant?.name ?? "Unassigned"}
           </p>
-          <div className="mt-4 overflow-hidden rounded-2xl border border-white/10">
+          <div className="mt-4 overflow-hidden rounded-2xl border border-[#e5c18e] bg-white/70">
             <table className="w-full text-left text-sm">
-              <thead className="bg-black/40 text-xs uppercase text-white/50">
+              <thead className="bg-[#f3d6a3] text-xs uppercase text-[#8a5b44]">
                 <tr>
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Email</th>
@@ -81,7 +81,7 @@ export default async function AdminDashboardPage() {
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} className="border-t border-white/10">
+                  <tr key={user.id} className="border-t border-[#e5c18e]">
                     <td className="px-4 py-3">{user.name ?? "—"}</td>
                     <td className="px-4 py-3">{user.email ?? "—"}</td>
                     <td className="px-4 py-3">{user.role}</td>
@@ -92,7 +92,7 @@ export default async function AdminDashboardPage() {
                 ))}
                 {!users.length ? (
                   <tr>
-                    <td className="px-4 py-6 text-sm text-white/60" colSpan={4}>
+                    <td className="px-4 py-6 text-sm text-[#8a5b44]" colSpan={4}>
                       No users assigned yet.
                     </td>
                   </tr>
