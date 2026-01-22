@@ -174,16 +174,16 @@ export default function UploadPanel() {
   };
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-zinc-950 p-6 text-white">
+    <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-[#3b1a1f] shadow-md">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Upload recording to S3</h2>
-        <span className="text-xs text-white/60">
+        <span className="text-xs text-[#8a5b44]">
           Multipart upload via presigned URLs
         </span>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-[1.5fr_1fr]">
-        <label className="flex flex-col gap-2 text-sm text-white/70">
+        <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
           File
           <input
             type="file"
@@ -191,22 +191,22 @@ export default function UploadPanel() {
               setFile(event.target.files?.[0] ?? null);
               setState({ status: "idle", progress: 0 });
             }}
-            className="rounded-lg border border-white/10 bg-black px-3 py-2 text-sm text-white"
+            className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
           />
         </label>
-        <label className="flex flex-col gap-2 text-sm text-white/70">
+        <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
           Folder (optional)
           <input
             type="text"
             value={folder}
             onChange={(event) => setFolder(event.target.value)}
-            className="rounded-lg border border-white/10 bg-black px-3 py-2 text-sm text-white"
+            className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
             placeholder="recordings"
           />
         </label>
       </div>
 
-      <div className="mt-4 text-xs text-white/60">
+      <div className="mt-4 text-xs text-[#8a5b44]">
         {file ? (
           <>
             <p>Size: {formatBytes(file.size)}</p>
@@ -229,7 +229,7 @@ export default function UploadPanel() {
             state.status === "uploading" ||
             state.status === "finishing"
           }
-          className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black transition disabled:cursor-not-allowed disabled:bg-white/40"
+          className="rounded-full bg-[#d8792d] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:bg-[#d8792d]/40"
         >
           {state.status === "requesting"
             ? "Preparing..."
@@ -240,33 +240,33 @@ export default function UploadPanel() {
             : "Start upload"}
         </button>
         {state.message ? (
-          <span className="text-xs text-white/60">{state.message}</span>
+          <span className="text-xs text-[#8a5b44]">{state.message}</span>
         ) : null}
       </div>
 
       <div className="mt-6">
-        <div className="h-2 overflow-hidden rounded-full bg-white/10">
+        <div className="h-2 overflow-hidden rounded-full bg-[#f3d6a3]">
           <div
-            className="h-full bg-emerald-400 transition-all"
+            className="h-full bg-[#7a3b2a] transition-all"
             style={{ width: `${Math.round(state.progress * 100)}%` }}
           />
         </div>
-        <div className="mt-2 text-xs text-white/60">
+        <div className="mt-2 text-xs text-[#8a5b44]">
           {Math.round(state.progress * 100)}% complete
         </div>
       </div>
 
       {state.status === "done" ? (
-        <div className="mt-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-200">
-          <p className="font-semibold text-emerald-100">Upload complete</p>
+        <div className="mt-6 rounded-2xl border border-[#7a3b2a]/30 bg-[#f7e2b6] p-4 text-xs text-[#6b4e3d]">
+          <p className="font-semibold text-[#3b1a1f]">Upload complete</p>
           <p className="mt-2">Key: {state.key}</p>
           <p>Upload ID: {state.uploadId}</p>
         </div>
       ) : null}
 
       {state.status === "error" ? (
-        <div className="mt-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">
-          <p className="font-semibold text-red-100">Upload failed</p>
+        <div className="mt-6 rounded-2xl border border-[#9a3b2e]/30 bg-[#f7d4c7] p-4 text-xs text-[#7a2f24]">
+          <p className="font-semibold text-[#7a2f24]">Upload failed</p>
           <p className="mt-2">{state.message}</p>
         </div>
       ) : null}
