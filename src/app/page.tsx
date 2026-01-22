@@ -45,26 +45,28 @@ export default async function Home() {
       </section>
 
       <section className="grid gap-6 md:grid-cols-3">
-        {[
-          {
-            title: "Webex Meeting Link",
-            detail:
-              "Each host manages a single meeting using the custom link provided here.",
-          },
-          {
-            title: "Chant chapter 15. Instructions",
-            detail:
-              "Running the meeting and ensuring you follow the guiness rules is important.",
-          },
-        ].map((card) => (
-          <div
-            key={card.title}
-            className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md"
-          >
-            <h2 className="text-lg font-semibold">{card.title}</h2>
-            <p className="mt-3 text-sm text-[#6b4e3d]">{card.detail}</p>
-          </div>
-        ))}
+        <Link
+          href="/dashboard/meetings"
+          className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md transition hover:border-[#c58d5d] hover:bg-[#fff1d6]"
+        >
+          <h2 className="text-lg font-semibold">Webex Meeting Link</h2>
+          <p className="mt-3 text-sm text-[#6b4e3d]">
+            Each host manages a single meeting using the custom link provided
+            here.
+          </p>
+          <span className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.2em] text-[#8a2f2a]">
+            View meetings →
+          </span>
+        </Link>
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md">
+          <h2 className="text-lg font-semibold">
+            Chant chapter 15. Instructions
+          </h2>
+          <p className="mt-3 text-sm text-[#6b4e3d]">
+            Running the meeting and ensuring you follow the guiness rules is
+            important.
+          </p>
+        </div>
         <Link
           href="/dashboard/uploads"
           className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md transition hover:border-[#c58d5d] hover:bg-[#fff1d6]"

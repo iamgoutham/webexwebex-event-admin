@@ -23,6 +23,11 @@ export default async function SiteHeader() {
                 Uploads
               </Link>
             ) : null}
+            {user ? (
+              <Link href="/dashboard/meetings" className="hover:text-[#fbe9c6]">
+                Meetings
+              </Link>
+            ) : null}
             {user?.role === Role.ADMIN || user?.role === Role.SUPERADMIN ? (
               <Link href="/dashboard/admin" className="hover:text-[#fbe9c6]">
                 Admin
