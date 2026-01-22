@@ -18,15 +18,15 @@ export default async function SiteHeader() {
             <Link href="/dashboard" className="hover:text-[#fbe9c6]">
               Dashboard
             </Link>
+            {user ? (
+              <Link href="/dashboard/uploads" className="hover:text-[#fbe9c6]">
+                Uploads
+              </Link>
+            ) : null}
             {user?.role === Role.ADMIN || user?.role === Role.SUPERADMIN ? (
-              <>
-                <Link href="/dashboard/admin" className="hover:text-[#fbe9c6]">
-                  Admin
-                </Link>
-                <Link href="/dashboard/uploads" className="hover:text-[#fbe9c6]">
-                  Uploads
-                </Link>
-              </>
+              <Link href="/dashboard/admin" className="hover:text-[#fbe9c6]">
+                Admin
+              </Link>
             ) : null}
             {user?.role === Role.SUPERADMIN ? (
               <Link
