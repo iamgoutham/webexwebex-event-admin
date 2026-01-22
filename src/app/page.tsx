@@ -35,7 +35,7 @@ export default async function Home() {
           {
             title: "Webex Meeting Link",
             detail:
-              "Each host manages a single meeting with using the custom link provided here.",
+              "Each host manages a single meeting using the custom link provided here.",
           },
           {
             title: "Chant chapter 15. Instructions",
