@@ -42,11 +42,6 @@ export default async function Home() {
             detail:
               "Running the meeting and ensuring you follow the guiness rules is important.",
           },
-          {
-            title: "Upload OBS meeting recording",
-            detail:
-              "Once meeting is complete upload the meeting recording here.",
-          },
         ].map((card) => (
           <div
             key={card.title}
@@ -56,6 +51,18 @@ export default async function Home() {
             <p className="mt-3 text-sm text-[#6b4e3d]">{card.detail}</p>
           </div>
         ))}
+        <Link
+          href="/dashboard/uploads"
+          className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md transition hover:border-[#c58d5d] hover:bg-[#fff1d6]"
+        >
+          <h2 className="text-lg font-semibold">Upload OBS meeting recording</h2>
+          <p className="mt-3 text-sm text-[#6b4e3d]">
+            Once meeting is complete upload the meeting recording here.
+          </p>
+          <span className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.2em] text-[#8a2f2a]">
+            Go to uploads →
+          </span>
+        </Link>
       </section>
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-8 text-[#3b1a1f]">
