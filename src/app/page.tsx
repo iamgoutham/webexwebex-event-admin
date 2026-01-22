@@ -35,7 +35,7 @@ export default async function Home() {
       <section className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[#e5c18e] bg-[#fff9ef]">
           <Image
-            src="https://drive.google.com/uc?export=view&id=1cHt_QAUd8deVzrpYeCFAlhbTjqP-ayOc"
+            src="/hostprotocol.png"
             alt="Global Gita Chanting"
             fill
             sizes="(min-width: 1024px) 960px, 100vw"
