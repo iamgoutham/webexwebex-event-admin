@@ -10,15 +10,13 @@ export default async function Home() {
       <section className="rounded-3xl border border-[#e7b474] bg-gradient-to-br from-[#f7e2b6] via-[#f3c16e] to-[#d8792d] p-10 text-[#3b1a1f] shadow-xl">
         <div className="flex flex-col gap-6">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#b86b2a] bg-white/40 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#8a2f2a]">
-            Production-ready Webex Admin
+            Webex Host Portal
           </div>
           <h1 className="text-4xl font-semibold leading-tight md:text-5xl">
-            Secure, multi-tenant event administration for Webex customers.
+            Chinmaya Gita Samarpanam
           </h1>
           <p className="max-w-2xl text-base text-[#5b3b2b] md:text-lg">
-            OAuth-backed access control, tenant-scoped RBAC, and AWS S3 presigned
-            uploads are ready out of the box. Deploy behind Apache on EC2 with
-            Prisma + MySQL.
+	    Welcome to host portal. You will find all resources needed to successfully host the guiness record breaking webex meet. 
           </p>
           <div className="flex flex-wrap items-center gap-4">
             <AuthButtons isAuthenticated={!!session?.user} variant="brand" />
