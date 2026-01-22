@@ -30,9 +30,9 @@ export async function POST(request: Request) {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (session.user.role === Role.ADMIN && !session.user.tenantId) {
+  if (session.user.role !== Role.SUPERADMIN && !session.user.tenantId) {
     return NextResponse.json(
-      { error: "Tenant is required for admin uploads" },
+      { error: "Tenant is required for uploads" },
       { status: 400 },
     );
   }
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   }
 
   if (
-    session.user.role === Role.ADMIN &&
+    session.user.role !== Role.SUPERADMIN &&
     session.user.tenantId &&
     !parsed.data.key.startsWith(`${session.user.tenantId}/`)
   ) {
