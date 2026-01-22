@@ -2,8 +2,33 @@ import type { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import WebexProvider from "@/lib/webex-provider";
+import {
+  getTenantConfigByProvider,
+  getWebexTenants,
+} from "@/lib/webex-tenants";
 import { ensureUserShortId } from "@/lib/user-short-id";
 import { Role } from "@prisma/client";
+
+const webexTenants = getWebexTenants();
+const webexProviders =
+  webexTenants.length > 0
+    ? webexTenants.map((tenant) =>
+        WebexProvider({
+          providerId: tenant.providerId,
+          name: tenant.displayName ?? "Webex",
+          clientId: tenant.clientId,
+          clientSecret: tenant.clientSecret,
+          scopes: tenant.scopes,
+          allowDangerousEmailAccountLinking: true,
+        }),
+      )
+    : [
+        WebexProvider({
+          clientId: process.env.WEBEX_CLIENT_ID ?? "",
+          clientSecret: process.env.WEBEX_CLIENT_SECRET ?? "",
+          allowDangerousEmailAccountLinking: true,
+        }),
+      ];
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -25,13 +50,7 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/auth/signin",
   },
-  providers: [
-    WebexProvider({
-      clientId: process.env.WEBEX_CLIENT_ID ?? "",
-      clientSecret: process.env.WEBEX_CLIENT_SECRET ?? "",
-      allowDangerousEmailAccountLinking: true,
-    }),
-  ],
+  providers: webexProviders,
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -70,7 +89,9 @@ export const authOptions: NextAuthOptions = {
   events: {
     async createUser({ user }) {
       const defaultTenantId = process.env.DEFAULT_TENANT_ID ?? null;
-      const defaultTenantSlug = process.env.DEFAULT_TENANT_SLUG;
+      const defaultTenantSlug =
+        process.env.DEFAULT_TENANT_SLUG ??
+        (webexTenants.length === 1 ? webexTenants[0].tenantSlug : undefined);
 
       let resolvedTenantId = defaultTenantId;
       if (!resolvedTenantId && defaultTenantSlug) {
@@ -90,6 +111,27 @@ export const authOptions: NextAuthOptions = {
             },
           },
         });
+      }
+
+      await ensureUserShortId(user.id, user.shortId);
+    },
+    async linkAccount({ user, account }) {
+      const tenantConfig = getTenantConfigByProvider(account.provider);
+      if (tenantConfig?.tenantSlug && !user.tenantId) {
+        const tenant = await prisma.tenant.findUnique({
+          where: { slug: tenantConfig.tenantSlug },
+          select: { id: true },
+        });
+        if (tenant) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              tenant: {
+                connect: { id: tenant.id },
+              },
+            },
+          });
+        }
       }
 
       await ensureUserShortId(user.id, user.shortId);

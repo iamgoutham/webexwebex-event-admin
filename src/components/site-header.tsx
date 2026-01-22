@@ -2,10 +2,13 @@ import Link from "next/link";
 import { Role } from "@prisma/client";
 import AuthButtons from "@/components/auth-buttons";
 import { getServerAuthSession } from "@/lib/session";
+import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
 
 export default async function SiteHeader() {
   const session = await getServerAuthSession();
   const user = session?.user;
+  const tenantConfig = await getTenantConfigFromHeaders();
+  const providerId = tenantConfig?.providerId ?? "webex";
 
   return (
     <header className="border-b border-[#5c2a2d]/60 bg-[#3b1a1f] text-[#fbe9c6]">
@@ -57,7 +60,11 @@ export default async function SiteHeader() {
               Sign in to manage tenants
             </span>
           )}
-          <AuthButtons isAuthenticated={!!user} variant="dark" />
+          <AuthButtons
+            isAuthenticated={!!user}
+            variant="dark"
+            providerId={providerId}
+          />
         </div>
       </div>
     </header>
