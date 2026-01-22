@@ -4,6 +4,7 @@ import { Role } from "@prisma/client";
 import { CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { requireApiAuth } from "@/lib/api-guards";
 import { s3Bucket, s3Client } from "@/lib/s3";
+import { ensureUserShortId } from "@/lib/user-short-id";
 
 const completeSchema = z.object({
   key: z.string().min(1),
@@ -17,6 +18,13 @@ const completeSchema = z.object({
     )
     .min(1),
 });
+
+const safeSegment = (value: string) =>
+  value
+    .trim()
+    .replace(/[^a-zA-Z0-9-_]/g, "-")
+    .replace(/--+/g, "-")
+    .replace(/^-|-$/g, "");
 
 export async function POST(request: Request) {
   const { session, response } = await requireApiAuth([
@@ -69,6 +77,21 @@ export async function POST(request: Request) {
     !parsed.data.key.startsWith(`${session.user.tenantId}/`)
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (session.user.role === Role.HOST && session.user.tenantId) {
+    const shortId = await ensureUserShortId(
+      session.user.id,
+      session.user.shortId,
+    );
+    const shortIdSegment = safeSegment(shortId);
+    if (
+      !parsed.data.key.startsWith(
+        `${session.user.tenantId}/${shortIdSegment}/`,
+      )
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   const sortedParts = [...parsed.data.parts].sort(
