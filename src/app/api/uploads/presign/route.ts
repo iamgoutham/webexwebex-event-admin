@@ -90,8 +90,13 @@ export async function POST(request: Request) {
         .filter(Boolean)
     : [];
 
+  const baseSegments =
+    session.user.role === Role.HOST
+      ? [tenantPrefix, shortIdSegment]
+      : [tenantPrefix];
+
   const key = [
-    tenantPrefix,
+    ...baseSegments,
     ...folderSegments,
     `${shortIdSegment}-${Date.now()}-${safeFilename(parsed.data.filename)}`,
   ].join("/");
