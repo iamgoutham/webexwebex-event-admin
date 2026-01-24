@@ -15,7 +15,13 @@ type UploadState =
   | { status: "requesting"; progress: number; message?: string }
   | { status: "uploading"; progress: number; message?: string }
   | { status: "finishing"; progress: number; message?: string }
-  | { status: "done"; progress: number; key: string; uploadId: string }
+  | {
+      status: "done";
+      progress: number;
+      key: string;
+      uploadId: string;
+      message?: string;
+    }
   | { status: "error"; progress: number; message: string };
 
 const MIN_PART_SIZE = 5 * 1024 * 1024;
@@ -67,110 +73,119 @@ export default function UploadPanel() {
   );
 
   const handleUpload = async () => {
-    if (!file) {
-      setState({
-        status: "error",
-        progress: 0,
-        message: "Select a file before uploading.",
-      });
-      return;
-    }
-
-    setState({ status: "requesting", progress: 0 });
-
-    const presignResponse = await fetch("/api/uploads/presign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filename: file.name,
-        contentType: file.type || "application/octet-stream",
-        folder: folder.trim() || undefined,
-        partCount,
-      }),
-    });
-
-    if (!presignResponse.ok) {
-      const message = await buildErrorMessage(presignResponse);
-      setState({ status: "error", progress: 0, message });
-      return;
-    }
-
-    const presignData = (await presignResponse.json()) as PresignResponse;
-    setState({
-      status: "uploading",
-      progress: 0,
-      message: `Uploading ${partCount} parts...`,
-    });
-
-    const parts: { partNumber: number; etag: string }[] = [];
-    let uploadedBytes = 0;
-
-    for (const part of presignData.parts) {
-      const start = (part.partNumber - 1) * partSize;
-      const end = Math.min(start + partSize, file.size);
-      const blob = file.slice(start, end);
-      const uploadResponse = await fetch(part.url, {
-        method: "PUT",
-        body: blob,
-      });
-
-      if (!uploadResponse.ok) {
-        const message = await buildErrorMessage(uploadResponse);
-      setState({
-        status: "error",
-        progress: uploadedBytes / file.size,
-        message,
-      });
-        return;
-      }
-
-      const etag = uploadResponse.headers.get("etag") ?? "";
-      if (!etag) {
+    try {
+      if (!file) {
         setState({
           status: "error",
-          progress: uploadedBytes / file.size,
-          message: "Missing ETag on uploaded part.",
+          progress: 0,
+          message: "Select a file before uploading.",
         });
         return;
       }
 
-      parts.push({ partNumber: part.partNumber, etag });
-      uploadedBytes += blob.size;
+      setState({ status: "requesting", progress: 0 });
+
+      const presignResponse = await fetch("/api/uploads/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type || "application/octet-stream",
+          folder: folder.trim() || undefined,
+          partCount,
+        }),
+      });
+
+      if (!presignResponse.ok) {
+        const message = await buildErrorMessage(presignResponse);
+        setState({ status: "error", progress: 0, message });
+        return;
+      }
+
+      const presignData = (await presignResponse.json()) as PresignResponse;
       setState({
         status: "uploading",
-        progress: Math.min(uploadedBytes / file.size, 1),
-        message: `Uploaded part ${part.partNumber} of ${partCount}`,
+        progress: 0,
+        message: `Uploading ${partCount} parts...`,
       });
-    }
 
-    setState({
-      status: "finishing",
-      progress: 1,
-      message: "Finalizing multipart upload...",
-    });
+      const parts: { partNumber: number; etag: string }[] = [];
+      let uploadedBytes = 0;
 
-    const completeResponse = await fetch("/api/uploads/complete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      for (const part of presignData.parts) {
+        const start = (part.partNumber - 1) * partSize;
+        const end = Math.min(start + partSize, file.size);
+        const blob = file.slice(start, end);
+        const uploadResponse = await fetch(part.url, {
+          method: "PUT",
+          body: blob,
+        });
+
+        if (!uploadResponse.ok) {
+          const message = await buildErrorMessage(uploadResponse);
+          setState({
+            status: "error",
+            progress: uploadedBytes / file.size,
+            message,
+          });
+          return;
+        }
+
+        const etag = uploadResponse.headers.get("etag") ?? "";
+        if (!etag) {
+          setState({
+            status: "error",
+            progress: uploadedBytes / file.size,
+            message: "Missing ETag on uploaded part.",
+          });
+          return;
+        }
+
+        parts.push({ partNumber: part.partNumber, etag });
+        uploadedBytes += blob.size;
+        setState({
+          status: "uploading",
+          progress: Math.min(uploadedBytes / file.size, 1),
+          message: `Uploaded part ${part.partNumber} of ${partCount}`,
+        });
+      }
+
+      setState({
+        status: "finishing",
+        progress: 1,
+        message: "Finalizing multipart upload...",
+      });
+
+      const completeResponse = await fetch("/api/uploads/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: presignData.key,
+          uploadId: presignData.uploadId,
+          parts,
+        }),
+      });
+
+      if (!completeResponse.ok) {
+        const message = await buildErrorMessage(completeResponse);
+        setState({ status: "error", progress: 1, message });
+        return;
+      }
+
+      setState({
+        status: "done",
+        progress: 1,
         key: presignData.key,
         uploadId: presignData.uploadId,
-        parts,
-      }),
-    });
-
-    if (!completeResponse.ok) {
-      const message = await buildErrorMessage(completeResponse);
-      setState({ status: "error", progress: 1, message });
-      return;
+        message: "Upload complete.",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unexpected error during upload.";
+      setState({ status: "error", progress: 0, message });
     }
-
-    setState({
-      status: "done",
-      progress: 1,
-      key: presignData.key,
-      uploadId: presignData.uploadId,
-    });
   };
 
   return (
