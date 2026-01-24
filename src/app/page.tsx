@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import AuthButtons from "@/components/auth-buttons";
 import { getServerAuthSession } from "@/lib/session";
@@ -36,18 +35,6 @@ export default async function Home() {
               View dashboard
             </Link>
           </div>
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[#e5c18e] bg-[#fff9ef]">
-          <Image
-            src="/hostprotocol.png"
-            alt="Global Gita Chanting"
-            fill
-            sizes="(min-width: 1024px) 960px, 100vw"
-            className="object-cover"
-          />
         </div>
       </section>
 
