@@ -80,7 +80,11 @@ export async function POST(request: Request) {
   const tenantPrefix =
     session.user.role === Role.SUPERADMIN ? "global" : session.user.tenantId!;
 
-  const shortId = await ensureUserShortId(session.user.id, session.user.shortId);
+  const shortId = await ensureUserShortId(
+    session.user.id,
+    session.user.email,
+    session.user.shortId,
+  );
   const shortIdSegment = safeSegment(shortId);
 
   const folderSegments = parsed.data.folder

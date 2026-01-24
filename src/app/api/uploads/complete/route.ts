@@ -82,6 +82,7 @@ export async function POST(request: Request) {
   if (session.user.role === Role.HOST && session.user.tenantId) {
     const shortId = await ensureUserShortId(
       session.user.id,
+      session.user.email,
       session.user.shortId,
     );
     const shortIdSegment = safeSegment(shortId);
