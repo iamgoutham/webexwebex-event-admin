@@ -32,6 +32,7 @@ const webexProviders =
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+  trustHost: true,
   debug: true,
   logger: {
     debug(code, metadata) {
