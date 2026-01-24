@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
 
@@ -46,6 +47,18 @@ export default async function DashboardPage() {
             </p>
             <p className="text-xs text-[#8a5b44]">JWT session strategy</p>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[#e5c18e] bg-[#fff9ef]">
+          <Image
+            src="/hostprotocol.png"
+            alt="Host protocol"
+            fill
+            sizes="(min-width: 1024px) 960px, 100vw"
+            className="object-cover"
+          />
         </div>
       </div>
 
