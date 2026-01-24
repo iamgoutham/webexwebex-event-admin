@@ -1,24 +1,32 @@
 import { Prisma, PrismaClient, Role } from "@prisma/client";
-import { randomBytes } from "crypto";
 import { createPrismaAdapter } from "../src/lib/prisma-adapter";
+import { generateShortId, generateShortIdFromEmail } from "../src/lib/short-id";
 
 const prisma = new PrismaClient({
   adapter: createPrismaAdapter(),
 });
 
-const generateShortId = () => randomBytes(6).toString("hex");
-
 const isUniqueConstraintError = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   error.code === "P2002";
 
-const ensureShortId = async (userId: string, current?: string | null) => {
+const ensureShortId = async (
+  userId: string,
+  email?: string | null,
+  current?: string | null,
+) => {
   if (current) {
     return current;
   }
 
+  const baseShortId = email ? generateShortIdFromEmail(email) : null;
+
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const shortId = generateShortId();
+    const shortId = baseShortId
+      ? attempt === 0
+        ? baseShortId
+        : `${baseShortId}-${attempt}`
+      : generateShortId();
     try {
       const updated = await prisma.user.update({
         where: { id: userId },
@@ -114,9 +122,9 @@ async function main() {
         name: process.env.SEED_SUPERADMIN_NAME ?? "SuperAdmin",
         role: Role.SUPERADMIN,
       },
-      select: { id: true, shortId: true },
+      select: { id: true, shortId: true, email: true },
     });
-    await ensureShortId(superAdmin.id, superAdmin.shortId);
+    await ensureShortId(superAdmin.id, superAdmin.email, superAdmin.shortId);
   }
 
   const adminEmail = process.env.SEED_ADMIN_EMAIL;
@@ -133,9 +141,9 @@ async function main() {
           connect: { id: resolvedAdminTenantId },
         },
       },
-      select: { id: true, shortId: true },
+      select: { id: true, shortId: true, email: true },
     });
-    await ensureShortId(admin.id, admin.shortId);
+    await ensureShortId(admin.id, admin.email, admin.shortId);
   } else if (adminEmail && !resolvedAdminTenantId) {
     console.warn("Skipping admin seed: tenant not found.");
   }

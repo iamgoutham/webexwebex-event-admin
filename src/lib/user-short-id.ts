@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { generateShortId } from "@/lib/short-id";
+import { generateShortId, generateShortIdFromEmail } from "@/lib/short-id";
 
 const isUniqueConstraintError = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -8,14 +8,21 @@ const isUniqueConstraintError = (error: unknown) =>
 
 export const ensureUserShortId = async (
   userId: string,
+  email?: string | null,
   current?: string | null,
 ): Promise<string> => {
   if (current) {
     return current;
   }
 
+  const baseShortId = email ? generateShortIdFromEmail(email) : null;
+
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const shortId = generateShortId();
+    const shortId = baseShortId
+      ? attempt === 0
+        ? baseShortId
+        : `${baseShortId}-${attempt}`
+      : generateShortId();
     try {
       const updated = await prisma.user.update({
         where: { id: userId },

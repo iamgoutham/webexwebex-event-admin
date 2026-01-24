@@ -55,7 +55,11 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        const shortId = await ensureUserShortId(user.id, user.shortId);
+        const shortId = await ensureUserShortId(
+          user.id,
+          user.email,
+          user.shortId,
+        );
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.shortId = shortId;
@@ -64,10 +68,20 @@ export const authOptions: NextAuthOptions = {
       if (!user && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email },
-          select: { id: true, role: true, tenantId: true, shortId: true },
+          select: {
+            id: true,
+            role: true,
+            tenantId: true,
+            shortId: true,
+            email: true,
+          },
         });
         if (dbUser) {
-          const shortId = await ensureUserShortId(dbUser.id, dbUser.shortId);
+          const shortId = await ensureUserShortId(
+            dbUser.id,
+            dbUser.email,
+            dbUser.shortId,
+          );
           token.sub = dbUser.id;
           token.role = dbUser.role;
           token.tenantId = dbUser.tenantId;
@@ -114,7 +128,7 @@ export const authOptions: NextAuthOptions = {
         });
       }
 
-      await ensureUserShortId(user.id, user.shortId);
+      await ensureUserShortId(user.id, user.email, user.shortId);
     },
     async linkAccount({ user, account }) {
       const tenantConfig = getTenantConfigByProvider(account.provider);
@@ -135,7 +149,7 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      await ensureUserShortId(user.id, user.shortId);
+      await ensureUserShortId(user.id, user.email, user.shortId);
     },
   },
 };
