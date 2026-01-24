@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient, Role } from "@prisma/client";
 import { createPrismaAdapter } from "../src/lib/prisma-adapter";
-import { generateShortId, generateShortIdFromEmail } from "../src/lib/short-id";
+import { generateShortIdFromEmail } from "../src/lib/short-id";
 
 const prisma = new PrismaClient({
   adapter: createPrismaAdapter(),
@@ -19,30 +19,25 @@ const ensureShortId = async (
     return current;
   }
 
-  const baseShortId = email ? generateShortIdFromEmail(email) : null;
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const shortId = baseShortId
-      ? attempt === 0
-        ? baseShortId
-        : `${baseShortId}-${attempt}`
-      : generateShortId();
-    try {
-      const updated = await prisma.user.update({
-        where: { id: userId },
-        data: { shortId },
-        select: { shortId: true },
-      });
-      return updated.shortId;
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        continue;
-      }
-      throw error;
-    }
+  if (!email) {
+    throw new Error("Email is required to derive shortId.");
   }
 
-  throw new Error("Unable to generate a unique shortId");
+  const shortId = generateShortIdFromEmail(email);
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { shortId },
+      select: { shortId: true },
+    });
+    return updated.shortId;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new Error(`ShortId collision for email: ${email}`);
+    }
+    throw error;
+  }
 };
 
 type WebexTenantSeed = {
