@@ -162,6 +162,9 @@ export default function UploadPanel() {
         body: JSON.stringify({
           key: presignData.key,
           uploadId: presignData.uploadId,
+          filename: file.name,
+          contentType: file.type || "application/octet-stream",
+          sizeBytes: file.size,
           parts,
         }),
       });
