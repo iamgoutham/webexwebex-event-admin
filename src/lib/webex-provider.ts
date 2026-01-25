@@ -15,13 +15,14 @@ type WebexProviderOptions<P> = OAuthUserConfig<P> & {
 export default function WebexProvider<P extends WebexProfile>(
   options: WebexProviderOptions<P>,
 ): OAuthConfig<P> {
+  const { providerId, scopes, authorization, ...rest } = options;
+  const authConfig = typeof authorization === "string" ? undefined : authorization;
   const scope =
-    options.scopes ??
-    options.authorization?.params?.scope ??
+    scopes ??
+    authConfig?.params?.scope ??
     process.env.WEBEX_SCOPES ??
     "spark:people_read";
-  const { providerId, scopes, authorization, ...rest } = options;
-  const authParams = authorization?.params ?? {};
+  const authParams = authConfig?.params ?? {};
   return {
     id: providerId ?? "webex",
     name: options.name ?? "Webex",
