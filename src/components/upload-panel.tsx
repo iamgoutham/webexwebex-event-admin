@@ -191,7 +191,9 @@ export default function UploadPanel() {
   return (
     <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-[#3b1a1f] shadow-md">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Upload recording to S3</h2>
+        <h2 className="text-lg font-semibold">
+          Upload recordings from local directory to Cloud.
+        </h2>
         <span className="text-xs text-[#8a5b44]">
           Multipart upload via presigned URLs
         </span>
