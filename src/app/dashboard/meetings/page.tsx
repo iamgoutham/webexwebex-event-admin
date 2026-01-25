@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/guards";
 import { prisma } from "@/lib/prisma";
+import { getLicenseSiteForEmail } from "@/lib/license-site";
 import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
 
 type WebexMeeting = {
@@ -36,6 +37,9 @@ export default async function MeetingsPage() {
   const tenantConfig = await getTenantConfigFromHeaders();
   const siteUrl = tenantConfig?.siteUrl ?? process.env.WEBEX_SITE_URL;
   const providerId = tenantConfig?.providerId ?? "webex";
+  const licenseSite = session.user.email
+    ? await getLicenseSiteForEmail(session.user.email)
+    : null;
 
   const account = await prisma.account.findFirst({
     where: { userId: session.user.id, provider: providerId },
@@ -50,6 +54,50 @@ export default async function MeetingsPage() {
           WEBEX_SITE_URL is not configured. Add it to your environment to load
           meetings.
         </p>
+      </div>
+    );
+  }
+
+  const normalizedSiteUrl = siteUrl.trim().toLowerCase();
+  const normalizedLicenseSite = licenseSite?.trim().toLowerCase();
+
+  if (normalizedLicenseSite && normalizedLicenseSite !== normalizedSiteUrl) {
+    const redirectLink =
+      normalizedLicenseSite === "chinmayamission.webex.com"
+        ? "https://webex-usa.chinmayavrindavan.org"
+        : normalizedLicenseSite === "chinmayavrindavan.webex.com"
+        ? "https://webex-india.chinmayavrindavan.org"
+        : null;
+
+    return (
+      <div className="space-y-6 text-[#3b1a1f]">
+        <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
+          <h1 className="text-2xl font-semibold">Meetings</h1>
+          <p className="mt-2 text-sm text-[#6b4e3d]">
+            Your license site does not match this tenant. Use the correct host
+            to access your meetings.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-sm text-[#6b4e3d]">
+          <p>
+            License site: <span className="font-semibold">{licenseSite}</span>
+          </p>
+          <p>
+            Tenant site: <span className="font-semibold">{siteUrl}</span>
+          </p>
+          {redirectLink ? (
+            <a
+              href={redirectLink}
+              className="mt-4 inline-flex rounded-full border border-[#7a3b2a]/50 px-4 py-2 text-sm font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
+            >
+              Go to correct host
+            </a>
+          ) : (
+            <p className="mt-4 text-xs text-[#8a5b44]">
+              No redirect host configured for this license site.
+            </p>
+          )}
+        </div>
       </div>
     );
   }
