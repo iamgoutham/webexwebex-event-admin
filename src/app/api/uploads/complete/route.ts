@@ -3,12 +3,16 @@ import { z } from "zod";
 import { Role } from "@prisma/client";
 import { CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { requireApiAuth } from "@/lib/api-guards";
+import { prisma } from "@/lib/prisma";
 import { s3Bucket, s3Client } from "@/lib/s3";
 import { ensureUserShortId } from "@/lib/user-short-id";
 
 const completeSchema = z.object({
   key: z.string().min(1),
   uploadId: z.string().min(1),
+  filename: z.string().min(1).optional(),
+  contentType: z.string().min(1).optional(),
+  sizeBytes: z.number().int().positive().optional(),
   parts: z
     .array(
       z.object({
@@ -112,6 +116,21 @@ export async function POST(request: Request) {
   });
 
   const result = await s3Client.send(command);
+
+  await prisma.upload.create({
+    data: {
+      userId: session.user.id,
+      tenantId: session.user.tenantId,
+      filename: parsed.data.filename ?? null,
+      contentType: parsed.data.contentType ?? null,
+      sizeBytes: parsed.data.sizeBytes ?? null,
+      bucket: s3Bucket,
+      key: parsed.data.key,
+      uploadId: parsed.data.uploadId,
+      location: result.Location ?? null,
+      status: "COMPLETED",
+    },
+  });
 
   return NextResponse.json({
     key: parsed.data.key,
