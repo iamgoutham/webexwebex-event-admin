@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
 import { getLicenseSiteForEmail } from "@/lib/license-site";
 
@@ -9,6 +10,11 @@ export default async function DashboardPage() {
   const licenseSite = session.user.email
     ? await getLicenseSiteForEmail(session.user.email)
     : null;
+  const latestUpload = await prisma.upload.findFirst({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true, filename: true, status: true },
+  });
 
   return (
     <div className="space-y-8 text-[#3b1a1f]">
@@ -82,10 +88,17 @@ export default async function DashboardPage() {
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 sm:p-8">
         <h2 className="text-lg font-semibold">Recording Status</h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          Status: <span className="font-semibold text-red-600">Not Uploaded</span>
+          Status:{" "}
+          {latestUpload?.status === "COMPLETED" ? (
+            <span className="font-semibold text-emerald-700">Uploaded</span>
+          ) : (
+            <span className="font-semibold text-red-600">Not Uploaded</span>
+          )}
         </p>
         <p className="mt-2 text-xs text-[#8a5b44]">
-          Once uploaded successfully, status will update automatically.
+          {latestUpload
+            ? `Last upload: ${latestUpload.filename ?? "Recording"} • ${latestUpload.createdAt.toLocaleString()}`
+            : "Once uploaded successfully, status will update automatically."}
         </p>
       </div>
     </div>
