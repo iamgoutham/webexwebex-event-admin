@@ -22,9 +22,9 @@ export default async function SiteHeader() {
             <Image
               src="/CMW-lamp-logo-1.png"
               alt="Chinmaya Mission West"
-              width={44}
-              height={44}
-              className="h-11 w-auto invert"
+              width={58}
+              height={58}
+              className="h-14 w-auto invert"
               priority
             />
           </Link>
