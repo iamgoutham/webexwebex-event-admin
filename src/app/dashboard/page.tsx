@@ -13,15 +13,17 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8 text-[#3b1a1f]">
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
-        <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
-          After Login
-        </span>
-        <h1 className="mt-4 text-2xl font-semibold">Host Dashboard</h1>
-        <p className="mt-2 text-sm text-[#6b4e3d]">
-          Welcome, <span className="font-semibold">{hostName}</span> (Host ID:{" "}
-          <span className="font-semibold">{hostId}</span>)
-        </p>
-        <div className="mt-4">
+        <div className="grid gap-6 md:grid-cols-[2fr_1fr] md:items-start">
+          <div>
+            <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
+              After Login
+            </span>
+            <h1 className="mt-4 text-2xl font-semibold">Host Dashboard</h1>
+            <p className="mt-2 text-sm text-[#6b4e3d]">
+              Welcome, <span className="font-semibold">{hostName}</span> (Host
+              ID: <span className="font-semibold">{hostId}</span>)
+            </p>
+          </div>
           <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4 text-sm text-[#6b4e3d]">
             <p className="text-xs uppercase tracking-[0.2em] text-[#9b6b4f]">
               License Site
