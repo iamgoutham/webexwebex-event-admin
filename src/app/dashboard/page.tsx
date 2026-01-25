@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
+import { getLicenseSiteForEmail } from "@/lib/license-site";
 
 export default async function DashboardPage() {
   const session = await requireAuth();
@@ -9,6 +10,9 @@ export default async function DashboardPage() {
         where: { id: session.user.tenantId },
         select: { name: true, slug: true },
       })
+    : null;
+  const licenseSite = session.user.email
+    ? await getLicenseSiteForEmail(session.user.email)
     : null;
 
   return (
@@ -54,10 +58,10 @@ export default async function DashboardPage() {
               License Site
             </p>
             <p className="mt-2 text-base font-semibold text-[#3b1a1f]">
-              {session.user.siteUrl ?? "Pending"}
+              {licenseSite ?? "Unknown"}
             </p>
             <p className="text-xs text-[#8a5b44]">
-              Assigned Webex site for this tenant
+              Assigned Webex site for this host
             </p>
           </div>
         </div>
