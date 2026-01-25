@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
-import { getLicenseSiteForEmail } from "@/lib/license-site";
+import { getHostIdForEmail, getLicenseSiteForEmail } from "@/lib/license-site";
 
 export default async function DashboardPage() {
   const session = await requireAuth();
   const hostName = session.user.name ?? session.user.email ?? "Host";
-  const hostId = session.user.shortId ?? "Pending";
+  const sheetHostId = session.user.email
+    ? await getHostIdForEmail(session.user.email)
+    : null;
+  const hostId = sheetHostId ?? session.user.shortId ?? "Pending";
   const licenseSite = session.user.email
     ? await getLicenseSiteForEmail(session.user.email)
     : null;
