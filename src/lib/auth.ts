@@ -9,6 +9,25 @@ import {
 import { ensureUserShortId } from "@/lib/user-short-id";
 import { Role } from "@prisma/client";
 
+const fetchWebexSiteUrl = async (accessToken: string) => {
+  try {
+    const response = await fetch("https://webexapis.com/v1/people/me", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json;charset=UTF-8",
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data = (await response.json()) as { siteUrl?: string };
+    return data.siteUrl ?? null;
+  } catch {
+    return null;
+  }
+};
+
 const webexTenants = getWebexTenants();
 const webexProviders =
   webexTenants.length > 0
@@ -68,6 +87,11 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider) {
         const tenantConfig = getTenantConfigByProvider(account.provider);
         token.siteUrl = tenantConfig?.siteUrl ?? token.siteUrl ?? null;
+      }
+
+      if (account?.access_token && !token.siteUrl) {
+        const siteUrl = await fetchWebexSiteUrl(account.access_token);
+        token.siteUrl = siteUrl ?? token.siteUrl ?? null;
       }
 
       if (!user && token.email) {
