@@ -188,3 +188,38 @@ export const getLicenseSiteForEmail = async (email: string) => {
 
   return fromSheetTwo;
 };
+
+export const getHostIdForEmail = async (email: string) => {
+  const normalizedEmail = email.trim();
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const sheetOneId =
+    process.env.GOOGLE_LICENSE_SHEET_1_ID ?? DEFAULT_SHEET_ONE_ID;
+  const sheetTwoId =
+    process.env.GOOGLE_LICENSE_SHEET_2_ID ?? DEFAULT_SHEET_TWO_ID;
+  const sheetOneGid = process.env.GOOGLE_LICENSE_SHEET_1_GID;
+  const sheetTwoGid = process.env.GOOGLE_LICENSE_SHEET_2_GID;
+
+  const fromSheetOne = await lookupSheetValue({
+    sheetId: sheetOneId,
+    gid: sheetOneGid,
+    emailColumn: "Email",
+    valueColumn: "SHORTID",
+    email: normalizedEmail,
+  });
+  if (fromSheetOne) {
+    return fromSheetOne;
+  }
+
+  const fromSheetTwo = await lookupSheetValue({
+    sheetId: sheetTwoId,
+    gid: sheetTwoGid,
+    emailColumn: "Email Address",
+    valueColumn: "SHORTID",
+    email: normalizedEmail,
+  });
+
+  return fromSheetTwo;
+};
