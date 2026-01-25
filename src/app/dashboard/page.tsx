@@ -12,7 +12,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8 text-[#3b1a1f]">
-      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
         <div className="grid gap-6 md:grid-cols-[2fr_1fr] md:items-start">
           <div>
             <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
@@ -79,7 +79,7 @@ export default async function DashboardPage() {
         </Link>
       </section>
 
-      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6">
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 sm:p-8">
         <h2 className="text-lg font-semibold">Recording Status</h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Status: <span className="font-semibold text-red-600">Not Uploaded</span>

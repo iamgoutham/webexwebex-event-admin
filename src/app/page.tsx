@@ -9,13 +9,13 @@ export default async function Home() {
   const providerId = tenantConfig?.providerId ?? "webex";
 
   return (
-    <div className="space-y-10 rounded-[32px] bg-[#fdf6e9] px-8 py-10 text-[#2b1f13] shadow-[0_30px_80px_rgba(58,25,15,0.15)]">
-      <section className="rounded-3xl border border-[#e7b474] bg-gradient-to-br from-[#f7e2b6] via-[#f3c16e] to-[#d8792d] p-10 text-[#3b1a1f] shadow-xl">
+    <div className="space-y-10 rounded-[32px] bg-[#fdf6e9] px-4 py-8 text-[#2b1f13] shadow-[0_30px_80px_rgba(58,25,15,0.15)] sm:px-6 sm:py-10 md:px-8">
+      <section className="rounded-3xl border border-[#e7b474] bg-gradient-to-br from-[#f7e2b6] via-[#f3c16e] to-[#d8792d] p-6 text-[#3b1a1f] shadow-xl sm:p-8 md:p-10">
         <div className="flex flex-col gap-6">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#b86b2a] bg-white/40 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#8a2f2a]">
             Global Gita Chanting - Webex Host Portal
           </div>
-          <h1 className="text-4xl font-semibold leading-tight md:text-5xl">
+          <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
             Welcome, Webex Hosts
           </h1>
           <p className="max-w-2xl text-base text-[#5b3b2b] md:text-lg">
@@ -23,7 +23,7 @@ export default async function Home() {
             portal will help you prepare, practice, and confidently host your
             Webex meeting on the event day.
           </p>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4 md:justify-start">
             <AuthButtons
               isAuthenticated={!!session?.user}
               variant="brand"
@@ -47,7 +47,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-md">
+      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
         <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
           Software Setup
         </span>
@@ -90,7 +90,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-md">
+      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
         <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
           Before You Log In
         </span>
@@ -131,7 +131,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-md">
+      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
        <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
          Event day 
        </span>
@@ -170,7 +170,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-md">
+      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
         <h2 className="text-xl font-semibold">Helpful Links</h2>
         <div className="mt-4 grid gap-6 text-sm text-[#6b4e3d] md:grid-cols-2">
           <ul className="space-y-2">
@@ -218,7 +218,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-8 text-[#3b1a1f]">
+      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-[#3b1a1f] sm:p-8">
         <h2 className="text-xl font-semibold">Event Countdown</h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Global Gita Chanting Day

@@ -189,7 +189,7 @@ export default function UploadPanel() {
   };
 
   return (
-    <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-[#3b1a1f] shadow-md">
+    <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-[#3b1a1f] shadow-md sm:p-8">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">
           Upload recordings from local directory to Cloud.

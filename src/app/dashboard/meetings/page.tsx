@@ -48,7 +48,7 @@ export default async function MeetingsPage() {
 
   if (!siteUrl) {
     return (
-      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-lg">
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-lg sm:p-8">
         <h1 className="text-2xl font-semibold">Meetings</h1>
         <p className="mt-2 text-sm text-[#6b4e3d]">
           WEBEX_SITE_URL is not configured. Add it to your environment to load
@@ -73,7 +73,7 @@ export default async function MeetingsPage() {
 
     return (
       <div className="space-y-6 text-[#3b1a1f]">
-        <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
+        <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
           <h1 className="text-2xl font-semibold">Meetings</h1>
           <p className="mt-2 text-sm text-[#6b4e3d]">
             Your license site does not match this tenant. Use the correct host
@@ -106,7 +106,7 @@ export default async function MeetingsPage() {
 
   if (!account?.access_token) {
     return (
-      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-lg">
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-lg sm:p-8">
         <h1 className="text-2xl font-semibold">Meetings</h1>
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Your Webex account is not connected. Sign in again to refresh your
@@ -153,7 +153,7 @@ export default async function MeetingsPage() {
 
   return (
     <div className="space-y-6 text-[#3b1a1f]">
-      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
         <h1 className="text-2xl font-semibold">Meetings</h1>
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Meetings fetched from Webex site: {siteUrl}
