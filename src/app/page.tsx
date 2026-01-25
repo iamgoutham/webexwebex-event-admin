@@ -73,7 +73,7 @@ export default async function Home() {
               <li>Download and install the Webex desktop app.</li>
               <li>Sign in with your host credentials.</li>
               <li>Verify audio and video settings.</li>
-              <li>Check if you can add the pacer video as background.</li>
+              <li>Check if you are able to add the pacer video as background.</li>
             </ul>
           </div>
           <div>
@@ -132,6 +132,9 @@ export default async function Home() {
       </section>
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-md">
+       <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
+         Event day 
+       </span>
         <h2 className="text-xl font-semibold">Quick Host Checklist</h2>
         <div className="mt-6 grid gap-6 md:grid-cols-3">
           <div>
@@ -141,7 +144,7 @@ export default async function Home() {
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
               <li>Sign in 15 minutes early.</li>
               <li>Start recording.</li>
-              <li>Mute participants on entry.</li>
+              <li>Ask participants on entry to reduce their speaker volume to 5%.</li>
             </ul>
           </div>
           <div>
@@ -151,7 +154,7 @@ export default async function Home() {
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
               <li>Monitor audio quality.</li>
               <li>Disable chat if needed.</li>
-              <li>Keep participants muted.</li>
+              <li>Start the pacer video by restarting video.</li>
             </ul>
           </div>
           <div>
@@ -203,11 +206,6 @@ export default async function Home() {
             </li>
             <li>
               <span className="font-semibold text-[#3b1a1f]">
-                Webex Test Meeting
-              </span>
-            </li>
-            <li>
-              <span className="font-semibold text-[#3b1a1f]">
                 Troubleshooting FAQ
               </span>
             </li>
@@ -226,7 +224,7 @@ export default async function Home() {
           Global Gita Chanting Day
         </p>
         <p className="mt-1 text-sm text-[#6b4e3d]">
-          Jan 30, 2026 | As per assigned time slot
+          May 9th, 2026 
         </p>
         <p className="mt-4 text-xs text-[#8a5b44]">
           Countdown timer placeholder
