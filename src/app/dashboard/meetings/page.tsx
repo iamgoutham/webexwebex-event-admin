@@ -67,6 +67,8 @@ export default async function MeetingsPage() {
         ? "https://webex-usa.chinmayavrindavan.org"
         : normalizedLicenseSite === "chinmayavrindavan.webex.com"
         ? "https://webex-india.chinmayavrindavan.org"
+        : normalizedLicenseSite === "cmsj.webex.com"
+        ? "https://webex-intl.chinmayavrindavan.org"
         : null;
 
     return (
