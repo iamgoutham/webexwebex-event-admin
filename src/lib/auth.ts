@@ -19,9 +19,16 @@ const fetchWebexSiteUrl = async (accessToken: string) => {
       cache: "no-store",
     });
     if (!response.ok) {
+      if (process.env.WEBEX_DEBUG_PROFILE === "true") {
+        const errorBody = await response.text().catch(() => "");
+        console.debug("[webex][people/me] error", response.status, errorBody);
+      }
       return null;
     }
     const data = (await response.json()) as { siteUrl?: string };
+    if (process.env.WEBEX_DEBUG_PROFILE === "true") {
+      console.debug("[webex][people/me] response", data);
+    }
     return data.siteUrl ?? null;
   } catch {
     return null;
