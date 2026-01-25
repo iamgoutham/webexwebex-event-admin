@@ -195,7 +195,7 @@ export default function UploadPanel() {
           Upload recordings from local directory to Cloud.
         </h2>
         <span className="text-xs text-[#8a5b44]">
-          Multipart upload via presigned URLs
+          File will be uploaded in parts directly to cloud
         </span>
       </div>
 
