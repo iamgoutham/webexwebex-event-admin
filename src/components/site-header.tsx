@@ -24,7 +24,7 @@ export default async function SiteHeader() {
               alt="Chinmaya Mission West"
               width={58}
               height={58}
-              className="h-14 w-auto invert"
+              className="h-14 w-auto"
               priority
             />
           </Link>
