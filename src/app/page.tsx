@@ -49,6 +49,45 @@ export default async function Home() {
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-md">
         <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
+          Software Setup
+        </span>
+        <h2 className="mt-4 text-xl font-semibold">Prepare Your Tools</h2>
+        <div className="mt-6 grid gap-6 md:grid-cols-3">
+          <div>
+            <h3 className="text-sm font-semibold text-[#8a2f2a]">
+              System Requirements
+            </h3>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
+              <li>Stable internet connection.</li>
+              <li>Working microphone and camera.</li>
+              <li>Recommended headset.</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-[#8a2f2a]">
+              Install Webex Client App
+            </h3>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
+              <li>Download and install the Webex desktop app.</li>
+              <li>Sign in with your host credentials.</li>
+              <li>Verify audio and video settings.</li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-[#8a2f2a]">
+              Install OBS Software
+            </h3>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
+              <li>Install OBS Studio on your system.</li>
+              <li>Set the output directory for recordings.</li>
+              <li>Test recording before the event.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-8 text-[#3b1a1f] shadow-md">
+        <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
           Before You Log In
         </span>
         <h2 className="mt-4 text-xl font-semibold">
