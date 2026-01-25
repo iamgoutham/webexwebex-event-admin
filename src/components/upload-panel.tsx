@@ -57,7 +57,7 @@ const buildErrorMessage = async (response: Response) => {
 
 export default function UploadPanel() {
   const [file, setFile] = useState<File | null>(null);
-  const [folder, setFolder] = useState("recordings");
+  const [folder] = useState("recordings");
   const [state, setState] = useState<UploadState>({
     status: "idle",
     progress: 0,
@@ -202,7 +202,7 @@ export default function UploadPanel() {
         </span>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-[1.5fr_1fr]">
+      <div className="mt-6 grid gap-4">
         <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
           File
           <input
@@ -212,16 +212,6 @@ export default function UploadPanel() {
               setState({ status: "idle", progress: 0 });
             }}
             className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
-          />
-        </label>
-        <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
-          Folder (optional)
-          <input
-            type="text"
-            value={folder}
-            onChange={(event) => setFolder(event.target.value)}
-            className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
-            placeholder="recordings"
           />
         </label>
       </div>
