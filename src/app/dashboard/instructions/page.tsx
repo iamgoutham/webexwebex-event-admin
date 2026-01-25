@@ -6,7 +6,7 @@ export default async function InstructionsPage() {
 
   return (
     <div className="space-y-6 text-[#3b1a1f]">
-      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
         <h1 className="text-2xl font-semibold">Chanting day Instructions</h1>
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Review the host protocol, chanting flow, and on-screen guidelines
@@ -14,7 +14,7 @@ export default async function InstructionsPage() {
         </p>
       </div>
 
-      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8">
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[#e5c18e] bg-[#fff9ef]">
           <Image
             src="/hostprotocol.png"
@@ -26,7 +26,7 @@ export default async function InstructionsPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-sm text-[#6b4e3d]">
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-sm text-[#6b4e3d] sm:p-8">
         <p>
           Ensure your meeting is opened early, confirm participant audio/video
           etiquette, and keep the chanting flow aligned with the official

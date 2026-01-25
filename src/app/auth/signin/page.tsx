@@ -9,7 +9,7 @@ export default async function SignInPage() {
   const providerId = tenantConfig?.providerId ?? "webex";
 
   return (
-    <div className="mx-auto max-w-xl rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-10 text-[#3b1a1f] shadow-lg">
+    <div className="mx-auto max-w-xl rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-lg sm:p-10">
       <h1 className="text-2xl font-semibold">Sign in</h1>
       <p className="mt-2 text-sm text-[#6b4e3d]">
         Authenticate with Webex to access the tenant dashboards.

@@ -13,8 +13,8 @@ export default async function SiteHeader() {
 
   return (
     <header className="border-b border-[#5c2a2d]/60 bg-[#3b1a1f] text-[#fbe9c6]">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <Link
             href="/"
             className="flex items-center gap-3 text-lg font-semibold"
@@ -24,11 +24,11 @@ export default async function SiteHeader() {
               alt="Chinmaya Mission West"
               width={58}
               height={58}
-              className="h-14 w-auto"
+              className="h-12 w-auto sm:h-14"
               priority
             />
           </Link>
-          <nav className="flex items-center gap-4 text-sm text-[#fbe9c6]/70">
+          <nav className="flex flex-wrap items-center gap-3 text-sm text-[#fbe9c6]/70">
             <Link href="/dashboard" className="hover:text-[#fbe9c6]">
               Dashboard
             </Link>
@@ -57,10 +57,12 @@ export default async function SiteHeader() {
             ) : null}
           </nav>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           {user ? (
-            <div className="text-right text-xs text-[#fbe9c6]/60">
-              <div className="font-medium text-[#fbe9c6]">{user.email}</div>
+            <div className="text-left text-xs text-[#fbe9c6]/60 sm:text-right">
+              <div className="font-medium text-[#fbe9c6]">
+                {user.email}
+              </div>
               <div>
                 {user.role}
                 {user.tenantId ? ` • ${user.tenantId.slice(0, 8)}` : ""}
