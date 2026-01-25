@@ -62,7 +62,6 @@ export default async function Home() {
               <li>Working microphone and camera.</li>
               <li>Laptop or Desktop computer. 21" monitor recommended</li>
               <li>21" monitor recommended</li>
-
             </ul>
           </div>
           <div>
@@ -72,8 +71,9 @@ export default async function Home() {
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
               <li>Download and install the Webex desktop app.</li>
               <li>Sign in with your host credentials.</li>
+              <li>Set your meeting layout to the max value supported</li>
               <li>Verify audio and video settings.</li>
-              <li>Check if you are able to add the pacer video as background.</li>
+              <li>Add the pacer video as background.</li>
             </ul>
           </div>
           <div>
@@ -82,9 +82,10 @@ export default async function Home() {
             </h3>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
               <li>Install OBS Studio on your system.</li>
+              <li>Setup your capture,browser,text sources</li>
               <li>Set the output directory for recordings.</li>
               <li>Test recording before the event.</li>
-              <li>Check the video to ensure guinness requirements.</li>
+              <li>Visually check the video to ensure guinness requirements.</li>
             </ul>
           </div>
         </div>
@@ -191,7 +192,7 @@ export default async function Home() {
                 rel="noreferrer"
                 className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
               >
-                Host Training Video
+                Host Background Pacer Video
               </a>
             </li>
             <li>
