@@ -41,12 +41,14 @@ export default async function DashboardPage() {
           </div>
           <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-[#9b6b4f]">
-              Access
+              Short ID
             </p>
             <p className="mt-2 text-base font-semibold text-[#3b1a1f]">
-              Webex OAuth
+              {session.user.shortId ?? "Pending"}
             </p>
-            <p className="text-xs text-[#8a5b44]">JWT session strategy</p>
+            <p className="text-xs text-[#8a5b44]">
+              Use this ID in your meeting recording
+            </p>
           </div>
         </div>
       </div>
