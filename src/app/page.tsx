@@ -60,17 +60,20 @@ export default async function Home() {
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
               <li>Stable internet connection.</li>
               <li>Working microphone and camera.</li>
-              <li>Recommended headset.</li>
+              <li>Laptop or Desktop computer. 21" monitor recommended</li>
+              <li>21" monitor recommended</li>
+
             </ul>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-[#8a2f2a]">
-              Install Webex Client App
+              Install Webex Desktop App
             </h3>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
               <li>Download and install the Webex desktop app.</li>
               <li>Sign in with your host credentials.</li>
               <li>Verify audio and video settings.</li>
+              <li>Check if you can add the pacer video as background.</li>
             </ul>
           </div>
           <div>
@@ -81,6 +84,7 @@ export default async function Home() {
               <li>Install OBS Studio on your system.</li>
               <li>Set the output directory for recordings.</li>
               <li>Test recording before the event.</li>
+              <li>Check the video to ensure guinness requirements.</li>
             </ul>
           </div>
         </div>
