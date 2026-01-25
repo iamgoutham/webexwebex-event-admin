@@ -53,7 +53,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <section className="grid gap-6 md:grid-cols-2">
+      <section className="grid gap-6 md:grid-cols-3">
         <Link
           href="/dashboard/meetings"
           className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md transition hover:border-[#c58d5d] hover:bg-[#fff1d6]"
@@ -67,6 +67,13 @@ export default async function DashboardPage() {
             View meetings →
           </span>
         </Link>
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md">
+          <h2 className="text-lg font-semibold">Chanting day Instructions</h2>
+          <p className="mt-3 text-sm text-[#6b4e3d]">
+            Review the event checklist, chanting flow, and on-screen guidelines
+            before hosting.
+          </p>
+        </div>
         <Link
           href="/dashboard/uploads"
           className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md transition hover:border-[#c58d5d] hover:bg-[#fff1d6]"
