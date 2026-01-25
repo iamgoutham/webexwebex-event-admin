@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Role } from "@prisma/client";
 import AuthButtons from "@/components/auth-buttons";
@@ -14,8 +15,18 @@ export default async function SiteHeader() {
     <header className="border-b border-[#5c2a2d]/60 bg-[#3b1a1f] text-[#fbe9c6]">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-6">
-          <Link href="/" className="text-lg font-semibold">
-            Webex Admin
+          <Link
+            href="/"
+            className="flex items-center gap-3 text-lg font-semibold"
+          >
+            <Image
+              src="/CMW-lamp-logo-1.png"
+              alt="Chinmaya Mission West"
+              width={44}
+              height={44}
+              className="h-11 w-auto"
+              priority
+            />
           </Link>
           <nav className="flex items-center gap-4 text-sm text-[#fbe9c6]/70">
             <Link href="/dashboard" className="hover:text-[#fbe9c6]">
