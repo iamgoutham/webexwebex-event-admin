@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Role } from "@prisma/client";
 import { CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { requireApiAuth } from "@/lib/api-guards";
+import { getHostIdForEmail } from "@/lib/license-site";
 import { prisma } from "@/lib/prisma";
 import { s3Bucket, s3Client } from "@/lib/s3";
 import { ensureUserShortId } from "@/lib/user-short-id";
@@ -84,11 +85,16 @@ export async function POST(request: Request) {
   }
 
   if (session.user.role === Role.HOST && session.user.tenantId) {
-    const shortId = await ensureUserShortId(
-      session.user.id,
-      session.user.email,
-      session.user.shortId,
-    );
+    const sheetShortId = session.user.email
+      ? await getHostIdForEmail(session.user.email)
+      : null;
+    const shortId =
+      sheetShortId ??
+      (await ensureUserShortId(
+        session.user.id,
+        session.user.email,
+        session.user.shortId,
+      ));
     const shortIdSegment = safeSegment(shortId);
     if (
       !parsed.data.key.startsWith(

@@ -7,6 +7,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { requireApiAuth } from "@/lib/api-guards";
+import { getHostIdForEmail } from "@/lib/license-site";
 import { s3Bucket, s3Client } from "@/lib/s3";
 import { ensureUserShortId } from "@/lib/user-short-id";
 
@@ -80,11 +81,16 @@ export async function POST(request: Request) {
   const tenantPrefix =
     session.user.role === Role.SUPERADMIN ? "global" : session.user.tenantId!;
 
-  const shortId = await ensureUserShortId(
-    session.user.id,
-    session.user.email,
-    session.user.shortId,
-  );
+  const sheetShortId = session.user.email
+    ? await getHostIdForEmail(session.user.email)
+    : null;
+  const shortId =
+    sheetShortId ??
+    (await ensureUserShortId(
+      session.user.id,
+      session.user.email,
+      session.user.shortId,
+    ));
   const shortIdSegment = safeSegment(shortId);
 
   const folderSegments = parsed.data.folder
