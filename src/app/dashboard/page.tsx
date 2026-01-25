@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
@@ -67,13 +66,19 @@ export default async function DashboardPage() {
             View meetings →
           </span>
         </Link>
-        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md">
+        <Link
+          href="/dashboard/instructions"
+          className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md transition hover:border-[#c58d5d] hover:bg-[#fff1d6]"
+        >
           <h2 className="text-lg font-semibold">Chanting day Instructions</h2>
           <p className="mt-3 text-sm text-[#6b4e3d]">
             Review the event checklist, chanting flow, and on-screen guidelines
             before hosting.
           </p>
-        </div>
+          <span className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.2em] text-[#8a2f2a]">
+            View instructions →
+          </span>
+        </Link>
         <Link
           href="/dashboard/uploads"
           className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md transition hover:border-[#c58d5d] hover:bg-[#fff1d6]"
@@ -87,18 +92,6 @@ export default async function DashboardPage() {
           </span>
         </Link>
       </section>
-
-      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[#e5c18e] bg-[#fff9ef]">
-          <Image
-            src="/hostprotocol.png"
-            alt="Host protocol"
-            fill
-            sizes="(min-width: 1024px) 960px, 100vw"
-            className="object-cover"
-          />
-        </div>
-      </div>
 
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6">
         <h2 className="text-lg font-semibold">Next steps</h2>
