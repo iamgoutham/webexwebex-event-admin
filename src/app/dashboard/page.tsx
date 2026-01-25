@@ -4,6 +4,8 @@ import { getLicenseSiteForEmail } from "@/lib/license-site";
 
 export default async function DashboardPage() {
   const session = await requireAuth();
+  const hostName = session.user.name ?? session.user.email ?? "Host";
+  const hostId = session.user.shortId ?? "Pending";
   const licenseSite = session.user.email
     ? await getLicenseSiteForEmail(session.user.email)
     : null;
@@ -11,9 +13,13 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8 text-[#3b1a1f]">
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
-        <h1 className="text-2xl font-semibold">Welcome back</h1>
+        <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
+          After Login
+        </span>
+        <h1 className="mt-4 text-2xl font-semibold">Host Dashboard</h1>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          You are signed in as {session.user.email}.
+          Welcome, <span className="font-semibold">{hostName}</span> (Host ID:{" "}
+          <span className="font-semibold">{hostId}</span>)
         </p>
         <div className="mt-4 grid gap-4 text-sm text-[#6b4e3d] md:grid-cols-3">
           <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4">
@@ -91,12 +97,13 @@ export default async function DashboardPage() {
       </section>
 
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6">
-        <h2 className="text-lg font-semibold">Next steps</h2>
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
-          <li>Invite admins and hosts using the Users API.</li>
-          <li>Create tenants via the SuperAdmin console.</li>
-          <li>Generate presigned S3 uploads for assets.</li>
-        </ul>
+        <h2 className="text-lg font-semibold">Recording Status</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Status: <span className="font-semibold text-red-600">Not Uploaded</span>
+        </p>
+        <p className="mt-2 text-xs text-[#8a5b44]">
+          Once uploaded successfully, status will update automatically.
+        </p>
       </div>
     </div>
   );
