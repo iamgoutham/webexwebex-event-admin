@@ -51,7 +51,7 @@ export default async function DashboardPage() {
           </div>
           <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4">
             <p className="text-xs uppercase tracking-[0.2em] text-[#9b6b4f]">
-              Site URL
+              License Site
             </p>
             <p className="mt-2 text-base font-semibold text-[#3b1a1f]">
               {session.user.siteUrl ?? "Pending"}
