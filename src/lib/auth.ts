@@ -53,7 +53,7 @@ export const authOptions: NextAuthOptions = {
   },
   providers: webexProviders,
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         const shortId = await ensureUserShortId(
           user.id,
@@ -63,6 +63,11 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.tenantId = user.tenantId;
         token.shortId = shortId;
+      }
+
+      if (account?.provider) {
+        const tenantConfig = getTenantConfigByProvider(account.provider);
+        token.siteUrl = tenantConfig?.siteUrl ?? token.siteUrl ?? null;
       }
 
       if (!user && token.email) {
@@ -97,6 +102,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role ?? Role.HOST;
         session.user.tenantId = token.tenantId ?? null;
         session.user.shortId = token.shortId ?? null;
+        session.user.siteUrl = token.siteUrl ?? null;
       }
       return session;
     },

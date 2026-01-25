@@ -8,6 +8,7 @@ declare module "next-auth" {
       role: Role;
       tenantId: string | null;
       shortId: string | null;
+      siteUrl: string | null;
     } & DefaultSession["user"];
   }
 
@@ -15,6 +16,7 @@ declare module "next-auth" {
     role?: Role;
     tenantId?: string | null;
     shortId?: string | null;
+    siteUrl?: string | null;
   }
 }
 
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
     role?: Role;
     tenantId?: string | null;
     shortId?: string | null;
+    siteUrl?: string | null;
   }
 }
