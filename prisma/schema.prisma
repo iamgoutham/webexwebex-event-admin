@@ -32,7 +32,7 @@ model User {
   name      String?
   email     String?  @unique
   emailVerified DateTime?
-  image     String?
+  image     String?  @db.Text
   shortId   String?  @unique
   role      Role     @default(HOST)
   tenantId  String?
