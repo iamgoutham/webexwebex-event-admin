@@ -23,6 +23,9 @@ export default async function DashboardPage() {
     where: { id: session.user.id },
     select: { gridRows: true, gridCols: true },
   });
+  const rows = gridProfile?.gridRows ?? 5;
+  const cols = gridProfile?.gridCols ?? 5;
+  const participantCount = rows * cols;
 
   return (
     <div className="space-y-8 text-[#3b1a1f]">
@@ -122,6 +125,19 @@ export default async function DashboardPage() {
           {latestUpload
             ? `Last upload: ${latestUpload.filename ?? "Recording"} • ${latestUpload.createdAt.toLocaleString()}`
             : "Once uploaded successfully, status will update automatically."}
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 sm:p-8">
+        <h2 className="text-lg font-semibold">Allocated Participants</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          {rows} x {cols} grid ={" "}
+          <span className="font-semibold text-[#3b1a1f]">
+            {participantCount} participants
+          </span>
+        </p>
+        <p className="mt-2 text-xs text-[#8a5b44]">
+          Default allocation is 25 participants if no grid size is set.
         </p>
       </div>
     </div>
