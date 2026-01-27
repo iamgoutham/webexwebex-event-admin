@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 type GridSizeFormProps = {
   rows?: number | null;
   cols?: number | null;
+  isSet?: boolean;
 };
 
 type FormState =
@@ -15,7 +16,7 @@ type FormState =
 
 const OPTIONS = Array.from({ length: 5 }, (_, idx) => idx + 5);
 
-export default function GridSizeForm({ rows, cols }: GridSizeFormProps) {
+export default function GridSizeForm({ rows, cols, isSet }: GridSizeFormProps) {
   const [selectedRows, setSelectedRows] = useState<number>(rows ?? 5);
   const [selectedCols, setSelectedCols] = useState<number>(cols ?? 5);
   const [state, setState] = useState<FormState>({ status: "idle" });
@@ -99,6 +100,24 @@ export default function GridSizeForm({ rows, cols }: GridSizeFormProps) {
         >
           {state.status === "saving" ? "Saving..." : "Save"}
         </button>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4 text-sm text-[#6b4e3d]">
+        <p>
+          {selectedRows} x {selectedCols} grid ={" "}
+          <span className="font-semibold text-[#3b1a1f]">
+            {selectedRows * selectedCols} participants
+          </span>
+        </p>
+        <p className="mt-2 text-xs text-[#8a5b44]">
+          Grid Size Status:{" "}
+          {isSet ? (
+            <span className="font-semibold text-emerald-700">Saved</span>
+          ) : (
+            <span className="font-semibold text-red-600">Not Set</span>
+          )}
+          . Default allocation is 25 participants if no grid size is set.
+        </p>
       </div>
 
       {state.status === "error" ? (
