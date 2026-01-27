@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
 import { getHostIdForEmail, getLicenseSiteForEmail } from "@/lib/license-site";
+import GridSizeForm from "@/components/grid-size-form";
 
 export default async function DashboardPage() {
   const session = await requireAuth();
@@ -17,6 +18,10 @@ export default async function DashboardPage() {
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true, filename: true, status: true },
+  });
+  const gridProfile = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { gridRows: true, gridCols: true },
   });
 
   return (
@@ -87,6 +92,11 @@ export default async function DashboardPage() {
           </span>
         </Link>
       </section>
+
+      <GridSizeForm
+        rows={gridProfile?.gridRows ?? null}
+        cols={gridProfile?.gridCols ?? null}
+      />
 
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 sm:p-8">
         <h2 className="text-lg font-semibold">Recording Status</h2>
