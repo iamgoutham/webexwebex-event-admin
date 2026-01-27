@@ -99,13 +99,23 @@ export default async function DashboardPage() {
       />
 
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 sm:p-8">
-        <h2 className="text-lg font-semibold">Recording Status</h2>
+        <h2 className="text-lg font-semibold">
+          Video Recording File Upload Status
+        </h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Status:{" "}
           {latestUpload?.status === "COMPLETED" ? (
             <span className="font-semibold text-emerald-700">Uploaded</span>
           ) : (
             <span className="font-semibold text-red-600">Not Uploaded</span>
+          )}
+        </p>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Grid Size Status:{" "}
+          {gridProfile?.gridRows && gridProfile?.gridCols ? (
+            <span className="font-semibold text-emerald-700">Saved</span>
+          ) : (
+            <span className="font-semibold text-red-600">Not Set</span>
           )}
         </p>
         <p className="mt-2 text-xs text-[#8a5b44]">
