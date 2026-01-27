@@ -63,10 +63,6 @@ export default async function SiteHeader() {
               <div className="font-medium text-[#fbe9c6]">
                 {user.email}
               </div>
-              <div>
-                {user.role}
-                {user.tenantId ? ` • ${user.tenantId.slice(0, 8)}` : ""}
-              </div>
             </div>
           ) : (
             <span className="text-xs text-[#fbe9c6]/60">
