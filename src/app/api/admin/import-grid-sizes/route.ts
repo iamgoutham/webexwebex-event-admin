@@ -89,6 +89,30 @@ const parseGridValue = (value: string) => {
   return parsed;
 };
 
+const parseGridCount = (value: string) => {
+  const parsed = Number.parseInt(value.trim(), 10);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+};
+
+const computeGridFromCount = (count: number) => {
+  let best: { rows: number; cols: number; diff: number } | null = null;
+  for (let rows = 5; rows <= 9; rows += 1) {
+    for (let cols = 5; cols <= 9; cols += 1) {
+      if (rows * cols !== count) {
+        continue;
+      }
+      const diff = Math.abs(rows - cols);
+      if (!best || diff < best.diff) {
+        best = { rows, cols, diff };
+      }
+    }
+  }
+  return best ? { rows: best.rows, cols: best.cols } : null;
+};
+
 export async function POST() {
   const { session, response } = await requireApiAuth([
     Role.ADMIN,
@@ -128,6 +152,12 @@ export async function POST() {
     "Columns",
     "GridCols",
   ]);
+  const maxLayoutIndex = findColumnIndex(headers, [
+    "Max Layout Grid for your WebEx App",
+    "Max Layout Grid",
+    "Max Layout",
+    "MaxGrid",
+  ]);
 
   if (emailIndex === -1 || rowsIndex === -1 || colsIndex === -1) {
     return NextResponse.json(
@@ -149,15 +179,26 @@ export async function POST() {
     const email = row[emailIndex]?.trim().toLowerCase();
     const rowsValue = row[rowsIndex];
     const colsValue = row[colsIndex];
+    const maxLayoutValue = maxLayoutIndex !== -1 ? row[maxLayoutIndex] : null;
     if (!email) {
       skippedInvalid += 1;
       continue;
     }
-    const gridRows = rowsValue ? parseGridValue(rowsValue) : null;
-    const gridCols = colsValue ? parseGridValue(colsValue) : null;
+    let gridRows = rowsValue ? parseGridValue(rowsValue) : null;
+    let gridCols = colsValue ? parseGridValue(colsValue) : null;
     if (!gridRows || !gridCols) {
-      skippedInvalid += 1;
-      continue;
+      const gridCount = maxLayoutValue ? parseGridCount(maxLayoutValue) : null;
+      if (!gridCount) {
+        skippedInvalid += 1;
+        continue;
+      }
+      const computed = computeGridFromCount(gridCount);
+      if (!computed) {
+        skippedInvalid += 1;
+        continue;
+      }
+      gridRows = computed.rows;
+      gridCols = computed.cols;
     }
 
     processed += 1;
