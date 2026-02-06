@@ -1,5 +1,12 @@
-const DEFAULT_SHEET_ONE_ID = "1cOfMqutwpFyFayADYHUw20kl7Mi5R1NqXa8bhbV6xrI";
-const DEFAULT_SHEET_TWO_ID = "1BRD62ucextyICTq7BKGgn01ZtzmKwTSAF94Tl4xulUY";
+const LICENSE_SHEET_1_ID = process.env.GOOGLE_LICENSE_SHEET_1_ID;
+const LICENSE_SHEET_2_ID = process.env.GOOGLE_LICENSE_SHEET_2_ID;
+
+if (!LICENSE_SHEET_1_ID || !LICENSE_SHEET_2_ID) {
+  console.error(
+    "Missing GOOGLE_LICENSE_SHEET_1_ID or GOOGLE_LICENSE_SHEET_2_ID",
+  );
+  process.exit(1);
+}
 
 const normalizeValue = (value: string) => value.trim().toLowerCase();
 
@@ -160,15 +167,11 @@ export const getLicenseSiteForEmail = async (email: string) => {
     return null;
   }
 
-  const sheetOneId =
-    process.env.GOOGLE_LICENSE_SHEET_1_ID ?? DEFAULT_SHEET_ONE_ID;
-  const sheetTwoId =
-    process.env.GOOGLE_LICENSE_SHEET_2_ID ?? DEFAULT_SHEET_TWO_ID;
   const sheetOneGid = process.env.GOOGLE_LICENSE_SHEET_1_GID;
   const sheetTwoGid = process.env.GOOGLE_LICENSE_SHEET_2_GID;
 
   const fromSheetOne = await lookupSheetValue({
-    sheetId: sheetOneId,
+    sheetId: LICENSE_SHEET_1_ID,
     gid: sheetOneGid,
     emailColumn: "Email",
     valueColumn: "License Site",
@@ -179,7 +182,7 @@ export const getLicenseSiteForEmail = async (email: string) => {
   }
 
   const fromSheetTwo = await lookupSheetValue({
-    sheetId: sheetTwoId,
+    sheetId: LICENSE_SHEET_2_ID,
     gid: sheetTwoGid,
     emailColumn: "Email Address",
     valueColumn: "License Site",
@@ -195,15 +198,11 @@ export const getHostIdForEmail = async (email: string) => {
     return null;
   }
 
-  const sheetOneId =
-    process.env.GOOGLE_LICENSE_SHEET_1_ID ?? DEFAULT_SHEET_ONE_ID;
-  const sheetTwoId =
-    process.env.GOOGLE_LICENSE_SHEET_2_ID ?? DEFAULT_SHEET_TWO_ID;
   const sheetOneGid = process.env.GOOGLE_LICENSE_SHEET_1_GID;
   const sheetTwoGid = process.env.GOOGLE_LICENSE_SHEET_2_GID;
 
   const fromSheetOne = await lookupSheetValue({
-    sheetId: sheetOneId,
+    sheetId: LICENSE_SHEET_1_ID,
     gid: sheetOneGid,
     emailColumn: "Email",
     valueColumn: "SHORTID",
@@ -214,7 +213,7 @@ export const getHostIdForEmail = async (email: string) => {
   }
 
   const fromSheetTwo = await lookupSheetValue({
-    sheetId: sheetTwoId,
+    sheetId: LICENSE_SHEET_2_ID,
     gid: sheetTwoGid,
     emailColumn: "Email Address",
     valueColumn: "SHORTID",

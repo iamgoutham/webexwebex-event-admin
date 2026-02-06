@@ -3,9 +3,12 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
 
-const GRID_SHEET_ID =
-  process.env.GOOGLE_GRID_SHEET_ID ??
-  "19UCML9ROR_SGqRpDHFllxg0QIDQxghOyl52OnetEOcs";
+const GRID_SHEET_ID = process.env.GOOGLE_GRID_SHEET_ID;
+
+if (!GRID_SHEET_ID) {
+  console.error("Missing GOOGLE_GRID_SHEET_ID");
+  process.exit(1);
+}
 
 const normalizeHeader = (value: string) =>
   value.trim().toLowerCase().replace(/[\s_]+/g, "");
@@ -95,7 +98,6 @@ export async function POST() {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
   const csv = await fetchSheetCsv(GRID_SHEET_ID);
   if (!csv) {
     return NextResponse.json(
