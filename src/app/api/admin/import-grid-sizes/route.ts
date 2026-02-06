@@ -3,12 +3,14 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
 
-const GRID_SHEET_ID = process.env.GOOGLE_GRID_SHEET_ID;
-
-if (!GRID_SHEET_ID) {
-  console.error("Missing GOOGLE_GRID_SHEET_ID");
-  process.exit(1);
-}
+const GRID_SHEET_ID: string = (() => {
+  const id = process.env.GOOGLE_GRID_SHEET_ID;
+  if (!id) {
+    console.error("Missing GOOGLE_GRID_SHEET_ID");
+    process.exit(1);
+  }
+  return id;
+})();
 
 const normalizeHeader = (value: string) =>
   value.trim().toLowerCase().replace(/[\s_]+/g, "");
