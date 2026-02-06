@@ -2,6 +2,7 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/guards";
 import { ADMIN_ROLES } from "@/lib/rbac";
+import GridImportButton from "@/components/grid-import-button";
 
 export default async function AdminDashboardPage() {
   const session = await requireRole(ADMIN_ROLES);
@@ -36,6 +37,16 @@ export default async function AdminDashboardPage() {
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Manage tenant-scoped users, roles, and uploads.
         </p>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Video grid size imports</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Import grid sizes from the Google Sheet to update host allocations.
+        </p>
+        <div className="mt-4">
+          <GridImportButton />
+        </div>
       </div>
 
       {session.user.role === Role.SUPERADMIN ? (
