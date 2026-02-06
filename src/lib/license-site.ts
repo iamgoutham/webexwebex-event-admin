@@ -161,6 +161,35 @@ const lookupSheetValue = async ({
   return null;
 };
 
+const buildHostIdMap = (
+  csv: string,
+  emailColumn: string,
+  valueColumn: string,
+) => {
+  const rows = parseCsv(csv);
+  if (rows.length < 2) {
+    return new Map<string, string>();
+  }
+  const headers = rows[0];
+  const emailIndex = findColumnIndex(headers, emailColumn);
+  const valueIndex = findColumnIndex(headers, valueColumn);
+  if (emailIndex === -1 || valueIndex === -1) {
+    return new Map<string, string>();
+  }
+
+  const map = new Map<string, string>();
+  for (const row of rows.slice(1)) {
+    const email = row[emailIndex]?.trim();
+    const value = row[valueIndex]?.trim();
+    if (!email || !value) {
+      continue;
+    }
+    map.set(normalizeValue(email), value);
+  }
+
+  return map;
+};
+
 export const getLicenseSiteForEmail = async (email: string) => {
   const normalizedEmail = email.trim();
   if (!normalizedEmail) {
@@ -221,4 +250,52 @@ export const getHostIdForEmail = async (email: string) => {
   });
 
   return fromSheetTwo;
+};
+
+export const getHostIdMapForEmails = async (emails: string[]) => {
+  const normalizedEmails = emails
+    .map((email) => normalizeValue(email))
+    .filter(Boolean);
+  const emailSet = new Set(normalizedEmails);
+  if (emailSet.size === 0) {
+    return new Map<string, string>();
+  }
+
+  const sheetOneGid = process.env.GOOGLE_LICENSE_SHEET_1_GID;
+  const sheetTwoGid = process.env.GOOGLE_LICENSE_SHEET_2_GID;
+
+  const [sheetOneCsv, sheetTwoCsv] = await Promise.all([
+    fetchSheetCsv(LICENSE_SHEET_1_ID, sheetOneGid),
+    fetchSheetCsv(LICENSE_SHEET_2_ID, sheetTwoGid),
+  ]);
+
+  const map = new Map<string, string>();
+
+  if (sheetOneCsv) {
+    const sheetOneMap = buildHostIdMap(sheetOneCsv, "Email", "SHORTID");
+    for (const email of emailSet) {
+      const value = sheetOneMap.get(email);
+      if (value) {
+        map.set(email, value);
+      }
+    }
+  }
+
+  if (sheetTwoCsv) {
+    const sheetTwoMap = buildHostIdMap(
+      sheetTwoCsv,
+      "Email Address",
+      "SHORTID",
+    );
+    for (const email of emailSet) {
+      if (!map.has(email)) {
+        const value = sheetTwoMap.get(email);
+        if (value) {
+          map.set(email, value);
+        }
+      }
+    }
+  }
+
+  return map;
 };
