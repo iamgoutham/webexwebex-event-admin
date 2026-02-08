@@ -66,7 +66,7 @@ export default async function SiteHeader() {
             </div>
           ) : (
             <span className="text-xs text-[#fbe9c6]/60">
-              Sign in to manage tenants
+              Sign in to manage your meetings
             </span>
           )}
           <AuthButtons

@@ -153,9 +153,9 @@ export default async function Home() {
               During Chanting
             </h3>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
+              <li>Start the pacer video by restarting video.</li>
               <li>Monitor audio quality.</li>
               <li>Disable chat if needed.</li>
-              <li>Start the pacer video by restarting video.</li>
             </ul>
           </div>
           <div>
