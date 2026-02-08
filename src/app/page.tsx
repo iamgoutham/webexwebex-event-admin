@@ -202,7 +202,7 @@ export default async function Home() {
                 rel="noreferrer"
                 className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
               >
-                Host Background Pacer Video
+                Gita chanting Practice Video
               </a>
             </li>
             <li>
