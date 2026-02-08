@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AuthButtons from "@/components/auth-buttons";
+import CountdownTimer from "@/components/countdown-timer";
 import { getServerAuthSession } from "@/lib/session";
 import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
 
@@ -11,38 +12,47 @@ export default async function Home() {
   return (
     <div className="space-y-10 rounded-[32px] bg-[#fdf6e9] px-4 py-8 text-[#2b1f13] shadow-[0_30px_80px_rgba(58,25,15,0.15)] sm:px-6 sm:py-10 md:px-8">
       <section className="rounded-3xl border border-[#e7b474] bg-gradient-to-br from-[#f7e2b6] via-[#f3c16e] to-[#d8792d] p-6 text-[#3b1a1f] shadow-xl sm:p-8 md:p-10">
-        <div className="flex flex-col gap-6">
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#b86b2a] bg-white/40 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#8a2f2a]">
-            Global Gita Chanting - Webex Host Portal
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between md:gap-8">
+          <div className="flex flex-1 flex-col gap-6">
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#b86b2a] bg-white/40 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#8a2f2a]">
+              Global Gita Chanting - Webex Host Portal
+            </div>
+            <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
+              Welcome, Webex Hosts
+            </h1>
+            <p className="max-w-2xl text-base text-[#5b3b2b] md:text-lg">
+              Thank you for supporting the Global Gita Chanting initiative. This
+              portal will help you prepare, practice, and confidently host your
+              Webex meeting on the event day.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4 md:justify-start">
+              <AuthButtons
+                isAuthenticated={!!session?.user}
+                variant="brand"
+                providerId={providerId}
+              />
+              <a
+                href="https://tinyurl.com/WebexCheatSheet"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
+              >
+                View Host Cheat Sheet
+              </a>
+              <Link
+                href="/dashboard"
+                className="rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-medium text-[#3b1a1f] transition hover:border-[#7a3b2a]"
+              >
+                View dashboard
+              </Link>
+            </div>
           </div>
-          <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
-            Welcome, Webex Hosts
-          </h1>
-          <p className="max-w-2xl text-base text-[#5b3b2b] md:text-lg">
-            Thank you for supporting the Global Gita Chanting initiative. This
-            portal will help you prepare, practice, and confidently host your
-            Webex meeting on the event day.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4 md:justify-start">
-            <AuthButtons
-              isAuthenticated={!!session?.user}
-              variant="brand"
-              providerId={providerId}
+          <div className="flex shrink-0 md:ml-4">
+            <CountdownTimer
+              targetDate={new Date("2026-05-09T00:00:00Z")}
+              label="Event Countdown"
+              sublabel="Global Gita Chanting Day — May 9th, 2026"
             />
-            <a
-              href="https://tinyurl.com/WebexCheatSheet"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
-            >
-              View Host Cheat Sheet
-            </a>
-            <Link
-              href="/dashboard"
-              className="rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-medium text-[#3b1a1f] transition hover:border-[#7a3b2a]"
-            >
-              View dashboard
-            </Link>
           </div>
         </div>
       </section>
@@ -219,18 +229,6 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-[#3b1a1f] sm:p-8">
-        <h2 className="text-xl font-semibold">Event Countdown</h2>
-        <p className="mt-2 text-sm text-[#6b4e3d]">
-          Global Gita Chanting Day
-        </p>
-        <p className="mt-1 text-sm text-[#6b4e3d]">
-          May 9th, 2026 
-        </p>
-        <p className="mt-4 text-xs text-[#8a5b44]">
-          Countdown timer placeholder
-        </p>
-      </section>
     </div>
   );
 }
