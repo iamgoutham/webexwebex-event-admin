@@ -207,6 +207,14 @@ export default async function Home() {
             </li>
             <li>
               <a
+                href="/pacervideo.mp4"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Host background pacer video
+              </a>
+            </li>
+            <li>
+              <a
                 href="https://docs.google.com/document/d/1RKZ1pIlyvRnH3zkzIV3tm0F4ESxqr7L0B52tlhL1FQI/edit?tab=t.0"
                 target="_blank"
                 rel="noreferrer"
