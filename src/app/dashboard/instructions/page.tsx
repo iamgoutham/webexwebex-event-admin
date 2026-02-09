@@ -17,7 +17,7 @@ export default async function InstructionsPage() {
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8">
         <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-[#e5c18e] bg-[#fff9ef]">
           <Image
-            src="/hostprotocol.png"
+            src="/hostprotocol1.png"
             alt="Host protocol"
             fill
             sizes="(min-width: 1024px) 960px, 100vw"
