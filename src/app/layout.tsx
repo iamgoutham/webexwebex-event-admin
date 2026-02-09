@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Webex Event Admin",
-  description: "Multi-tenant admin console for Webex events",
+  description: "Console for CMSamarpanam Webex hosts",
 };
 
 export default function RootLayout({
