@@ -1,3 +1,4 @@
+import ParticipantLinks from "@/components/participant-links";
 import { requireAuth } from "@/lib/guards";
 import { getLicenseSiteForEmail, getMeetingInfoForEmail } from "@/lib/license-site";
 import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
@@ -197,10 +198,9 @@ export default async function MeetingsPage() {
                 </div>
                 {Array.isArray(meeting.participants) &&
                 meeting.participants.length > 0 ? (
-                  <p className="mt-2 text-xs text-[#6b4e3d]">
-                    {meeting.participants.length} participant
-                    {meeting.participants.length !== 1 ? "s" : ""}
-                  </p>
+                  <ParticipantLinks
+                    participants={meeting.participants as { email?: string; phone?: string; name?: string }[]}
+                  />
                 ) : null}
                 <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
                   {meeting.webLink ? (
