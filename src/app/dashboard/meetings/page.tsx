@@ -37,6 +37,16 @@ const formatDateTime = (value?: string) => {
   return parsed.toLocaleString();
 };
 
+function getMtidFromWebLink(webLink?: string): string | null {
+  if (!webLink?.trim()) return null;
+  try {
+    const url = new URL(webLink);
+    return url.searchParams.get("MTID") ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const URL_REGEX = /https?:\/\/[^\s<>\[\]()]+/gi;
 
 function MeetingInfoContent({ text }: { text: string }) {
@@ -156,59 +166,65 @@ export default async function MeetingsPage() {
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
         <h1 className="text-2xl font-semibold">Meetings</h1>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          Meeting info from your host record in the sheet.
+          Meetings you are hosting
         </p>
       </div>
 
       {meetingsFromJson ? (
         <div className="grid gap-4">
-          {meetingsFromJson.map((meeting, index) => (
-            <div
-              key={meeting.meetingNumber ?? meeting.webLink ?? index}
-              className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 shadow-sm"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    {meeting.title ?? "Untitled meeting"}
-                  </h2>
-                  {meeting.state ? (
-                    <p className="mt-1 text-xs capitalize text-[#8a5b44]">
-                      {meeting.state}
-                    </p>
+          {meetingsFromJson.map((meeting, index) => {
+            const mtid = getMtidFromWebLink(meeting.webLink);
+            return (
+              <div
+                key={meeting.meetingNumber ?? meeting.webLink ?? index}
+                className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 shadow-sm"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      {meeting.title ?? "Untitled meeting"}
+                    </h2>
+                    {meeting.state ? (
+                      <p className="mt-1 text-xs capitalize text-[#8a5b44]">
+                        {meeting.state}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="text-right text-xs text-[#8a5b44]">
+                    <p>Start: {formatDateTime(meeting.start)}</p>
+                    <p>End: {formatDateTime(meeting.end)}</p>
+                  </div>
+                </div>
+                {Array.isArray(meeting.participants) &&
+                meeting.participants.length > 0 ? (
+                  <p className="mt-2 text-xs text-[#6b4e3d]">
+                    {meeting.participants.length} participant
+                    {meeting.participants.length !== 1 ? "s" : ""}
+                  </p>
+                ) : null}
+                <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                  {meeting.webLink ? (
+                    <a
+                      href={meeting.webLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full border border-[#7a3b2a]/50 px-3 py-1 text-xs font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
+                    >
+                      Open meeting
+                    </a>
+                  ) : null}
+                  {meeting.meetingNumber ? (
+                    <span className="text-xs text-[#8a5b44]">
+                      Meeting number: {meeting.meetingNumber}
+                    </span>
+                  ) : null}
+                  {mtid ? (
+                    <span className="text-xs text-[#8a5b44]">MTID: {mtid}</span>
                   ) : null}
                 </div>
-                <div className="text-right text-xs text-[#8a5b44]">
-                  <p>Start: {formatDateTime(meeting.start)}</p>
-                  <p>End: {formatDateTime(meeting.end)}</p>
-                </div>
               </div>
-              {Array.isArray(meeting.participants) &&
-              meeting.participants.length > 0 ? (
-                <p className="mt-2 text-xs text-[#6b4e3d]">
-                  {meeting.participants.length} participant
-                  {meeting.participants.length !== 1 ? "s" : ""}
-                </p>
-              ) : null}
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-                {meeting.webLink ? (
-                  <a
-                    href={meeting.webLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border border-[#7a3b2a]/50 px-3 py-1 text-xs font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
-                  >
-                    Open meeting
-                  </a>
-                ) : null}
-                {meeting.meetingNumber ? (
-                  <span className="text-xs text-[#8a5b44]">
-                    Meeting number: {meeting.meetingNumber}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : meetingInfoRaw?.trim() ? (
         <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 shadow-sm">
