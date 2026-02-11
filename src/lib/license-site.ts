@@ -221,6 +221,37 @@ export const getLicenseSiteForEmail = async (email: string) => {
   return fromSheetTwo;
 };
 
+export const getMeetingInfoForEmail = async (email: string) => {
+  const normalizedEmail = email.trim();
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const sheetOneGid = process.env.GOOGLE_LICENSE_SHEET_1_GID;
+  const sheetTwoGid = process.env.GOOGLE_LICENSE_SHEET_2_GID;
+
+  const fromSheetOne = await lookupSheetValue({
+    sheetId: LICENSE_SHEET_1_ID,
+    gid: sheetOneGid,
+    emailColumn: "Email",
+    valueColumn: "Meeting Info",
+    email: normalizedEmail,
+  });
+  if (fromSheetOne) {
+    return fromSheetOne;
+  }
+
+  const fromSheetTwo = await lookupSheetValue({
+    sheetId: LICENSE_SHEET_2_ID,
+    gid: sheetTwoGid,
+    emailColumn: "Email Address",
+    valueColumn: "Meeting Info",
+    email: normalizedEmail,
+  });
+
+  return fromSheetTwo;
+};
+
 export const getHostIdForEmail = async (email: string) => {
   const normalizedEmail = email.trim();
   if (!normalizedEmail) {
