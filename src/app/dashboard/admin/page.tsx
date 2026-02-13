@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/guards";
 import { ADMIN_ROLES } from "@/lib/rbac";
 import GridImportButton from "@/components/grid-import-button";
+import UpdateMeetingSheetButton from "@/components/update-meeting-sheet-button";
 
 export default async function AdminDashboardPage() {
   const session = await requireRole(ADMIN_ROLES);
@@ -46,6 +47,29 @@ export default async function AdminDashboardPage() {
         </p>
         <div className="mt-4">
           <GridImportButton />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Host meeting info</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Write meeting info from the adminsite to the Google Sheet (calls adminsite
+          <code className="mx-1 rounded bg-[#f7e2b6] px-1 text-xs">/meetings/update-sheet</code>
+          ).
+        </p>
+        <div className="mt-4 flex flex-wrap gap-4">
+          <UpdateMeetingSheetButton
+            clientName="Chinmaya Mission"
+            label="Update (Chinmaya Mission)"
+          />
+          <UpdateMeetingSheetButton
+            clientName="Chinmaya Vrindavan"
+            label="Update (Chinmaya Vrindavan)"
+          />
+          <UpdateMeetingSheetButton
+            clientName="Chinmaya Sanjose"
+            label="Update (Chinmaya Sanjose)"
+          />
         </div>
       </div>
 

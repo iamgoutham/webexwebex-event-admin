@@ -1,6 +1,9 @@
 import ParticipantLinks from "@/components/participant-links";
 import { requireAuth } from "@/lib/guards";
-import { getLicenseSiteForEmail, getMeetingInfoForEmail } from "@/lib/license-site";
+import {
+  getLicenseSiteForEmail,
+  getMeetingInfoForEmail,
+} from "@/lib/license-site";
 import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
 
 type SheetMeeting = {
@@ -10,7 +13,7 @@ type SheetMeeting = {
   state?: string;
   meetingNumber?: string;
   webLink?: string;
-  participants?: unknown[];
+  invitees?: unknown[];
 };
 
 type MeetingInfoJson = {
@@ -175,6 +178,10 @@ export default async function MeetingsPage() {
         <div className="grid gap-4">
           {meetingsFromJson.map((meeting, index) => {
             const mtid = getMtidFromWebLink(meeting.webLink);
+            const invitees = Array.isArray(meeting.invitees)
+              ? meeting.invitees
+              : null;
+
             return (
               <div
                 key={meeting.meetingNumber ?? meeting.webLink ?? index}
@@ -196,10 +203,11 @@ export default async function MeetingsPage() {
                     <p>End: {formatDateTime(meeting.end)}</p>
                   </div>
                 </div>
-                {Array.isArray(meeting.participants) &&
-                meeting.participants.length > 0 ? (
+                {Array.isArray(invitees) && invitees.length > 0 ? (
                   <ParticipantLinks
-                    participants={meeting.participants as { email?: string; phone?: string; name?: string }[]}
+                    invitees={
+                      invitees as { email?: string; phone?: string; name?: string }[]
+                    }
                   />
                 ) : null}
                 <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
