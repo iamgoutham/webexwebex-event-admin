@@ -142,6 +142,99 @@ async function main() {
   } else if (adminEmail && !resolvedAdminTenantId) {
     console.warn("Skipping admin seed: tenant not found.");
   }
+
+  // -------------------------------------------------------------------------
+  // Seed notification templates
+  // -------------------------------------------------------------------------
+  const notificationTemplates = [
+    {
+      slug: "event-live",
+      name: "Event is LIVE",
+      title: "Event is LIVE — Join Now!",
+      body: "The Gita Chanting event has started! Please join your assigned Webex meeting immediately. Your host is waiting for you.",
+      type: "BROADCAST" as const,
+      channels: ["EMAIL", "IN_APP"],
+    },
+    {
+      slug: "reminder-30min",
+      name: "30-Minute Reminder",
+      title: "Event starts in 30 minutes",
+      body: "The Gita Chanting event begins in 30 minutes. Please prepare your setup and join your Webex meeting on time.",
+      type: "BROADCAST" as const,
+      channels: ["EMAIL", "IN_APP"],
+    },
+    {
+      slug: "host-checkin",
+      name: "Host Check-in",
+      title: "Host Check-in Required",
+      body: "Please confirm you are ready to host your meeting. Log into the portal and check your meeting details. Report any issues immediately.",
+      type: "BROADCAST" as const,
+      channels: ["EMAIL", "IN_APP"],
+    },
+    {
+      slug: "event-complete",
+      name: "Event Complete",
+      title: "Event Complete — Thank You!",
+      body: "The Gita Chanting event has concluded. Thank you for your participation and dedication. Hari Om!",
+      type: "BROADCAST" as const,
+      channels: ["EMAIL", "IN_APP"],
+    },
+    {
+      slug: "emergency-alert",
+      name: "Emergency Alert",
+      title: "Important Update — Please Read",
+      body: "An important update regarding the event. Please check the portal for the latest information and follow any new instructions.",
+      type: "BROADCAST" as const,
+      channels: ["EMAIL", "IN_APP", "SMS"],
+    },
+    {
+      slug: "host-relay",
+      name: "Host Relay Message",
+      title: "{{title}}",
+      body: "{{body}}",
+      type: "RELAY" as const,
+      channels: ["IN_APP"],
+    },
+    {
+      slug: "custom-broadcast",
+      name: "Custom Broadcast",
+      title: "{{title}}",
+      body: "{{body}}",
+      type: "BROADCAST" as const,
+      channels: ["EMAIL", "IN_APP"],
+    },
+    {
+      slug: "welcome-host",
+      name: "Welcome Host",
+      title: "Welcome to Gita Chanting Event!",
+      body: "You have been registered as a host. Please log into the portal to view your meeting details and prepare for the event.",
+      type: "SYSTEM" as const,
+      channels: ["EMAIL", "IN_APP"],
+    },
+  ];
+
+  for (const tmpl of notificationTemplates) {
+    await prisma.notificationTemplate.upsert({
+      where: { slug: tmpl.slug },
+      update: {
+        name: tmpl.name,
+        title: tmpl.title,
+        body: tmpl.body,
+        type: tmpl.type,
+        channels: tmpl.channels,
+      },
+      create: {
+        slug: tmpl.slug,
+        name: tmpl.name,
+        title: tmpl.title,
+        body: tmpl.body,
+        type: tmpl.type,
+        channels: tmpl.channels,
+      },
+    });
+  }
+
+  console.log(`Seeded ${notificationTemplates.length} notification templates.`);
 }
 
 main()
