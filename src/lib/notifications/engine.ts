@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  type Prisma,
   DeliveryChannel,
   NotificationSeverity,
   BroadcastStatus,
@@ -96,7 +97,7 @@ export async function notify(
       severity: options.severity ?? NotificationSeverity.INFO,
       title,
       body,
-      data: options.data ?? undefined,
+      data: (options.data ?? undefined) as Prisma.InputJsonValue | undefined,
       actionUrl: options.actionUrl ?? null,
       deliveries: {
         create: enabledChannels.map((channel) => ({ channel })),

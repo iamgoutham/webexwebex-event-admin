@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Role, BroadcastStatus, BroadcastTarget } from "@prisma/client";
+import { Prisma, BroadcastStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth, jsonError } from "@/lib/api-guards";
 
@@ -38,7 +38,7 @@ export async function GET() {
     where: {
       userId: session.user.id,
       type: "RELAY",
-      data: { not: null },
+      data: { not: Prisma.DbNull },
     },
     select: {
       data: true,

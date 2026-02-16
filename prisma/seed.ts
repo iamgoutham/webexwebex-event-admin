@@ -213,28 +213,37 @@ async function main() {
     },
   ];
 
-  for (const tmpl of notificationTemplates) {
-    await prisma.notificationTemplate.upsert({
-      where: { slug: tmpl.slug },
-      update: {
-        name: tmpl.name,
-        title: tmpl.title,
-        body: tmpl.body,
-        type: tmpl.type,
-        channels: tmpl.channels,
-      },
-      create: {
-        slug: tmpl.slug,
-        name: tmpl.name,
-        title: tmpl.title,
-        body: tmpl.body,
-        type: tmpl.type,
-        channels: tmpl.channels,
-      },
-    });
+  try {
+    for (const tmpl of notificationTemplates) {
+      await prisma.notificationTemplate.upsert({
+        where: { slug: tmpl.slug },
+        update: {
+          name: tmpl.name,
+          title: tmpl.title,
+          body: tmpl.body,
+          type: tmpl.type,
+          channels: tmpl.channels,
+        },
+        create: {
+          slug: tmpl.slug,
+          name: tmpl.name,
+          title: tmpl.title,
+          body: tmpl.body,
+          type: tmpl.type,
+          channels: tmpl.channels,
+        },
+      });
+    }
+    console.log(`Seeded ${notificationTemplates.length} notification templates.`);
+  } catch (err) {
+    console.warn(
+      "Notification template seeding skipped:",
+      err instanceof Error ? err.message : String(err),
+    );
+    console.warn(
+      "Ensure notification migrations are applied and re-run seed if needed.",
+    );
   }
-
-  console.log(`Seeded ${notificationTemplates.length} notification templates.`);
 }
 
 main()

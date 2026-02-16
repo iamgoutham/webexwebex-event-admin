@@ -24,22 +24,16 @@ export default function GmtClock() {
 
   return (
     <div className="fixed inset-0 z-50 flex min-h-screen flex-col bg-[#1a1a1a]">
-      <div className="flex flex-1 flex-col items-center justify-center px-4">
-        <p className="text-xs font-medium uppercase tracking-[0.25em] text-white/90">
-          GMT TIME
-        </p>
-        <p
-          className="mt-3 font-mono text-6xl font-bold tabular-nums tracking-wide text-white sm:text-7xl md:text-8xl"
+      <div className="flex flex-1 flex-row flex-nowrap items-center justify-center gap-3 px-4 sm:gap-4">
+        <span className="whitespace-nowrap text-base font-medium text-white sm:text-4xl md:text-5xl lg:text-6xl">
+          Chinmaya Gita Samarpanam- A Guinness World record attempt
+        </span>
+        <span
+          className="shrink-0 font-mono text-base font-bold tabular-nums tracking-wide text-white sm:text-4xl md:text-5xl lg:text-6xl"
           aria-live="polite"
         >
           {gmtTime}
-        </p>
-        <p className="mt-12 text-xs font-medium uppercase tracking-[0.25em] text-white/90">
-          COUNTDOWN
-        </p>
-        <p className="mt-3 font-mono text-4xl font-medium tabular-nums tracking-wide text-white/80 sm:text-5xl">
-          ---- : ----
-        </p>
+        </span>
       </div>
 
       <div className="absolute left-4 top-4">
