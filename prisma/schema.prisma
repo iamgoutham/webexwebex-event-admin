@@ -17,6 +17,58 @@ enum UploadStatus {
   FAILED
 }
 
+// ---------------------------------------------------------------------------
+// Notification system enums
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  SYSTEM
+  BROADCAST
+  RELAY
+  REMINDER
+  ALERT
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  URGENT
+  CRITICAL
+}
+
+enum DeliveryChannel {
+  IN_APP
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  FAILED
+}
+
+enum BroadcastTarget {
+  HOSTS_ONLY
+  PARTICIPANTS_ONLY
+  ALL
+}
+
+// ---------------------------------------------------------------------------
+// Existing models
+// ---------------------------------------------------------------------------
+
 model Tenant {
   id        String   @id @default(cuid())
   name      String
@@ -25,6 +77,11 @@ model Tenant {
   updatedAt DateTime @updatedAt
   users     User[]
   uploads   Upload[]
+
+  // Notification relations
+  notifications Notification[]
+  broadcasts    Broadcast[]
+  participants  Participant[]
 }
 
 model User {
@@ -44,6 +101,12 @@ model User {
   accounts  Account[]
   sessions  Session[]
   uploads   Upload[]
+
+  // Notification relations
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  broadcasts              Broadcast[]            @relation("BroadcastSender")
+  participants            Participant[]
 
   @@index([tenantId])
   @@index([role])
@@ -104,4 +167,127 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Notification system models
+// ---------------------------------------------------------------------------
+
+/// Participants — unauthenticated users (meeting invitees) who receive email only
+model Participant {
+  id        String   @id @default(cuid())
+  email     String
+  name      String?
+  phone     String?
+  tenantId  String?
+  userId    String?  // optional link to User if the participant is also a host
+  optedOut  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([tenantId])
+  @@index([optedOut])
+}
+
+/// Individual notifications for authenticated users (hosts)
+model Notification {
+  id          String               @id @default(cuid())
+  userId      String
+  tenantId    String?
+  type        NotificationType     @default(SYSTEM)
+  severity    NotificationSeverity @default(INFO)
+  title       String
+  body        String               @db.Text
+  data        Json?
+  actionUrl   String?
+  broadcastId String?
+  readAt      DateTime?
+  createdAt   DateTime             @default(now())
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant     Tenant?                @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  deliveries NotificationDelivery[]
+
+  @@index([userId, readAt])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@index([broadcastId])
+}
+
+/// Tracks delivery status per channel for each notification
+model NotificationDelivery {
+  id             String         @id @default(cuid())
+  notificationId String
+  channel        DeliveryChannel
+  status         String         @default("PENDING") // Using String for flexibility with custom statuses like BOUNCED
+  externalId     String?        // SES MessageId, Twilio SID, etc.
+  error          String?        @db.Text
+  sentAt         DateTime?
+  deliveredAt    DateTime?
+  createdAt      DateTime       @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([externalId])
+  @@index([channel, status])
+}
+
+/// Per-user per-channel notification preferences
+model NotificationPreference {
+  id        String          @id @default(cuid())
+  userId    String
+  channel   DeliveryChannel
+  enabled   Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel])
+  @@index([userId])
+}
+
+/// Reusable notification templates with Mustache-style variable interpolation
+model NotificationTemplate {
+  id        String           @id @default(cuid())
+  slug      String           @unique
+  name      String
+  title     String
+  body      String           @db.Text
+  type      NotificationType @default(SYSTEM)
+  channels  Json             @default("[]") // DeliveryChannel[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+/// Broadcast records — tracks mass notification sends
+model Broadcast {
+  id          String          @id @default(cuid())
+  tenantId    String?         // null = all tenants (cross-tenant broadcast)
+  senderId    String
+  target      BroadcastTarget
+  title       String
+  body        String          @db.Text
+  channels    Json            @default("[]") // DeliveryChannel[]
+  status      BroadcastStatus @default(DRAFT)
+  totalCount  Int             @default(0)
+  sentCount   Int             @default(0)
+  failedCount Int             @default(0)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  sender User    @relation("BroadcastSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([senderId])
+  @@index([status])
+  @@index([createdAt])
 }

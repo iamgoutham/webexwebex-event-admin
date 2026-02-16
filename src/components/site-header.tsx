@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Role } from "@prisma/client";
 import AuthButtons from "@/components/auth-buttons";
+import NotificationBell from "@/components/notifications/notification-bell";
 import { getServerAuthSession } from "@/lib/session";
 import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
 
@@ -47,6 +48,16 @@ export default async function SiteHeader() {
                 Admin
               </Link>
             ) : null}
+            {user?.role === Role.ADMIN || user?.role === Role.SUPERADMIN ? (
+              <Link href="/dashboard/admin/broadcast" className="hover:text-[#fbe9c6]">
+                Broadcast
+              </Link>
+            ) : null}
+            {user ? (
+              <Link href="/dashboard/relay" className="hover:text-[#fbe9c6]">
+                Relay
+              </Link>
+            ) : null}
             {user?.role === Role.SUPERADMIN ? (
               <Link
                 href="/dashboard/superadmin"
@@ -58,6 +69,7 @@ export default async function SiteHeader() {
           </nav>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          {user ? <NotificationBell /> : null}
           {user ? (
             <div className="text-left text-xs text-[#fbe9c6]/60 sm:text-right">
               <div className="font-medium text-[#fbe9c6]">
