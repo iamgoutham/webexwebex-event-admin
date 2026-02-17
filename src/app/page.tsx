@@ -187,6 +187,26 @@ export default async function Home() {
           <ul className="space-y-2">
             <li>
               <a
+                href="https://tinyurl.com/GitaChantingReg"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Register for the event
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://tinyurl.com/GitaChantingReg"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Useful Event Info
+              </a>
+            </li>
+            <li>
+              <a
                 href="https://tinyurl.com/WebexCheatSheet"
                 target="_blank"
                 rel="noreferrer"

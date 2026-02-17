@@ -5,6 +5,7 @@ import BroadcastForm from "@/components/notifications/broadcast-form";
 import QuickSendButtons from "@/components/notifications/quick-send-buttons";
 import BroadcastHistory from "@/components/notifications/broadcast-history";
 import ParticipantSyncButton from "@/components/notifications/participant-sync-button";
+import TestSesButton from "@/components/notifications/test-ses-button";
 
 export default async function BroadcastPage() {
   const session = await requireRole(ADMIN_ROLES);
@@ -59,6 +60,18 @@ export default async function BroadcastPage() {
               ? ` (${participantCount - activeParticipantCount} opted out)`
               : ""}
           </p>
+        </div>
+      </div>
+
+      {/* Test SES */}
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Test SES</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Send a test email to the addresses in SES_TEST_GROUP_EMAILS to verify
+          AWS SES is working.
+        </p>
+        <div className="mt-4">
+          <TestSesButton />
         </div>
       </div>
 

@@ -1,69 +1,147 @@
 import { prisma } from "@/lib/prisma";
-import type {
-  ParticipantSyncResult,
-  WebexMeeting,
-  WebexInvitee,
-} from "./types";
+import type { ParticipantSyncResult } from "./types";
 
 // ---------------------------------------------------------------------------
-// Participant Sync — Pulls meeting invitees from FastAPI backend
+// Participant Sync — Reads participants from Google Sheets
 // ---------------------------------------------------------------------------
 //
-// The FastAPI backend at ADMINSITE_URL has endpoints:
-//   GET /clients                        → { clients: string[] }
-//   GET /meetings/users?client_name=X   → { users: [...] }
-//   GET /meetings/user/{email}/full?client_name=X → { meetings: [...invitees] }
+// Configuration via env PARTICIPANT_MAP_LIST (JSON array):
+//   [
+//     { "sheet_id": "...", "email_column_name": "Email", "phone_column_name": "Phone Number (WhatsApp)" },
+//     ...
+//   ]
 //
-// Sync flow:
-//   1. Fetch all clients from FastAPI
-//   2. For each client, fetch all department users (hosts)
-//   3. For each host, fetch their meetings with full invitee details
-//   4. Upsert each invitee as a Participant in our DB
+// Flow:
+//   1. Parse PARTICIPANT_MAP_LIST from environment
+//   2. For each sheet, fetch as CSV (Google Sheets gviz/tq?tqx=out:csv)
+//   3. Parse CSV, find email and phone columns by name, upsert each row as Participant
+//   4. All participants get tenantId: null (communications sent to all together)
 //
-// This is triggered by the "Sync Participants" button on the admin dashboard.
+// Triggered by the "Sync Participants" button on the admin dashboard.
 // ---------------------------------------------------------------------------
 
-const ADMIN_API_URL = process.env.ADMINSITE_URL ?? "http://localhost:4000";
+/** Timeout for Google Sheets fetch (2 minutes per sheet). */
+const SHEET_FETCH_TIMEOUT_MS = 2 * 60 * 1000;
 
-interface FastAPIUserResponse {
-  client: string;
-  department: string;
-  user_count: number;
-  users: Array<{ email: string; invitePending: boolean }>;
+export interface ParticipantSheetConfig {
+  sheet_id: string;
+  email_column_name: string;
+  phone_column_name: string;
 }
 
-interface FastAPIMeetingFullResponse {
-  client: string;
-  email: string;
-  meeting_count: number;
-  meetings: Array<{
-    id: string;
-    title: string;
-    start: string;
-    end: string;
-    invitees: Array<{
-      name: string;
-      email: string;
-      role: string;
-      phone: string;
-    }>;
-  }>;
+/** Allow trailing commas in JSON (e.g. from copy-pasted JS). */
+function stripTrailingCommas(json: string): string {
+  return json
+    .replace(/,\s*]/g, "]")
+    .replace(/,\s*}/g, "}");
 }
 
-interface FastAPIClientsResponse {
-  clients: string[];
+function getParticipantMapList(): ParticipantSheetConfig[] {
+  const raw = process.env.PARTICIPANT_MAP_LIST;
+  if (!raw?.trim()) return [];
+  try {
+    const normalized = stripTrailingCommas(raw.trim());
+    const parsed = JSON.parse(normalized) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is ParticipantSheetConfig =>
+        item != null &&
+        typeof item === "object" &&
+        typeof (item as ParticipantSheetConfig).sheet_id === "string" &&
+        typeof (item as ParticipantSheetConfig).email_column_name === "string" &&
+        typeof (item as ParticipantSheetConfig).phone_column_name === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Normalize for column matching: trim, lowercase, collapse spaces/underscores, unify apostrophes. */
+const normalizeHeader = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, "")
+    .replace(/[\u2018\u2019\u201a\u201b\u2032\u2035]/g, "'"); // curly/smart apostrophes → straight
+
+function parseCsv(csv: string): string[][] {
+  const rows: string[][] = [];
+  let current = "";
+  let row: string[] = [];
+  let inQuotes = false;
+
+  for (let i = 0; i < csv.length; i += 1) {
+    const char = csv[i];
+    const next = csv[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (!inQuotes && char === ",") {
+      row.push(current);
+      current = "";
+      continue;
+    }
+
+    if (!inQuotes && (char === "\n" || char === "\r")) {
+      if (char === "\r" && next === "\n") i += 1;
+      row.push(current);
+      if (row.some((cell) => cell.trim() !== "")) rows.push(row);
+      row = [];
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  row.push(current);
+  if (row.some((cell) => cell.trim() !== "")) rows.push(row);
+  return rows;
+}
+
+function findColumnIndex(headers: string[], candidates: string[]): number {
+  const normalizedCandidates = candidates.map(normalizeHeader);
+  return headers.findIndex((header) =>
+    normalizedCandidates.includes(normalizeHeader(header)),
+  );
+}
+
+async function fetchSheetCsv(sheetId: string): Promise<string | null> {
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SHEET_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    return response.text();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Sync all participants across all clients
+// Sync all participants from configured Google Sheets
 // ---------------------------------------------------------------------------
 
 /**
- * Sync participants from the Webex FastAPI backend for all clients.
- * Optionally filter to a specific tenantId (maps to a client name).
+ * Sync participants from the participant_map_list Google Sheets.
+ * tenantId is ignored; all participants are stored with tenantId null.
  */
 export async function syncParticipants(
-  tenantId?: string | null,
+  _tenantId?: string | null,
 ): Promise<ParticipantSyncResult> {
   const result: ParticipantSyncResult = {
     created: 0,
@@ -72,181 +150,100 @@ export async function syncParticipants(
     errors: [],
   };
 
-  try {
-    // 1. Fetch available clients
-    const clientsRes = await fetch(`${ADMIN_API_URL}/clients`, {
-      cache: "no-store",
-    });
-    if (!clientsRes.ok) {
+  const mapList = getParticipantMapList();
+  if (mapList.length === 0) {
+    const raw = process.env.PARTICIPANT_MAP_LIST;
+    if (!raw?.trim()) {
       result.errors.push(
-        `Failed to fetch clients: ${clientsRes.status} ${clientsRes.statusText}`,
+        "PARTICIPANT_MAP_LIST is not set. Add it to .env as a JSON array of { sheet_id, email_column_name, phone_column_name }, then restart the server.",
       );
-      return result;
+    } else {
+      result.errors.push(
+        "PARTICIPANT_MAP_LIST is invalid. Use valid JSON (no trailing commas). Each item must have sheet_id, email_column_name, and phone_column_name.",
+      );
     }
-    const clientsData = (await clientsRes.json()) as FastAPIClientsResponse;
-    const clientNames = clientsData.clients;
+    return result;
+  }
 
-    // If tenantId is given, map it to a client name
-    let targetClients = clientNames;
-    if (tenantId) {
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: tenantId },
-        select: { name: true, slug: true },
-      });
-      if (tenant) {
-        // Try to match tenant name/slug to a FastAPI client name
-        const match = clientNames.find(
-          (c) =>
-            c.toLowerCase() === tenant.name.toLowerCase() ||
-            c.toLowerCase() === tenant.slug.toLowerCase(),
+  const tenantId = null; // All participants share the same list; no tenant scope.
+
+  for (const config of mapList) {
+    try {
+      const csv = await fetchSheetCsv(config.sheet_id);
+      if (!csv) {
+        result.errors.push(
+          `Failed to fetch sheet ${config.sheet_id} (${config.email_column_name})`,
         );
-        if (match) {
-          targetClients = [match];
-        } else {
-          result.errors.push(
-            `Tenant "${tenant.name}" does not match any FastAPI client`,
-          );
-          return result;
+        continue;
+      }
+
+      const rows = parseCsv(csv);
+      if (rows.length < 2) continue;
+
+      const headers = rows[0];
+      const emailIdx = findColumnIndex(headers, [
+        config.email_column_name,
+        "email",
+        "Email",
+      ]);
+      const phoneIdx = findColumnIndex(headers, [
+        config.phone_column_name,
+        "phone",
+        "Phone",
+      ]);
+
+      if (emailIdx === -1) {
+        const available = headers
+          .map((h, i) => (h?.trim() ? `"${String(h).replace(/"/g, '\\"')}"` : `(empty ${i})`))
+          .join(", ");
+        result.errors.push(
+          `Sheet ${config.sheet_id}: email column not found (tried "${config.email_column_name}"). Available columns: ${available}`,
+        );
+        continue;
+      }
+
+      for (const row of rows.slice(1)) {
+        const email = row[emailIdx]?.trim().toLowerCase();
+        if (!email || email === "" || email === "n/a") continue;
+
+        const phone = phoneIdx >= 0 ? row[phoneIdx]?.trim() ?? null : null;
+
+        try {
+          const existing = await prisma.participant.findFirst({
+            where: { email, tenantId },
+            select: { id: true },
+          });
+
+          if (existing) {
+            await prisma.participant.update({
+              where: { id: existing.id },
+              data: {
+                phone: phone || null,
+              },
+            });
+            result.updated++;
+          } else {
+            await prisma.participant.create({
+              data: {
+                email,
+                name: null,
+                phone: phone || null,
+                tenantId,
+                optedOut: false,
+              },
+            });
+            result.created++;
+          }
+        } catch {
+          result.skipped++;
         }
       }
+    } catch (err) {
+      result.errors.push(
+        `Sheet ${config.sheet_id}: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
-
-    // 2. Process each client
-    for (const clientName of targetClients) {
-      try {
-        await syncClientParticipants(clientName, result);
-      } catch (err) {
-        result.errors.push(
-          `Error syncing client ${clientName}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-  } catch (err) {
-    result.errors.push(
-      `Sync failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
   }
 
   return result;
-}
-
-// ---------------------------------------------------------------------------
-// Sync participants for a single client
-// ---------------------------------------------------------------------------
-
-async function syncClientParticipants(
-  clientName: string,
-  result: ParticipantSyncResult,
-): Promise<void> {
-  // Fetch all department users (hosts) for this client
-  const usersRes = await fetch(
-    `${ADMIN_API_URL}/meetings/users?client_name=${encodeURIComponent(clientName)}`,
-    { cache: "no-store" },
-  );
-
-  if (!usersRes.ok) {
-    result.errors.push(
-      `Failed to fetch users for ${clientName}: ${usersRes.status}`,
-    );
-    return;
-  }
-
-  const usersData = (await usersRes.json()) as FastAPIUserResponse;
-  const hostEmails = usersData.users.map((u) => u.email);
-
-  // Find the tenant in our DB that matches this client
-  const tenant = await prisma.tenant.findFirst({
-    where: {
-      OR: [
-        { name: { equals: clientName } },
-        { slug: { equals: clientName.toLowerCase() } },
-      ],
-    },
-    select: { id: true },
-  });
-
-  const tenantId = tenant?.id ?? null;
-
-  // Collect all unique participant emails from all meetings
-  const seen = new Set<string>();
-
-  // Process hosts in batches to avoid overwhelming the FastAPI
-  const BATCH_SIZE = 5;
-  for (let i = 0; i < hostEmails.length; i += BATCH_SIZE) {
-    const batch = hostEmails.slice(i, i + BATCH_SIZE);
-
-    const batchResults = await Promise.allSettled(
-      batch.map(async (hostEmail) => {
-        const meetingsRes = await fetch(
-          `${ADMIN_API_URL}/meetings/user/${encodeURIComponent(hostEmail)}/full?client_name=${encodeURIComponent(clientName)}`,
-          { cache: "no-store" },
-        );
-
-        if (!meetingsRes.ok) {
-          result.errors.push(
-            `Failed to fetch meetings for ${hostEmail}: ${meetingsRes.status}`,
-          );
-          return;
-        }
-
-        const meetingsData =
-          (await meetingsRes.json()) as FastAPIMeetingFullResponse;
-
-        for (const meeting of meetingsData.meetings) {
-          for (const invitee of meeting.invitees) {
-            const email = invitee.email?.trim().toLowerCase();
-            if (!email || email === "n/a" || seen.has(email)) continue;
-
-            // Skip if invitee is a host (they're already in the User table)
-            if (hostEmails.includes(email)) {
-              result.skipped++;
-              seen.add(email);
-              continue;
-            }
-
-            seen.add(email);
-
-            try {
-              // Upsert: create or update participant
-              const existing = await prisma.participant.findFirst({
-                where: { email, tenantId },
-              });
-
-              if (existing) {
-                await prisma.participant.update({
-                  where: { id: existing.id },
-                  data: {
-                    name: invitee.name || existing.name,
-                    phone: invitee.phone || existing.phone,
-                  },
-                });
-                result.updated++;
-              } else {
-                await prisma.participant.create({
-                  data: {
-                    email,
-                    name: invitee.name || null,
-                    phone: invitee.phone || null,
-                    tenantId,
-                    optedOut: false,
-                  },
-                });
-                result.created++;
-              }
-            } catch (err) {
-              // Unique constraint race condition — just count as skipped
-              result.skipped++;
-            }
-          }
-        }
-      }),
-    );
-
-    // Log any unhandled rejections
-    for (const r of batchResults) {
-      if (r.status === "rejected") {
-        result.errors.push(`Batch error: ${String(r.reason)}`);
-      }
-    }
-  }
 }
