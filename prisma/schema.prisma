@@ -82,6 +82,7 @@ model Tenant {
   notifications Notification[]
   broadcasts    Broadcast[]
   participants  Participant[]
+  hosts         Host[]
 }
 
 model User {
@@ -187,6 +188,25 @@ model Participant {
 
   tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([tenantId])
+  @@index([optedOut])
+}
+
+/// Hosts — imported from sheets for broadcast; separate from User (portal logins).
+/// tenantId null = send to all as a group.
+model Host {
+  id        String   @id @default(cuid())
+  email     String
+  name      String?
+  phone     String?
+  tenantId  String?  // null = all hosts as one group
+  optedOut  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
 
   @@index([email])
   @@index([tenantId])

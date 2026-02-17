@@ -5,6 +5,7 @@ import BroadcastForm from "@/components/notifications/broadcast-form";
 import QuickSendButtons from "@/components/notifications/quick-send-buttons";
 import BroadcastHistory from "@/components/notifications/broadcast-history";
 import ParticipantSyncButton from "@/components/notifications/participant-sync-button";
+import HostSyncButton from "@/components/notifications/host-sync-button";
 import TestSesButton from "@/components/notifications/test-ses-button";
 
 export default async function BroadcastPage() {
@@ -17,11 +18,12 @@ export default async function BroadcastPage() {
   });
 
   // Get participant + host counts for the stats cards
-  const [participantCount, activeParticipantCount, hostCount] =
+  const [participantCount, activeParticipantCount, portalHostCount, sheetHostCount] =
     await Promise.all([
       prisma.participant.count(),
       prisma.participant.count({ where: { optedOut: false } }),
       prisma.user.count(),
+      prisma.host.count({ where: { optedOut: false } }),
     ]);
 
   return (
@@ -35,12 +37,18 @@ export default async function BroadcastPage() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-5 text-center">
           <p className="text-3xl font-bold text-[#d8792d]">
-            {hostCount.toLocaleString()}
+            {sheetHostCount.toLocaleString()}
           </p>
-          <p className="mt-1 text-xs text-[#8a5b44]">Hosts (authenticated)</p>
+          <p className="mt-1 text-xs text-[#8a5b44]">Hosts (from sheets)</p>
+        </div>
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-5 text-center">
+          <p className="text-3xl font-bold text-[#d8792d]">
+            {portalHostCount.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-[#8a5b44]">Users (portal logins)</p>
         </div>
         <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-5 text-center">
           <p className="text-3xl font-bold text-[#d8792d]">
@@ -87,12 +95,23 @@ export default async function BroadcastPage() {
         </div>
       </div>
 
+      {/* Host sync */}
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Host Data</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Sync host emails from Google Sheets (HOST_MAP_LIST). Broadcasts to
+          hosts use this list; it is separate from the User table (portal logins).
+        </p>
+        <div className="mt-4">
+          <HostSyncButton />
+        </div>
+      </div>
+
       {/* Participant sync */}
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
         <h2 className="text-lg font-semibold">Participant Data</h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          Sync participant emails from Webex meeting invitees via the admin
-          backend. This pulls all invitees from all hosts&apos; meetings.
+          Sync participant emails from Google Sheets (PARTICIPANT_MAP_LIST).
         </p>
         <div className="mt-4">
           <ParticipantSyncButton />

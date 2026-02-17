@@ -54,7 +54,7 @@ export default function ParticipantSyncButton() {
       >
         {state.status === "loading"
           ? "Syncing participants..."
-          : "Sync Participants from Webex"}
+          : "Sync Participants from Google Sheets"}
       </button>
 
       {state.status === "error" ? (

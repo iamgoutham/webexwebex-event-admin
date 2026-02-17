@@ -68,7 +68,6 @@ export async function POST(request: NextRequest) {
 
   try {
     if (target === BroadcastTarget.HOSTS_ONLY) {
-      // Create broadcast record
       const broadcast = await prisma.broadcast.create({
         data: {
           tenantId: tenantId ?? null,
@@ -82,30 +81,34 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Get host emails
-      const hostWhere = tenantId ? { tenantId } : {};
-      const hosts = await prisma.user.findMany({
+      // Host emails from Host table (sheet-imported); domain-agnostic, send as group
+      const hostWhere = { optedOut: false, ...(tenantId ? { tenantId } : { tenantId: null }) };
+      const hostsFromTable = await prisma.host.findMany({
         where: hostWhere,
-        select: { id: true, email: true },
+        select: { email: true },
+      });
+      const hostEmails = [...new Set(hostsFromTable.map((h) => h.email))];
+
+      // In-app: only to Users (logged-in portal hosts)
+      const userWhere = tenantId ? { tenantId } : {};
+      const portalHosts = await prisma.user.findMany({
+        where: userWhere,
+        select: { id: true },
       });
 
-      // Import email handler to send directly
       const { sendBulkEmail } = await import("@/lib/notifications/channels/email");
-      const emails = hosts.map((h) => h.email).filter(Boolean) as string[];
-
       let sentCount = 0;
       let failedCount = 0;
 
-      if (channels.includes(DeliveryChannel.EMAIL) && emails.length > 0) {
-        const results = await sendBulkEmail(emails, title, bodyText);
+      if (channels.includes(DeliveryChannel.EMAIL) && hostEmails.length > 0) {
+        const results = await sendBulkEmail(hostEmails, title, bodyText);
         sentCount = results.filter((r) => r.success).length;
         failedCount = results.filter((r) => !r.success).length;
       }
 
-      // Create in-app notifications for each host
-      if (channels.includes(DeliveryChannel.IN_APP)) {
+      if (channels.includes(DeliveryChannel.IN_APP) && portalHosts.length > 0) {
         await prisma.notification.createMany({
-          data: hosts.map((h) => ({
+          data: portalHosts.map((h) => ({
             userId: h.id,
             tenantId: tenantId ?? null,
             type: "BROADCAST" as const,
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
         where: { id: broadcast.id },
         data: {
           status: BroadcastStatus.SENT,
-          totalCount: emails.length,
+          totalCount: hostEmails.length,
           sentCount,
           failedCount,
           sentAt: new Date(),
@@ -133,7 +136,7 @@ export async function POST(request: NextRequest) {
         broadcastId: broadcast.id,
         sentCount,
         failedCount,
-        totalHosts: hosts.length,
+        totalHosts: hostEmails.length,
       });
     }
 
@@ -202,15 +205,21 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Send to hosts
-      const hostWhere = tenantId ? { tenantId } : {};
-      const hosts = await prisma.user.findMany({
+      // Host emails from Host table (sheet-imported)
+      const hostWhere = { optedOut: false, ...(tenantId ? { tenantId } : { tenantId: null }) };
+      const hostsFromTable = await prisma.host.findMany({
         where: hostWhere,
-        select: { id: true, email: true },
+        select: { email: true },
       });
-      const hostEmails = hosts.map((h) => h.email).filter(Boolean) as string[];
+      const hostEmails = [...new Set(hostsFromTable.map((h) => h.email))];
 
-      // Send to participants
+      // In-app for logged-in portal hosts
+      const userWhere = tenantId ? { tenantId } : {};
+      const portalHosts = await prisma.user.findMany({
+        where: userWhere,
+        select: { id: true },
+      });
+
       const partWhere = {
         optedOut: false,
         ...(tenantId ? { tenantId } : {}),
@@ -240,10 +249,9 @@ export async function POST(request: NextRequest) {
         partFailed = partResults.filter((r) => !r.success).length;
       }
 
-      // Create in-app notifications for hosts
-      if (channels.includes(DeliveryChannel.IN_APP)) {
+      if (channels.includes(DeliveryChannel.IN_APP) && portalHosts.length > 0) {
         await prisma.notification.createMany({
-          data: hosts.map((h) => ({
+          data: portalHosts.map((h) => ({
             userId: h.id,
             tenantId: tenantId ?? null,
             type: "BROADCAST" as const,

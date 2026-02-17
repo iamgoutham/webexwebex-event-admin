@@ -114,6 +114,13 @@ export interface ParticipantSyncResult {
   errors: string[];
 }
 
+export interface HostSyncResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Webex API response shapes (from FastAPI backend)
 // ---------------------------------------------------------------------------

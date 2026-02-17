@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { ParticipantSyncResult } from "./types";
+import type { HostSyncResult } from "./types";
 import {
   fetchSheetCsv,
   findColumnIndex,
@@ -8,91 +8,73 @@ import {
 } from "./sheet-csv";
 
 // ---------------------------------------------------------------------------
-// Participant Sync — Reads participants from Google Sheets
+// Host Sync — Reads hosts from Google Sheets (separate from User / portal logins)
 // ---------------------------------------------------------------------------
 //
-// Configuration via env PARTICIPANT_MAP_LIST (JSON array):
+// Configuration via env HOST_MAP_LIST (JSON array), same shape as PARTICIPANT_MAP_LIST:
 //   [
-//     { "sheet_id": "...", "email_column_name": "Email", "phone_column_name": "Phone Number (WhatsApp)" },
-//     ...
+//     { "sheet_id": "...", "email_column_name": "Email", "phone_column_name": "Phone" },
+//     ... optionally "name_column_name": "Name"
 //   ]
 //
-// Flow:
-//   1. Parse PARTICIPANT_MAP_LIST from environment
-//   2. For each sheet, fetch as CSV (Google Sheets gviz/tq?tqx=out:csv)
-//   3. Parse CSV, find email and phone columns by name, upsert each row as Participant
-//   4. All participants get tenantId: null (communications sent to all together)
-//
-// Triggered by the "Sync Participants" button on the admin dashboard.
+// All hosts get tenantId: null; messages sent to all as a group.
 // ---------------------------------------------------------------------------
 
-export interface ParticipantSheetConfig {
+export interface HostSheetConfig {
   sheet_id: string;
   email_column_name: string;
   phone_column_name: string;
+  name_column_name?: string;
 }
 
-/** Allow trailing commas in JSON (e.g. from copy-pasted JS). */
 function stripTrailingCommas(json: string): string {
-  return json
-    .replace(/,\s*]/g, "]")
-    .replace(/,\s*}/g, "}");
+  return json.replace(/,\s*]/g, "]").replace(/,\s*}/g, "}");
 }
 
-function getParticipantMapList(): ParticipantSheetConfig[] {
-  const raw = process.env.PARTICIPANT_MAP_LIST;
+function getHostMapList(): HostSheetConfig[] {
+  const raw = process.env.HOST_MAP_LIST;
   if (!raw?.trim()) return [];
   try {
     const normalized = stripTrailingCommas(raw.trim());
     const parsed = JSON.parse(normalized) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (item): item is ParticipantSheetConfig =>
+      (item): item is HostSheetConfig =>
         item != null &&
         typeof item === "object" &&
-        typeof (item as ParticipantSheetConfig).sheet_id === "string" &&
-        typeof (item as ParticipantSheetConfig).email_column_name === "string" &&
-        typeof (item as ParticipantSheetConfig).phone_column_name === "string",
+        typeof (item as HostSheetConfig).sheet_id === "string" &&
+        typeof (item as HostSheetConfig).email_column_name === "string" &&
+        typeof (item as HostSheetConfig).phone_column_name === "string",
     );
   } catch {
     return [];
   }
 }
 
-// ---------------------------------------------------------------------------
-// Sync all participants from configured Google Sheets
-// ---------------------------------------------------------------------------
-
-/**
- * Sync participants from the participant_map_list Google Sheets.
- * tenantId is ignored; all participants are stored with tenantId null.
- */
-export async function syncParticipants(
-  _tenantId?: string | null,
-): Promise<ParticipantSyncResult> {
-  const result: ParticipantSyncResult = {
+export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResult> {
+  const result: HostSyncResult = {
     created: 0,
     updated: 0,
     skipped: 0,
     errors: [],
   };
 
-  const mapList = getParticipantMapList();
+  const mapList = getHostMapList();
   if (mapList.length === 0) {
-    const raw = process.env.PARTICIPANT_MAP_LIST;
+    const raw = process.env.HOST_MAP_LIST;
     if (!raw?.trim()) {
       result.errors.push(
-        "PARTICIPANT_MAP_LIST is not set. Add it to .env as a JSON array of { sheet_id, email_column_name, phone_column_name }, then restart the server.",
+        "HOST_MAP_LIST is not set. Add it to .env as a JSON array of { sheet_id, email_column_name, phone_column_name } (optional: name_column_name), then restart the server.",
       );
     } else {
       result.errors.push(
-        "PARTICIPANT_MAP_LIST is invalid. Use valid JSON (no trailing commas). Each item must have sheet_id, email_column_name, and phone_column_name.",
+        "HOST_MAP_LIST is invalid. Use valid JSON. Each item must have sheet_id, email_column_name, and phone_column_name.",
       );
     }
     return result;
   }
 
-  const tenantId = null; // All participants share the same list; no tenant scope.
+  const tenantId = null;
 
   for (const config of mapList) {
     try {
@@ -118,10 +100,24 @@ export async function syncParticipants(
         "phone",
         "Phone",
       ]);
+      const statusIdx = findColumnIndex(headers, ["Status"]);
+      const webexActiveIdx = findColumnIndex(headers, ["Webex Active"]);
+      const nameIdx =
+        config.name_column_name != null && config.name_column_name !== ""
+          ? findColumnIndex(headers, [config.name_column_name, "name", "Name"])
+          : -1;
 
       if (emailIdx === -1) {
         result.errors.push(
           `Sheet ${config.sheet_id}: email column not found (tried "${config.email_column_name}"). Available columns: ${formatAvailableColumns(headers)}`,
+        );
+        continue;
+      }
+      if (statusIdx === -1 || webexActiveIdx === -1) {
+        result.errors.push(
+          `Sheet ${config.sheet_id}: required columns \"Status\" and/or \"Webex Active\" not found. Available columns: ${formatAvailableColumns(
+            headers,
+          )}`,
         );
         continue;
       }
@@ -130,28 +126,41 @@ export async function syncParticipants(
         const email = row[emailIdx]?.trim().toLowerCase();
         if (!email || email === "" || email === "n/a") continue;
 
+        const statusRaw = row[statusIdx] ?? "";
+        const webexActiveRaw = row[webexActiveIdx] ?? "";
+        const status = statusRaw.trim().toUpperCase();
+        const webexActive = webexActiveRaw.trim().toLowerCase();
+
+        // Only import hosts that are provisioned and Webex-active
+        if (status !== "PROVISIONED" || webexActive !== "yes") {
+          result.skipped++;
+          continue;
+        }
+
         const phone = phoneIdx >= 0 ? row[phoneIdx]?.trim() ?? null : null;
+        const name = nameIdx >= 0 ? row[nameIdx]?.trim() ?? null : null;
 
         try {
-          const existing = await prisma.participant.findFirst({
+          const existing = await prisma.host.findFirst({
             where: { email, tenantId },
             select: { id: true },
           });
 
           if (existing) {
-            await prisma.participant.update({
+            await prisma.host.update({
               where: { id: existing.id },
               data: {
-                phone: phone || null,
+                phone: phone ?? undefined,
+                name: name ?? undefined,
               },
             });
             result.updated++;
           } else {
-            await prisma.participant.create({
+            await prisma.host.create({
               data: {
                 email,
-                name: null,
-                phone: phone || null,
+                name: name ?? null,
+                phone: phone ?? null,
                 tenantId,
                 optedOut: false,
               },
