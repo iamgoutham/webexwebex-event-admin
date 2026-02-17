@@ -183,7 +183,7 @@ export default async function Home() {
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
         <h2 className="text-xl font-semibold">Helpful Links</h2>
-        <div className="mt-4 grid gap-6 text-sm text-[#6b4e3d] sm:grid-cols-2">
+        <div className="mt-4 grid gap-6 text-sm text-[#6b4e3d] sm:grid-cols-2 lg:grid-cols-3">
           <ul className="space-y-2">
             <li>
               <a
@@ -250,9 +250,11 @@ export default async function Home() {
                 Troubleshooting FAQ
               </span>
             </li>
-            <li className="pt-2 text-[#6b4e3d]">Meeting link assigned after login.</li>
-            <li className="text-[#6b4e3d]">Recording required for verification.</li>
-            <li className="text-[#6b4e3d]">Follow event timing strictly.</li>
+          </ul>
+          <ul className="space-y-2">
+            <li>Meeting link assigned after login.</li>
+            <li>Recording required for verification.</li>
+            <li>Follow event timing strictly.</li>
           </ul>
         </div>
       </section>
