@@ -21,7 +21,7 @@ export async function GET() {
         { tenantId: session.user.tenantId }, // Same tenant
       ],
     },
-    take: 5,
+    take: 6,
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
