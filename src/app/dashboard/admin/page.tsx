@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/guards";
@@ -48,6 +49,19 @@ export default async function AdminDashboardPage() {
         <div className="mt-4">
           <GridImportButton />
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Meetings preview (as user)</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          See the meetings page as it would appear for any user by email.
+        </p>
+        <Link
+          href="/dashboard/admin/meetings-preview"
+          className="mt-3 inline-flex rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
+        >
+          Open meetings preview
+        </Link>
       </div>
 
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">

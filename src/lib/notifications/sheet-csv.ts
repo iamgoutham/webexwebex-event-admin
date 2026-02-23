@@ -60,8 +60,12 @@ export function findColumnIndex(headers: string[], candidates: string[]): number
   );
 }
 
-export async function fetchSheetCsv(sheetId: string): Promise<string | null> {
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
+export async function fetchSheetCsv(
+  sheetId: string,
+  gid?: string,
+): Promise<string | null> {
+  const gidParam = gid ? `&gid=${encodeURIComponent(gid)}` : "";
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidParam}`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), SHEET_FETCH_TIMEOUT_MS);
   try {

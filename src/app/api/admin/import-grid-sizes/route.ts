@@ -72,8 +72,9 @@ const findColumnIndex = (headers: string[], candidates: string[]) => {
   );
 };
 
-const fetchSheetCsv = async (sheetId: string) => {
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`;
+const fetchSheetCsv = async (sheetId: string, gid?: string) => {
+  const gidParam = gid ? `&gid=${encodeURIComponent(gid)}` : "";
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidParam}`;
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     return null;

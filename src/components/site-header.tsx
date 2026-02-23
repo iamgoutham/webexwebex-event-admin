@@ -30,6 +30,9 @@ export default async function SiteHeader() {
             />
           </Link>
           <nav className="flex flex-wrap items-center gap-3 text-sm text-[#fbe9c6]/70">
+            <Link href="/" className="hover:text-[#fbe9c6]">
+              Home
+            </Link>
             <Link href="/dashboard" className="hover:text-[#fbe9c6]">
               Dashboard
             </Link>

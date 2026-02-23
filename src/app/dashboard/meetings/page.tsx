@@ -1,6 +1,9 @@
 import ParticipantLinks from "@/components/participant-links";
 import { requireAuth } from "@/lib/guards";
-import { getMeetingInfoForEmail } from "@/lib/license-site";
+import {
+  getMeetingInfoForEmail,
+  getMeetingInfoLookupDebug,
+} from "@/lib/license-site";
 type SheetMeeting = {
   title?: string;
   start?: string;
@@ -87,8 +90,14 @@ function MeetingInfoContent({ text }: { text: string }) {
   );
 }
 
-export default async function MeetingsPage() {
+type PageProps = {
+  searchParams: Promise<{ debug?: string }>;
+};
+
+export default async function MeetingsPage({ searchParams }: PageProps) {
   const session = await requireAuth();
+  const params = await searchParams;
+  const showDebug = params?.debug === "1";
 
   const meetingInfoRaw = session.user.email
     ? await getMeetingInfoForEmail(session.user.email)
@@ -97,6 +106,11 @@ export default async function MeetingsPage() {
   const meetingsFromJson = meetingInfoRaw?.trim()
     ? parseMeetingInfoJson(meetingInfoRaw)
     : null;
+
+  const lookupDebug =
+    showDebug && session.user.email && !meetingsFromJson
+      ? await getMeetingInfoLookupDebug(session.user.email)
+      : null;
 
   return (
     <div className="space-y-6 text-[#3b1a1f]">
@@ -177,10 +191,85 @@ export default async function MeetingsPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-sm text-[#8a5b44]">
-          No meeting info found for your email in the sheet. Ensure the
-          &quot;Meeting Info&quot; column is set for your row in the license
-          Google Sheet.
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-sm text-[#8a5b44]">
+            No meeting info found for your email in the sheet. Ensure the
+            &quot;Meeting Info&quot; column is set for your row in the license
+            Google Sheet.
+          </div>
+          {lookupDebug ? (
+            <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 font-mono text-xs">
+              <h3 className="mb-3 font-semibold text-[#3b1a1f]">
+                Lookup debug (?debug=1)
+              </h3>
+              <p className="text-[#6b4e3d]">
+                <span className="font-semibold">Email used:</span>{" "}
+                {lookupDebug.emailUsed}
+              </p>
+              <p className="mt-1 text-[#6b4e3d]">
+                <span className="font-semibold">Normalized:</span>{" "}
+                {lookupDebug.emailNormalized}
+              </p>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="font-semibold text-[#8a2f2a]">
+                    Sheet 1 (Email column)
+                  </p>
+                  <p>
+                    found={String(lookupDebug.sheet1.found)} •
+                    rowCount={lookupDebug.sheet1.rowCount} •
+                    emailColIdx={lookupDebug.sheet1.emailColumnIndex} •
+                    meetingInfoColIdx={lookupDebug.sheet1.valueColumnIndex}
+                  </p>
+                  {lookupDebug.sheet1.sampleEmailsMasked.length > 0 && (
+                    <p className="mt-1">
+                      Sample emails (masked):{" "}
+                      {lookupDebug.sheet1.sampleEmailsMasked.join(", ")}
+                    </p>
+                  )}
+                  {lookupDebug.sheet1.mismatchHint && (
+                    <p className="mt-1 text-amber-700">
+                      {lookupDebug.sheet1.mismatchHint}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <p className="font-semibold text-[#8a2f2a]">
+                    Sheet 2 (Email Address column)
+                  </p>
+                  <p>
+                    found={String(lookupDebug.sheet2.found)} •
+                    rowCount={lookupDebug.sheet2.rowCount} •
+                    emailColIdx={lookupDebug.sheet2.emailColumnIndex} •
+                    meetingInfoColIdx={lookupDebug.sheet2.valueColumnIndex}
+                  </p>
+                  {lookupDebug.sheet2.sampleEmailsMasked.length > 0 && (
+                    <p className="mt-1">
+                      Sample emails (masked):{" "}
+                      {lookupDebug.sheet2.sampleEmailsMasked.join(", ")}
+                    </p>
+                  )}
+                  {lookupDebug.sheet2.mismatchHint && (
+                    <p className="mt-1 text-amber-700">
+                      {lookupDebug.sheet2.mismatchHint}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <p className="mt-4 text-[#8a5b44]">
+                If found=false, the email in the sheet may differ (spaces, case,
+                typo). Compare &quot;Normalized&quot; with the sheet&apos;s
+                email column. Check GID env vars if the correct tab is selected.
+              </p>
+            </div>
+          ) : (
+            !meetingInfoRaw && (
+              <p className="text-xs text-[#8a5b44]">
+                Add <code className="rounded bg-[#e5c18e]/40 px-1">?debug=1</code> to
+                the URL to see lookup details.
+              </p>
+            )
+          )}
         </div>
       )}
     </div>

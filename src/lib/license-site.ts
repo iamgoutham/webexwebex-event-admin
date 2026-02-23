@@ -68,11 +68,8 @@ const findColumnIndex = (headers: string[], target: string) => {
 };
 
 const fetchSheetCsv = async (sheetId: string, gid?: string) => {
-  const params = new URLSearchParams({ tqx: "out:csv" });
-  if (gid) {
-    params.set("gid", gid);
-  }
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?${params.toString()}`;
+  const gidParam = gid ? `&gid=${encodeURIComponent(gid)}` : "";
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${gidParam}`;
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) {
     if (process.env.GOOGLE_SHEETS_DEBUG === "true") {
@@ -151,11 +148,19 @@ const lookupSheetValue = async ({
   }
 
   if (process.env.GOOGLE_SHEETS_DEBUG === "true") {
+    const sampleEmails = rows
+      .slice(1, 4)
+      .map((r) => r[emailIndex]?.trim())
+      .filter(Boolean)
+      .map((e) => `${e.slice(0, 2)}***${e.slice(-2)}`);
     console.debug("[license-site] no match", {
       sheetId,
       gid,
       email: normalizedEmail,
       rows: rows.length - 1,
+      emailColumn,
+      valueColumn,
+      sampleEmailsFromSheet: sampleEmails,
     });
   }
   return null;
@@ -250,6 +255,141 @@ export const getMeetingInfoForEmail = async (email: string) => {
   });
 
   return fromSheetTwo;
+};
+
+const maskEmail = (e: string) =>
+  e.length <= 4 ? "***" : `${e.slice(0, 2)}***${e.slice(-2)}`;
+
+/** Debug info for "no meetings" — which email was used and what each sheet returned. */
+export type MeetingInfoLookupDebug = {
+  emailUsed: string;
+  emailNormalized: string;
+  sheet1: {
+    sheetId: string;
+    gid: string | undefined;
+    emailColumn: string;
+    valueColumn: string;
+    rowCount: number;
+    found: boolean;
+    emailColumnIndex: number;
+    valueColumnIndex: number;
+    sampleEmailsMasked: string[];
+    /** When found=false but a row masks to same pattern, why it didn't match */
+    mismatchHint?: string;
+  };
+  sheet2: {
+    sheetId: string;
+    gid: string | undefined;
+    emailColumn: string;
+    valueColumn: string;
+    rowCount: number;
+    found: boolean;
+    emailColumnIndex: number;
+    valueColumnIndex: number;
+    sampleEmailsMasked: string[];
+    mismatchHint?: string;
+  };
+};
+
+export const getMeetingInfoLookupDebug = async (
+  email: string,
+): Promise<MeetingInfoLookupDebug | null> => {
+  const normalizedEmail = email?.trim();
+  if (!normalizedEmail) return null;
+
+  const sheetOneGid = process.env.GOOGLE_LICENSE_SHEET_1_GID;
+  const sheetTwoGid = process.env.GOOGLE_LICENSE_SHEET_2_GID;
+
+  const toSheetDebug = async (
+    sheetId: string,
+    gid: string | undefined,
+    emailColumn: string,
+  ): Promise<MeetingInfoLookupDebug["sheet1"]> => {
+    const csv = await fetchSheetCsv(sheetId, gid);
+    const rowCount = csv ? parseCsv(csv).length - 1 : 0;
+    if (!csv || rowCount < 0) {
+      return {
+        sheetId,
+        gid,
+        emailColumn,
+        valueColumn: "Meeting Info",
+        rowCount: 0,
+        found: false,
+        emailColumnIndex: -1,
+        valueColumnIndex: -1,
+        sampleEmailsMasked: [],
+      };
+    }
+    const rows = parseCsv(csv);
+    const headers = rows[0];
+    const emailIndex = findColumnIndex(headers, emailColumn);
+    const valueIndex = findColumnIndex(headers, "Meeting Info");
+    let found = false;
+    const sampleEmailsMasked: string[] = [];
+    const lookupMasked = maskEmail(normalizedEmail);
+    let mismatchHint: string | undefined;
+    if (emailIndex >= 0) {
+      for (const row of rows.slice(1, 6)) {
+        const cell = row[emailIndex]?.trim();
+        if (cell) {
+          const masked = maskEmail(cell);
+          sampleEmailsMasked.push(masked);
+          if (normalizeValue(cell) === normalizeValue(normalizedEmail)) found = true;
+        }
+      }
+      if (!found && rows.length > 1) {
+        for (let i = 1; i < rows.length; i++) {
+          const cell = rows[i][emailIndex]?.trim();
+          if (!cell) continue;
+          const normCell = normalizeValue(cell);
+          if (normCell === normalizeValue(normalizedEmail)) {
+            found = true;
+            break;
+          }
+          if (maskEmail(cell) === lookupMasked && !mismatchHint) {
+            const lenCell = normCell.length;
+            const lenLookup = normalizeValue(normalizedEmail).length;
+            let diffAt = -1;
+            for (let j = 0; j < Math.min(lenCell, lenLookup); j++) {
+              if (normCell[j] !== normalizeValue(normalizedEmail)[j]) {
+                diffAt = j;
+                break;
+              }
+            }
+            if (diffAt === -1 && lenCell !== lenLookup) diffAt = Math.min(lenCell, lenLookup);
+            mismatchHint =
+              diffAt >= 0
+                ? `One row masks to ${lookupMasked} but normalized value differs (lengths: cell=${lenCell}, lookup=${lenLookup}; first diff at index ${diffAt}).`
+                : `One row masks to ${lookupMasked} but normalized comparison failed.`;
+          }
+        }
+      }
+    }
+    return {
+      sheetId,
+      gid,
+      emailColumn,
+      valueColumn: "Meeting Info",
+      rowCount: rows.length - 1,
+      found,
+      emailColumnIndex: emailIndex,
+      valueColumnIndex: valueIndex,
+      sampleEmailsMasked,
+      ...(mismatchHint && { mismatchHint }),
+    };
+  };
+
+  const [sheet1, sheet2] = await Promise.all([
+    toSheetDebug(LICENSE_SHEET_1_ID, sheetOneGid, "Email"),
+    toSheetDebug(LICENSE_SHEET_2_ID, sheetTwoGid, "Email Address"),
+  ]);
+
+  return {
+    emailUsed: email.trim(),
+    emailNormalized: normalizeValue(normalizedEmail),
+    sheet1,
+    sheet2,
+  };
 };
 
 export const getHostIdForEmail = async (email: string) => {
