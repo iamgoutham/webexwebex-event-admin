@@ -36,6 +36,9 @@ export default async function SiteHeader() {
             <Link href="/dashboard" className="hover:text-[#fbe9c6]">
               Dashboard
             </Link>
+            <Link href="/faq" className="hover:text-[#fbe9c6]">
+              FAQ
+            </Link>
             {user ? (
               <Link href="/dashboard/uploads" className="hover:text-[#fbe9c6]">
                 Uploads

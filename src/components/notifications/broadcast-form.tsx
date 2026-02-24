@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 
-type BroadcastTarget = "HOSTS_ONLY" | "PARTICIPANTS_ONLY" | "ALL";
+type BroadcastTarget =
+  | "HOSTS_ONLY"
+  | "PARTICIPANTS_ONLY"
+  | "ALL"
+  | "TEST_GROUP";
 
 type BroadcastState =
   | { status: "idle" }
@@ -22,6 +26,7 @@ export default function BroadcastForm({
 }) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [target, setTarget] = useState<BroadcastTarget>("ALL");
   const [tenantId, setTenantId] = useState<string>("");
   const [includeEmail, setIncludeEmail] = useState(true);
@@ -44,6 +49,47 @@ export default function BroadcastForm({
 
     setState({ status: "loading" });
 
+    // Special case: send ONLY to test group (SES_TEST_GROUP_EMAILS)
+    if (target === "TEST_GROUP") {
+      try {
+        const res = await fetch("/api/admin/broadcast/test-ses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: title.trim(),
+            body: body.trim(),
+            imageUrl: imageUrl.trim() || null,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({ error: "Send failed" }));
+          setState({
+            status: "error",
+            message: data.error ?? "Send failed",
+          });
+          return;
+        }
+
+        const data = await res.json();
+        setState({
+          status: "success",
+          message: data.message ?? "Test email sent to SES_TEST_GROUP_EMAILS",
+          // No real broadcastId for test sends; label it clearly.
+          broadcastId: "test-group",
+        });
+        setTitle("");
+        setBody("");
+        setImageUrl("");
+      } catch (err) {
+        setState({
+          status: "error",
+          message: err instanceof Error ? err.message : "Send failed",
+        });
+      }
+      return;
+    }
+
     try {
       const res = await fetch("/api/admin/broadcast", {
         method: "POST",
@@ -51,6 +97,7 @@ export default function BroadcastForm({
         body: JSON.stringify({
           title: title.trim(),
           body: body.trim(),
+          imageUrl: imageUrl.trim() || null,
           target,
           channels,
           tenantId: tenantId || null,
@@ -71,6 +118,7 @@ export default function BroadcastForm({
       });
       setTitle("");
       setBody("");
+      setImageUrl("");
     } catch (err) {
       setState({
         status: "error",
@@ -117,6 +165,27 @@ export default function BroadcastForm({
         />
       </div>
 
+      {/* Image URL (optional) — embed JPEG/image in email */}
+      <div>
+        <label
+          htmlFor="broadcast-image-url"
+          className="block text-sm font-semibold text-[#3b1a1f]"
+        >
+          Image URL <span className="font-normal text-[#8a5b44]">(optional)</span>
+        </label>
+        <input
+          id="broadcast-image-url"
+          type="url"
+          value={imageUrl}
+          onChange={(e) => setImageUrl(e.target.value)}
+          placeholder="https://... or /image.jpg (from public folder)"
+          className="mt-1 w-full rounded-xl border border-[#e5c18e] bg-white px-4 py-2.5 text-sm text-[#3b1a1f] placeholder:text-[#c4a882] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
+        />
+        <p className="mt-1 text-xs text-[#8a5b44]">
+          Full URL (https://…) or path to an image in this app&apos;s public folder (e.g. <code className="rounded bg-[#e5c18e]/40 px-1">/logo.jpg</code>). Embedded at the bottom of the email.
+        </p>
+      </div>
+
       {/* Target + Scope */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -135,6 +204,7 @@ export default function BroadcastForm({
             <option value="ALL">Everyone (Hosts + Participants)</option>
             <option value="HOSTS_ONLY">Hosts Only</option>
             <option value="PARTICIPANTS_ONLY">Participants Only</option>
+            <option value="TEST_GROUP">Test Group (SES_TEST_GROUP_EMAILS)</option>
           </select>
         </div>
 
@@ -181,7 +251,7 @@ export default function BroadcastForm({
               type="checkbox"
               checked={includeInApp}
               onChange={(e) => setIncludeInApp(e.target.checked)}
-              disabled={target === "PARTICIPANTS_ONLY"}
+              disabled={target === "PARTICIPANTS_ONLY" || target === "TEST_GROUP"}
               className="rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d] disabled:opacity-40"
             />
             In-App{" "}

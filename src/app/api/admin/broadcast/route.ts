@@ -11,6 +11,7 @@ import { renderTemplate } from "@/lib/notifications/template";
 
 // Ensure email channel is registered
 import "@/lib/notifications/channels/email";
+import { renderEmailHtml } from "@/lib/notifications/channels/email-templates";
 
 // ---------------------------------------------------------------------------
 // POST /api/admin/broadcast — Send a broadcast notification
@@ -24,6 +25,8 @@ interface BroadcastBody {
   tenantId?: string | null;
   templateSlug?: string;
   severity?: string;
+  /** Optional image URL (e.g. hosted JPEG) to embed in the email body */
+  imageUrl?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -46,7 +49,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { title, body: bodyText, target, channels, tenantId, templateSlug } = payload;
+  const { title, body: bodyText, target, channels, tenantId, templateSlug, imageUrl } = payload;
+
+  // Resolve image URL: allow full URLs or paths from this app's public directory (e.g. /logo.jpg)
+  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "https://app.example.com";
+  const resolvedImageUrl = (() => {
+    const raw = imageUrl?.trim();
+    if (!raw) return undefined;
+    if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+    const path = raw.startsWith("/") ? raw : `/${raw}`;
+    return `${baseUrl}${path}`;
+  })();
+
+  const emailHtmlBody =
+    resolvedImageUrl
+      ? renderEmailHtml(title, bodyText, { imageUrl: resolvedImageUrl })
+      : undefined;
 
   if (!title || !bodyText || !target) {
     return NextResponse.json(
@@ -101,7 +119,7 @@ export async function POST(request: NextRequest) {
       let failedCount = 0;
 
       if (channels.includes(DeliveryChannel.EMAIL) && hostEmails.length > 0) {
-        const results = await sendBulkEmail(hostEmails, title, bodyText);
+        const results = await sendBulkEmail(hostEmails, title, bodyText, emailHtmlBody);
         sentCount = results.filter((r) => r.success).length;
         failedCount = results.filter((r) => !r.success).length;
       }
@@ -167,7 +185,7 @@ export async function POST(request: NextRequest) {
       const uniqueEmails = [...new Set(participants.map((p) => p.email))];
 
       const { sendBulkEmail } = await import("@/lib/notifications/channels/email");
-      const results = await sendBulkEmail(uniqueEmails, title, bodyText);
+      const results = await sendBulkEmail(uniqueEmails, title, bodyText, emailHtmlBody);
       const sentCount = results.filter((r) => r.success).length;
       const failedCount = results.filter((r) => !r.success).length;
 
@@ -238,13 +256,13 @@ export async function POST(request: NextRequest) {
       let partFailed = 0;
 
       if (channels.includes(DeliveryChannel.EMAIL) && hostEmails.length > 0) {
-        const hostResults = await sendBulkEmail(hostEmails, title, bodyText);
+        const hostResults = await sendBulkEmail(hostEmails, title, bodyText, emailHtmlBody);
         hostSent = hostResults.filter((r) => r.success).length;
         hostFailed = hostResults.filter((r) => !r.success).length;
       }
 
       if (participantEmails.length > 0) {
-        const partResults = await sendBulkEmail(participantEmails, title, bodyText);
+        const partResults = await sendBulkEmail(participantEmails, title, bodyText, emailHtmlBody);
         partSent = partResults.filter((r) => r.success).length;
         partFailed = partResults.filter((r) => !r.success).length;
       }

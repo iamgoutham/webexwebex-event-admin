@@ -29,7 +29,7 @@ const unsubscribeBaseUrl = process.env.NEXTAUTH_URL ?? "https://app.example.com"
  *
  * @param subject - Email subject (used as the heading inside the email)
  * @param body - Plain-text body (newlines converted to <br>, URLs auto-linked)
- * @param options - Optional extras: actionUrl, actionLabel, unsubscribeToken
+ * @param options - Optional extras: actionUrl, actionLabel, unsubscribeToken, imageUrl (JPEG/image URL to embed)
  */
 export function renderEmailHtml(
   subject: string,
@@ -38,6 +38,8 @@ export function renderEmailHtml(
     actionUrl?: string;
     actionLabel?: string;
     unsubscribeToken?: string;
+    /** Optional image URL (e.g. hosted JPEG) to embed in the email body */
+    imageUrl?: string;
   } = {},
 ): string {
   const bodyHtml = escapeHtml(body)
@@ -46,6 +48,11 @@ export function renderEmailHtml(
       /(https?:\/\/[^\s<]+)/g,
       '<a href="$1" style="color:#d8792d;text-decoration:underline;">$1</a>',
     );
+
+  const embeddedImage =
+    options.imageUrl && options.imageUrl.startsWith("http")
+      ? `<div style="margin-top:16px;"><img src="${escapeHtml(options.imageUrl)}" alt="" style="max-width:100%;height:auto;border:0;display:block;" /></div>`
+      : "";
 
   const ctaButton = options.actionUrl
     ? `
@@ -128,6 +135,7 @@ export function renderEmailHtml(
           <tr>
             <td style="padding:24px 32px;font-size:15px;line-height:1.6;color:#333333;">
               ${bodyHtml}
+              ${embeddedImage}
             </td>
           </tr>
 

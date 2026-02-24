@@ -94,8 +94,16 @@ async function sendBulkEmail(
   const text = renderPlainText(subject, body);
   const allResults: ChannelSendResult[] = [];
 
-  // SES v2 SendBulkEmail supports up to 50 destinations per call
-  const BATCH_SIZE = 50;
+  // Throttle to respect SES max send rate (emails/second).
+  // Default to 14/s if not configured (matches SES console value you mentioned).
+  const maxRateEnv = Number(process.env.SES_MAX_SEND_RATE ?? "14");
+  const MAX_RATE =
+    Number.isFinite(maxRateEnv) && maxRateEnv > 0 ? maxRateEnv : 14;
+
+  // SES v2 SendBulkEmail supports up to 50 destinations per call.
+  // We also cap by MAX_RATE so we never exceed the allowed recipients/sec.
+  const BATCH_SIZE = Math.min(50, Math.max(1, MAX_RATE));
+  const BATCH_DELAY_MS = 1000; // 1 second between batches
 
   for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
     const batch = recipients.slice(i, i + BATCH_SIZE);
@@ -110,7 +118,13 @@ async function sendBulkEmail(
       const command = new SendBulkEmailCommand({
         FromEmailAddress: fromAddress,
         DefaultContent: {
-          Template: undefined,
+          Simple: {
+            Subject: { Data: subject, Charset: "UTF-8" },
+            Body: {
+              Html: { Data: html, Charset: "UTF-8" },
+              Text: { Data: text, Charset: "UTF-8" },
+            },
+          },
         },
         BulkEmailEntries: entries,
       });
@@ -152,6 +166,12 @@ async function sendBulkEmail(
           });
         }
       }
+    }
+
+    // Simple throttling between batches to stay under SES rate.
+    if (i + BATCH_SIZE < recipients.length) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
     }
   }
 

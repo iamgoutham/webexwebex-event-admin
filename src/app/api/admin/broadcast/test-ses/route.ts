@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { requireApiAuth } from "@/lib/api-guards";
 import { sendBulkEmail } from "@/lib/notifications/channels/email";
+import { renderEmailHtml } from "@/lib/notifications/channels/email-templates";
 
 const DEFAULT_SUBJECT = "SES test — Gita Chanting Event";
 const DEFAULT_BODY =
@@ -65,17 +66,37 @@ export async function POST(request: NextRequest) {
 
   let subject = DEFAULT_SUBJECT;
   let body = DEFAULT_BODY;
+  let imageUrl: string | undefined;
   try {
     const parsed = await request.json().catch(() => ({}));
     if (typeof parsed.subject === "string" && parsed.subject.trim())
       subject = parsed.subject.trim();
     if (typeof parsed.body === "string" && parsed.body.trim())
       body = parsed.body.trim();
+    if (typeof parsed.imageUrl === "string" && parsed.imageUrl.trim()) {
+      imageUrl = parsed.imageUrl.trim();
+    }
   } catch {
     // use defaults
   }
 
-  const results = await sendBulkEmail(emails, subject, body);
+  // Resolve image URL (same behavior as main broadcast route)
+  const baseUrl =
+    process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "https://app.example.com";
+  const resolvedImageUrl = (() => {
+    if (!imageUrl) return undefined;
+    if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) {
+      return imageUrl;
+    }
+    const path = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+    return `${baseUrl}${path}`;
+  })();
+
+  const htmlBody = resolvedImageUrl
+    ? renderEmailHtml(subject, body, { imageUrl: resolvedImageUrl })
+    : undefined;
+
+  const results = await sendBulkEmail(emails, subject, body, htmlBody);
   const sent = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
 

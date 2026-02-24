@@ -246,9 +246,12 @@ export default async function Home() {
               </a>
             </li>
             <li>
-              <span className="font-semibold text-[#3b1a1f]">
+              <Link
+                href="/faq"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
                 Troubleshooting FAQ
-              </span>
+              </Link>
             </li>
           </ul>
           <ul className="space-y-2">
