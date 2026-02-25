@@ -1,9 +1,4 @@
-import {
-  SESv2Client,
-  SendEmailCommand,
-  SendBulkEmailCommand,
-  type BulkEmailEntry,
-} from "@aws-sdk/client-sesv2";
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2";
 import { DeliveryChannel } from "@prisma/client";
 import { registerChannelHandler } from "../engine";
 import type { ChannelHandler, ChannelSendResult } from "../types";
@@ -100,71 +95,27 @@ async function sendBulkEmail(
   const MAX_RATE =
     Number.isFinite(maxRateEnv) && maxRateEnv > 0 ? maxRateEnv : 14;
 
-  // SES v2 SendBulkEmail supports up to 50 destinations per call.
-  // We also cap by MAX_RATE so we never exceed the allowed recipients/sec.
-  const BATCH_SIZE = Math.min(50, Math.max(1, MAX_RATE));
+  // We send in batches to avoid exceeding the allowed recipients/sec.
+  const BATCH_SIZE = Math.max(1, MAX_RATE);
   const BATCH_DELAY_MS = 1000; // 1 second between batches
 
   for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
     const batch = recipients.slice(i, i + BATCH_SIZE);
 
-    const entries: BulkEmailEntry[] = batch.map((email) => ({
-      Destination: {
-        ToAddresses: [email],
-      },
-    }));
+    // Send this batch in parallel, each via sendEmail (which already logs errors)
+    // eslint-disable-next-line no-await-in-loop
+    const batchResults = await Promise.allSettled(
+      batch.map((email) => sendEmail(email, subject, body, html)),
+    );
 
-    try {
-      const command = new SendBulkEmailCommand({
-        FromEmailAddress: fromAddress,
-        DefaultContent: {
-          Simple: {
-            Subject: { Data: subject, Charset: "UTF-8" },
-            Body: {
-              Html: { Data: html, Charset: "UTF-8" },
-              Text: { Data: text, Charset: "UTF-8" },
-            },
-          },
-        },
-        BulkEmailEntries: entries,
-      });
-
-      const response = await sesClient.send(command);
-
-      const statuses = response.BulkEmailEntryResults ?? [];
-      for (let j = 0; j < batch.length; j++) {
-        const status = statuses[j];
-        if (status?.Status === "SUCCESS") {
-          allResults.push({
-            success: true,
-            externalId: status.MessageId,
-          });
-        } else {
-          allResults.push({
-            success: false,
-            error: status?.Error ?? "Unknown bulk send error",
-          });
-        }
-      }
-    } catch (err) {
-      // If the entire batch call fails, mark all recipients as failed
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[email] Bulk send batch failed:`, message);
-
-      // Fall back to individual sends for this batch
-      const fallbackResults = await Promise.allSettled(
-        batch.map((email) => sendEmail(email, subject, body, html)),
-      );
-
-      for (const result of fallbackResults) {
-        if (result.status === "fulfilled") {
-          allResults.push(result.value);
-        } else {
-          allResults.push({
-            success: false,
-            error: String(result.reason),
-          });
-        }
+    for (const result of batchResults) {
+      if (result.status === "fulfilled") {
+        allResults.push(result.value);
+      } else {
+        allResults.push({
+          success: false,
+          error: String(result.reason),
+        });
       }
     }
 

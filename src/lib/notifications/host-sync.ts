@@ -169,6 +169,39 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
           }
         } catch {
           result.skipped++;
+          continue;
+        }
+
+        // Ensure every host is also present in the Participant table
+        try {
+          const existingParticipant = await prisma.participant.findFirst({
+            where: { email, tenantId },
+            select: { id: true, optedOut: true },
+          });
+
+          if (existingParticipant) {
+            await prisma.participant.update({
+              where: { id: existingParticipant.id },
+              data: {
+                // Do not reset optedOut; only refresh metadata.
+                name: name ?? undefined,
+                phone: phone ?? undefined,
+              },
+            });
+          } else {
+            await prisma.participant.create({
+              data: {
+                email,
+                name: name ?? null,
+                phone: phone ?? null,
+                tenantId,
+                optedOut: false,
+              },
+            });
+          }
+        } catch {
+          // If participant upsert fails, count as skipped but continue syncing others.
+          result.skipped++;
         }
       }
     } catch (err) {

@@ -223,14 +223,6 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Host emails from Host table (sheet-imported)
-      const hostWhere = { optedOut: false, ...(tenantId ? { tenantId } : { tenantId: null }) };
-      const hostsFromTable = await prisma.host.findMany({
-        where: hostWhere,
-        select: { email: true },
-      });
-      const hostEmails = [...new Set(hostsFromTable.map((h) => h.email))];
-
       // In-app for logged-in portal hosts
       const userWhere = tenantId ? { tenantId } : {};
       const portalHosts = await prisma.user.findMany({
@@ -250,18 +242,10 @@ export async function POST(request: NextRequest) {
 
       const { sendBulkEmail } = await import("@/lib/notifications/channels/email");
 
-      let hostSent = 0;
-      let hostFailed = 0;
       let partSent = 0;
       let partFailed = 0;
 
-      if (channels.includes(DeliveryChannel.EMAIL) && hostEmails.length > 0) {
-        const hostResults = await sendBulkEmail(hostEmails, title, bodyText, emailHtmlBody);
-        hostSent = hostResults.filter((r) => r.success).length;
-        hostFailed = hostResults.filter((r) => !r.success).length;
-      }
-
-      if (participantEmails.length > 0) {
+      if (channels.includes(DeliveryChannel.EMAIL) && participantEmails.length > 0) {
         const partResults = await sendBulkEmail(participantEmails, title, bodyText, emailHtmlBody);
         partSent = partResults.filter((r) => r.success).length;
         partFailed = partResults.filter((r) => !r.success).length;
@@ -285,9 +269,9 @@ export async function POST(request: NextRequest) {
         where: { id: broadcast.id },
         data: {
           status: BroadcastStatus.SENT,
-          totalCount: hostEmails.length + participantEmails.length,
-          sentCount: hostSent + partSent,
-          failedCount: hostFailed + partFailed,
+          totalCount: participantEmails.length,
+          sentCount: partSent,
+          failedCount: partFailed,
           sentAt: new Date(),
         },
       });
@@ -295,7 +279,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         message: "Broadcast sent to all",
         broadcastId: broadcast.id,
-        hosts: { sent: hostSent, failed: hostFailed, total: hostEmails.length },
         participants: { sent: partSent, failed: partFailed, total: participantEmails.length },
       });
     }
