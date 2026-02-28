@@ -1,4 +1,5 @@
 import ParticipantLinks from "@/components/participant-links";
+import MeetingExceptionRequest from "@/components/meeting-exception-request";
 import { requireAuth } from "@/lib/guards";
 import {
   getMeetingInfoForEmail,
@@ -177,6 +178,9 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
                     <span className="text-xs text-[#8a5b44]">MTID: {mtid}</span>
                   ) : null}
                 </div>
+                {meeting.title ? (
+                  <MeetingExceptionRequest meetingTitle={meeting.title} />
+                ) : null}
               </div>
             );
           })}
