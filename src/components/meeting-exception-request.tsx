@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+type HostOption = { id: string; email: string | null; name: string | null };
 
 interface Props {
   meetingTitle: string;
+  /** When true, show "Submit as host" dropdown and allow sending submitAsUserId */
+  isAdmin?: boolean;
+  /** Current user id; used as default "Submit as" and for API */
+  currentUserId?: string;
 }
 
 // Match meeting titles containing CMS_XXXXX, CMSJ_XXXXX, or CMSI_XXXXX (5 chars)
@@ -14,9 +20,15 @@ function extractCmsxId(title: string): string | null {
   return match ? match[0] : null;
 }
 
-export default function MeetingExceptionRequest({ meetingTitle }: Props) {
+export default function MeetingExceptionRequest({
+  meetingTitle,
+  isAdmin = false,
+  currentUserId = "",
+}: Props) {
   const [open, setOpen] = useState(false);
   const [emails, setEmails] = useState("");
+  const [hostOptions, setHostOptions] = useState<HostOption[]>([]);
+  const [submitAsUserId, setSubmitAsUserId] = useState("");
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "loading" }
@@ -25,6 +37,20 @@ export default function MeetingExceptionRequest({ meetingTitle }: Props) {
   >({ type: "idle" });
 
   const cmsxId = extractCmsxId(meetingTitle);
+
+  useEffect(() => {
+    if (!isAdmin || !open) return;
+    fetch("/api/users")
+      .then((r) => r.json())
+      .then((data: { users?: HostOption[] }) => {
+        const list = data?.users ?? [];
+        setHostOptions(list);
+        setSubmitAsUserId((prev) =>
+          prev ? prev : currentUserId || list[0]?.id || "",
+        );
+      })
+      .catch(() => setHostOptions([]));
+  }, [isAdmin, open, currentUserId]);
 
   const handleSubmit = async () => {
     const raw = emails
@@ -49,14 +75,18 @@ export default function MeetingExceptionRequest({ meetingTitle }: Props) {
     setStatus({ type: "loading" });
 
     try {
+      const body: Record<string, unknown> = {
+        meetingCmsxId: cmsxId,
+        meetingTitle,
+        participantEmails: raw,
+      };
+      if (isAdmin && submitAsUserId && submitAsUserId !== currentUserId) {
+        body.submitAsUserId = submitAsUserId;
+      }
       const res = await fetch("/api/hosts/meeting-exceptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          meetingCmsxId: cmsxId,
-          meetingTitle,
-          participantEmails: raw,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -102,7 +132,30 @@ export default function MeetingExceptionRequest({ meetingTitle }: Props) {
           <p className="text-xs font-semibold text-[#3b1a1f]">
             Meeting: <span className="font-normal">{meetingTitle}</span>
           </p>
-          <p className="mt-1 text-[11px] text-[#8a5b44]">
+          {isAdmin && hostOptions.length > 0 && (
+            <div className="mt-2">
+              <label className="text-[11px] font-medium text-[#6b4e3d]">
+                Submit as host
+              </label>
+              <select
+                value={submitAsUserId}
+                onChange={(e) => setSubmitAsUserId(e.target.value)}
+                className="mt-1 block w-full rounded-lg border border-[#e5c18e] bg-white px-3 py-1.5 text-xs text-[#3b1a1f] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
+              >
+                <option value={currentUserId || ""}>
+                  Me (current user)
+                </option>
+                {hostOptions
+                  .filter((u) => u.id !== currentUserId)
+                  .map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name || u.email || u.id}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+          <p className="mt-2 text-[11px] text-[#8a5b44]">
             Enter participant emails (they must already be registered). One per
             line or separated by commas.
           </p>

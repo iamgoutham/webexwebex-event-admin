@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import ParticipantLinks from "@/components/participant-links";
 import MeetingExceptionRequest from "@/components/meeting-exception-request";
 import { requireAuth } from "@/lib/guards";
@@ -179,7 +180,14 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
                   ) : null}
                 </div>
                 {meeting.title ? (
-                  <MeetingExceptionRequest meetingTitle={meeting.title} />
+                  <MeetingExceptionRequest
+                    meetingTitle={meeting.title}
+                    isAdmin={
+                      session.user.role === Role.ADMIN ||
+                      session.user.role === Role.SUPERADMIN
+                    }
+                    currentUserId={session.user.id ?? ""}
+                  />
                 ) : null}
               </div>
             );
