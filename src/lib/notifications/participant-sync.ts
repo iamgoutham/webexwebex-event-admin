@@ -26,10 +26,79 @@ import {
 // Triggered by the "Sync Participants" button on the admin dashboard.
 // ---------------------------------------------------------------------------
 
+const US_STATE_MAP: Record<string, string> = {
+  AL: "Alabama",
+  AK: "Alaska",
+  AZ: "Arizona",
+  AR: "Arkansas",
+  CA: "California",
+  CO: "Colorado",
+  CT: "Connecticut",
+  DE: "Delaware",
+  FL: "Florida",
+  GA: "Georgia",
+  HI: "Hawaii",
+  ID: "Idaho",
+  IL: "Illinois",
+  IN: "Indiana",
+  IA: "Iowa",
+  KS: "Kansas",
+  KY: "Kentucky",
+  LA: "Louisiana",
+  ME: "Maine",
+  MD: "Maryland",
+  MA: "Massachusetts",
+  MI: "Michigan",
+  MN: "Minnesota",
+  MS: "Mississippi",
+  MO: "Missouri",
+  MT: "Montana",
+  NE: "Nebraska",
+  NV: "Nevada",
+  NH: "New Hampshire",
+  NJ: "New Jersey",
+  NM: "New Mexico",
+  NY: "New York",
+  NC: "North Carolina",
+  ND: "North Dakota",
+  OH: "Ohio",
+  OK: "Oklahoma",
+  OR: "Oregon",
+  PA: "Pennsylvania",
+  RI: "Rhode Island",
+  SC: "South Carolina",
+  SD: "South Dakota",
+  TN: "Tennessee",
+  TX: "Texas",
+  UT: "Utah",
+  VT: "Vermont",
+  VA: "Virginia",
+  WA: "Washington",
+  WV: "West Virginia",
+  WI: "Wisconsin",
+  WY: "Wyoming",
+  DC: "District of Columbia",
+};
+
+function normalizeUsState(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lettersOnly = trimmed.replace(/[^A-Za-z]/g, "").toUpperCase();
+  if (lettersOnly.length === 2 && US_STATE_MAP[lettersOnly]) {
+    return US_STATE_MAP[lettersOnly];
+  }
+  return trimmed;
+}
+
 export interface ParticipantSheetConfig {
   sheet_id: string;
   email_column_name: string;
-  phone_column_name: string;
+  phone_column_name?: string;
+  first_name_column_name?: string;
+  last_name_column_name?: string;
+  center_column_name?: string;
+  state_column_name?: string;
 }
 
 /** Allow trailing commas in JSON (e.g. from copy-pasted JS). */
@@ -51,8 +120,7 @@ function getParticipantMapList(): ParticipantSheetConfig[] {
         item != null &&
         typeof item === "object" &&
         typeof (item as ParticipantSheetConfig).sheet_id === "string" &&
-        typeof (item as ParticipantSheetConfig).email_column_name === "string" &&
-        typeof (item as ParticipantSheetConfig).phone_column_name === "string",
+        typeof (item as ParticipantSheetConfig).email_column_name === "string",
     );
   } catch {
     return [];
@@ -82,11 +150,11 @@ export async function syncParticipants(
     const raw = process.env.PARTICIPANT_MAP_LIST;
     if (!raw?.trim()) {
       result.errors.push(
-        "PARTICIPANT_MAP_LIST is not set. Add it to .env as a JSON array of { sheet_id, email_column_name, phone_column_name }, then restart the server.",
+        "PARTICIPANT_MAP_LIST is not set. Add it to .env as a JSON array of { sheet_id, email_column_name, ... }, then restart the server.",
       );
     } else {
       result.errors.push(
-        "PARTICIPANT_MAP_LIST is invalid. Use valid JSON (no trailing commas). Each item must have sheet_id, email_column_name, and phone_column_name.",
+        "PARTICIPANT_MAP_LIST is invalid. Use valid JSON (no trailing commas). Each item must have sheet_id and email_column_name.",
       );
     }
     return result;
@@ -114,10 +182,40 @@ export async function syncParticipants(
         "Email",
       ]);
       const phoneIdx = findColumnIndex(headers, [
-        config.phone_column_name,
+        config.phone_column_name ?? "phone",
         "phone",
         "Phone",
       ]);
+      const firstNameIdx = config.first_name_column_name
+        ? findColumnIndex(headers, [
+            config.first_name_column_name,
+            "firstName",
+            "First Name",
+            "First name",
+          ])
+        : -1;
+      const lastNameIdx = config.last_name_column_name
+        ? findColumnIndex(headers, [
+            config.last_name_column_name,
+            "lastName",
+            "Last Name",
+            "Last name",
+          ])
+        : -1;
+      const centerIdx = config.center_column_name
+        ? findColumnIndex(headers, [
+            config.center_column_name,
+            "center",
+            "Center",
+          ])
+        : -1;
+      const stateIdx = config.state_column_name
+        ? findColumnIndex(headers, [
+            config.state_column_name,
+            "state",
+            "State",
+          ])
+        : -1;
 
       if (emailIdx === -1) {
         result.errors.push(
@@ -131,6 +229,15 @@ export async function syncParticipants(
         if (!email || email === "" || email === "n/a") continue;
 
         const phone = phoneIdx >= 0 ? row[phoneIdx]?.trim() ?? null : null;
+        const firstName =
+          firstNameIdx >= 0 ? row[firstNameIdx]?.trim() ?? null : null;
+        const lastName =
+          lastNameIdx >= 0 ? row[lastNameIdx]?.trim() ?? null : null;
+        const center =
+          centerIdx >= 0 ? row[centerIdx]?.trim() ?? null : null;
+        const rawState =
+          stateIdx >= 0 ? row[stateIdx]?.trim() ?? null : null;
+        const state = normalizeUsState(rawState);
 
         try {
           const existing = await prisma.participant.findFirst({
@@ -138,12 +245,18 @@ export async function syncParticipants(
             select: { id: true },
           });
 
+          const participantData = {
+            phone: phone || null,
+            firstName: firstName || null,
+            lastName: lastName || null,
+            center: center || null,
+            state: state || null,
+          };
+
           if (existing) {
             await prisma.participant.update({
               where: { id: existing.id },
-              data: {
-                phone: phone || null,
-              },
+              data: participantData,
             });
             result.updated++;
           } else {
@@ -151,9 +264,9 @@ export async function syncParticipants(
               data: {
                 email,
                 name: null,
-                phone: phone || null,
                 tenantId,
                 optedOut: false,
+                ...participantData,
               },
             });
             result.created++;

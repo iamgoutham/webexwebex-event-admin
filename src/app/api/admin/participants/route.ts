@@ -3,6 +3,71 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
 
+const US_STATE_MAP: Record<string, string> = {
+  AL: "Alabama",
+  AK: "Alaska",
+  AZ: "Arizona",
+  AR: "Arkansas",
+  CA: "California",
+  CO: "Colorado",
+  CT: "Connecticut",
+  DE: "Delaware",
+  FL: "Florida",
+  GA: "Georgia",
+  HI: "Hawaii",
+  ID: "Idaho",
+  IL: "Illinois",
+  IN: "Indiana",
+  IA: "Iowa",
+  KS: "Kansas",
+  KY: "Kentucky",
+  LA: "Louisiana",
+  ME: "Maine",
+  MD: "Maryland",
+  MA: "Massachusetts",
+  MI: "Michigan",
+  MN: "Minnesota",
+  MS: "Mississippi",
+  MO: "Missouri",
+  MT: "Montana",
+  NE: "Nebraska",
+  NV: "Nevada",
+  NH: "New Hampshire",
+  NJ: "New Jersey",
+  NM: "New Mexico",
+  NY: "New York",
+  NC: "North Carolina",
+  ND: "North Dakota",
+  OH: "Ohio",
+  OK: "Oklahoma",
+  OR: "Oregon",
+  PA: "Pennsylvania",
+  RI: "Rhode Island",
+  SC: "South Carolina",
+  SD: "South Dakota",
+  TN: "Tennessee",
+  TX: "Texas",
+  UT: "Utah",
+  VT: "Vermont",
+  VA: "Virginia",
+  WA: "Washington",
+  WV: "West Virginia",
+  WI: "Wisconsin",
+  WY: "Wyoming",
+  DC: "District of Columbia",
+};
+
+function normalizeUsState(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lettersOnly = trimmed.replace(/[^A-Za-z]/g, "").toUpperCase();
+  if (lettersOnly.length === 2 && US_STATE_MAP[lettersOnly]) {
+    return US_STATE_MAP[lettersOnly];
+  }
+  return trimmed;
+}
+
 // ---------------------------------------------------------------------------
 // GET /api/admin/participants — List participants with counts
 // ---------------------------------------------------------------------------
@@ -23,12 +88,20 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get("search") ?? "";
   const tenantId = searchParams.get("tenantId") ?? undefined;
   const optedOutFilter = searchParams.get("optedOut");
+  const stateParam = searchParams.get("state");
 
   // Build where clause
   const where: Record<string, unknown> = {};
 
   if (tenantId) {
     where.tenantId = tenantId;
+  }
+
+  if (stateParam) {
+    const normalizedState = normalizeUsState(stateParam);
+    if (normalizedState) {
+      where.state = normalizedState;
+    }
   }
 
   if (optedOutFilter === "true") {
@@ -54,6 +127,10 @@ export async function GET(request: NextRequest) {
         id: true,
         email: true,
         name: true,
+        firstName: true,
+        lastName: true,
+        center: true,
+        state: true,
         phone: true,
         optedOut: true,
         tenantId: true,

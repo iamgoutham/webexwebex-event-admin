@@ -4,12 +4,26 @@ import { useState, useEffect } from "react";
 
 type HostOption = { id: string; email: string | null; name: string | null };
 
+const STANDALONE_MEETING_TITLE = "All meetings";
+const STANDALONE_MEETING_ID = "ALL";
+
 interface Props {
-  meetingTitle: string;
+  /** Meeting title; required when not standalone. When standalone, uses generic "All meetings". */
+  meetingTitle?: string;
+  /** When true, form is not tied to a meeting card; uses generic title "All meetings", no title input. */
+  standalone?: boolean;
   /** When true, show "Submit as host" dropdown and allow sending submitAsUserId */
   isAdmin?: boolean;
   /** Current user id; used as default "Submit as" and for API */
   currentUserId?: string;
+  /** When set (e.g. admin preview), requests are always recorded as this user; hides dropdown */
+  previewUserId?: string;
+  /** Label for preview user (e.g. email) to show "Submitting as: ..." */
+  previewUserLabel?: string;
+  /** Optional controlled value for the email textarea (when managed by a parent). */
+  emailsValue?: string;
+  /** Optional callback when the email textarea changes (used with emailsValue). */
+  onEmailsChange?: (value: string) => void;
 }
 
 // Match meeting titles containing CMS_XXXXX, CMSJ_XXXXX, or CMSI_XXXXX (5 chars)
@@ -21,14 +35,19 @@ function extractCmsxId(title: string): string | null {
 }
 
 export default function MeetingExceptionRequest({
-  meetingTitle,
+  meetingTitle: meetingTitleProp = "",
+  standalone = false,
   isAdmin = false,
   currentUserId = "",
+  previewUserId = "",
+  previewUserLabel = "",
+  emailsValue,
+  onEmailsChange,
 }: Props) {
-  const [open, setOpen] = useState(false);
-  const [emails, setEmails] = useState("");
+  const [open, setOpen] = useState(standalone);
+  const [internalEmails, setInternalEmails] = useState("");
   const [hostOptions, setHostOptions] = useState<HostOption[]>([]);
-  const [submitAsUserId, setSubmitAsUserId] = useState("");
+  const [submitAsUserId, setSubmitAsUserId] = useState(previewUserId || "");
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "loading" }
@@ -36,9 +55,17 @@ export default function MeetingExceptionRequest({
     | { type: "error"; message: string }
   >({ type: "idle" });
 
-  const cmsxId = extractCmsxId(meetingTitle);
+  const meetingTitle = standalone ? STANDALONE_MEETING_TITLE : meetingTitleProp;
+  const cmsxId = standalone ? STANDALONE_MEETING_ID : extractCmsxId(meetingTitle);
+  const emails = typeof emailsValue === "string" ? emailsValue : internalEmails;
+  const setEmails =
+    onEmailsChange ?? ((value: string) => setInternalEmails(value));
 
   useEffect(() => {
+    if (previewUserId) {
+      setSubmitAsUserId(previewUserId);
+      return;
+    }
     if (!isAdmin || !open) return;
     fetch("/api/users")
       .then((r) => r.json())
@@ -50,7 +77,7 @@ export default function MeetingExceptionRequest({
         );
       })
       .catch(() => setHostOptions([]));
-  }, [isAdmin, open, currentUserId]);
+  }, [isAdmin, open, currentUserId, previewUserId]);
 
   const handleSubmit = async () => {
     const raw = emails
@@ -64,10 +91,17 @@ export default function MeetingExceptionRequest({
       });
       return;
     }
-    if (!cmsxId) {
+    if (!standalone && !meetingTitle) {
       setStatus({
         type: "error",
-        message: "Unable to detect CMSX_ id in meeting title.",
+        message: "Meeting title is required.",
+      });
+      return;
+    }
+    if (!standalone && !cmsxId) {
+      setStatus({
+        type: "error",
+        message: "Unable to detect CMS/CMSJ/CMSI id in meeting title (e.g. CMS_12345).",
       });
       return;
     }
@@ -80,7 +114,13 @@ export default function MeetingExceptionRequest({
         meetingTitle,
         participantEmails: raw,
       };
-      if (isAdmin && submitAsUserId && submitAsUserId !== currentUserId) {
+      if (previewUserId) {
+        body.submitAsUserId = previewUserId;
+      } else if (
+        isAdmin &&
+        submitAsUserId &&
+        submitAsUserId !== currentUserId
+      ) {
         body.submitAsUserId = submitAsUserId;
       }
       const res = await fetch("/api/hosts/meeting-exceptions", {
@@ -119,20 +159,29 @@ export default function MeetingExceptionRequest({
   };
 
   return (
-    <div className="mt-3 w-full text-xs text-[#6b4e3d]">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="rounded-full border border-[#7a3b2a]/50 px-3 py-1 text-xs font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
-      >
-        {open ? "Close participant request" : "Request participants for this meeting"}
-      </button>
+    <div className={`w-full text-xs text-[#6b4e3d] ${!standalone ? "mt-3" : ""}`}>
+      {!standalone && (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="rounded-full border border-[#7a3b2a]/50 px-3 py-1 text-xs font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
+        >
+          {open ? "Close participant request" : "Request participants for this meeting"}
+        </button>
+      )}
       {open && (
-        <div className="mt-3 rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-3">
-          <p className="text-xs font-semibold text-[#3b1a1f]">
-            Meeting: <span className="font-normal">{meetingTitle}</span>
-          </p>
-          {isAdmin && hostOptions.length > 0 && (
+        <div className={`rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-3 ${standalone ? "" : "mt-3"}`}>
+          {!standalone && (
+            <p className="text-xs font-semibold text-[#3b1a1f]">
+              Meeting: <span className="font-normal">{meetingTitle}</span>
+            </p>
+          )}
+          {previewUserId && previewUserLabel ? (
+            <p className="mt-2 text-[11px] text-[#8a5b44]">
+              Submitting as: <span className="font-medium">{previewUserLabel}</span>
+            </p>
+          ) : null}
+          {isAdmin && !previewUserId && hostOptions.length > 0 ? (
             <div className="mt-2">
               <label className="text-[11px] font-medium text-[#6b4e3d]">
                 Submit as host
@@ -154,7 +203,7 @@ export default function MeetingExceptionRequest({
                   ))}
               </select>
             </div>
-          )}
+          ) : null}
           <p className="mt-2 text-[11px] text-[#8a5b44]">
             Enter participant emails (they must already be registered). One per
             line or separated by commas.

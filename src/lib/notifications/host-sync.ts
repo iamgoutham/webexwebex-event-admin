@@ -20,11 +20,77 @@ import {
 // All hosts get tenantId: null; messages sent to all as a group.
 // ---------------------------------------------------------------------------
 
+const US_STATE_MAP: Record<string, string> = {
+  AL: "Alabama",
+  AK: "Alaska",
+  AZ: "Arizona",
+  AR: "Arkansas",
+  CA: "California",
+  CO: "Colorado",
+  CT: "Connecticut",
+  DE: "Delaware",
+  FL: "Florida",
+  GA: "Georgia",
+  HI: "Hawaii",
+  ID: "Idaho",
+  IL: "Illinois",
+  IN: "Indiana",
+  IA: "Iowa",
+  KS: "Kansas",
+  KY: "Kentucky",
+  LA: "Louisiana",
+  ME: "Maine",
+  MD: "Maryland",
+  MA: "Massachusetts",
+  MI: "Michigan",
+  MN: "Minnesota",
+  MS: "Mississippi",
+  MO: "Missouri",
+  MT: "Montana",
+  NE: "Nebraska",
+  NV: "Nevada",
+  NH: "New Hampshire",
+  NJ: "New Jersey",
+  NM: "New Mexico",
+  NY: "New York",
+  NC: "North Carolina",
+  ND: "North Dakota",
+  OH: "Ohio",
+  OK: "Oklahoma",
+  OR: "Oregon",
+  PA: "Pennsylvania",
+  RI: "Rhode Island",
+  SC: "South Carolina",
+  SD: "South Dakota",
+  TN: "Tennessee",
+  TX: "Texas",
+  UT: "Utah",
+  VT: "Vermont",
+  VA: "Virginia",
+  WA: "Washington",
+  WV: "West Virginia",
+  WI: "Wisconsin",
+  WY: "Wyoming",
+  DC: "District of Columbia",
+};
+
+function normalizeUsState(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const lettersOnly = trimmed.replace(/[^A-Za-z]/g, "").toUpperCase();
+  if (lettersOnly.length === 2 && US_STATE_MAP[lettersOnly]) {
+    return US_STATE_MAP[lettersOnly];
+  }
+  return trimmed;
+}
+
 export interface HostSheetConfig {
   sheet_id: string;
   email_column_name: string;
   phone_column_name: string;
   name_column_name?: string;
+  state_column_name?: string;
 }
 
 function stripTrailingCommas(json: string): string {
@@ -88,7 +154,7 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
 
       const rows = parseCsv(csv);
       if (rows.length < 2) continue;
-
+      console.log("Found rows: ",rows.length)
       const headers = rows[0];
       const emailIdx = findColumnIndex(headers, [
         config.email_column_name,
@@ -105,6 +171,14 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
       const nameIdx =
         config.name_column_name != null && config.name_column_name !== ""
           ? findColumnIndex(headers, [config.name_column_name, "name", "Name"])
+          : -1;
+      const stateIdx =
+        config.state_column_name != null && config.state_column_name !== ""
+          ? findColumnIndex(headers, [
+              config.state_column_name,
+              "state",
+              "State",
+            ])
           : -1;
 
       if (emailIdx === -1) {
@@ -130,15 +204,22 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
         const webexActiveRaw = row[webexActiveIdx] ?? "";
         const status = statusRaw.trim().toUpperCase();
         const webexActive = webexActiveRaw.trim().toLowerCase();
-
+	if (email.startsWith("anjanarsuresh")){
+        console.log("Found record ",email)
+	}
         // Only import hosts that are provisioned and Webex-active
         if (status !== "PROVISIONED" || webexActive !== "yes") {
           result.skipped++;
           continue;
         }
+	if (email.startsWith("anjanarsuresh")){
+        console.log("Syncing ",email)
+	}
 
         const phone = phoneIdx >= 0 ? row[phoneIdx]?.trim() ?? null : null;
         const name = nameIdx >= 0 ? row[nameIdx]?.trim() ?? null : null;
+        const rawState = stateIdx >= 0 ? row[stateIdx]?.trim() ?? null : null;
+        const state = normalizeUsState(rawState);
 
         try {
           const existing = await prisma.host.findFirst({
@@ -147,24 +228,30 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
           });
 
           if (existing) {
+            const data: any = {
+              phone: phone ?? undefined,
+              name: name ?? undefined,
+            };
+            if (state != null) {
+              data.state = state;
+            }
             await prisma.host.update({
               where: { id: existing.id },
-              data: {
-                phone: phone ?? undefined,
-                name: name ?? undefined,
-              },
+              data,
             });
             result.updated++;
           } else {
-            await prisma.host.create({
-              data: {
-                email,
-                name: name ?? null,
-                phone: phone ?? null,
-                tenantId,
-                optedOut: false,
-              },
-            });
+            const data: any = {
+              email,
+              name: name ?? null,
+              phone: phone ?? null,
+              tenantId,
+              optedOut: false,
+            };
+            if (state != null) {
+              data.state = state;
+            }
+            await prisma.host.create({ data });
             result.created++;
           }
         } catch {

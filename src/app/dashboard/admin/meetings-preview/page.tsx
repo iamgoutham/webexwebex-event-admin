@@ -1,6 +1,9 @@
+import { Role } from "@prisma/client";
 import ParticipantLinks from "@/components/participant-links";
+import MeetingExceptionRequest from "@/components/meeting-exception-request";
 import { requireRole } from "@/lib/guards";
 import { ADMIN_ROLES } from "@/lib/rbac";
+import { prisma } from "@/lib/prisma";
 import {
   getMeetingInfoForEmail,
   getMeetingInfoLookupDebug,
@@ -97,7 +100,7 @@ type PageProps = {
 };
 
 export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
-  await requireRole(ADMIN_ROLES);
+  const session = await requireRole(ADMIN_ROLES);
   const params = await searchParams;
   const email = params?.email?.trim();
   const showDebug = params?.debug === "1";
@@ -105,6 +108,7 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
   let meetingInfoRaw: string | null = null;
   let meetingsFromJson: SheetMeeting[] | null = null;
   let lookupDebug: Awaited<ReturnType<typeof getMeetingInfoLookupDebug>> = null;
+  let previewUser: { id: string; email: string | null; name: string | null } | null = null;
 
   if (email) {
     meetingInfoRaw = await getMeetingInfoForEmail(email);
@@ -114,7 +118,15 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
     if (showDebug || !meetingsFromJson) {
       lookupDebug = await getMeetingInfoLookupDebug(email);
     }
+    const normalizedEmail = email.toLowerCase().trim();
+    previewUser = await prisma.host.findFirst({
+      where: {
+        email: normalizedEmail,
+      },
+      select: { id: true, email: true, name: true },
+    });
   }
+  console.log("Preview user; ",previewUser)
 
   return (
     <div className="space-y-6 text-[#3b1a1f]">
@@ -232,6 +244,22 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
                         </span>
                       ) : null}
                     </div>
+                    {meeting.title && previewUser ? (
+                      <MeetingExceptionRequest
+                        meetingTitle={meeting.title}
+                        isAdmin
+                        currentUserId={session.user.id ?? ""}
+                        previewUserId={previewUser.id}
+                        previewUserLabel={
+                          previewUser.name || previewUser.email || email || ""
+                        }
+                      />
+                    ) : meeting.title ? (
+                      <p className="mt-3 text-[11px] text-[#8a5b44]">
+                        Request participants is available only when the previewed
+                        email belongs to a registered user.
+                      </p>
+                    ) : null}
                   </div>
                 );
               })}

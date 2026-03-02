@@ -1,6 +1,6 @@
 import { Role } from "@prisma/client";
 import ParticipantLinks from "@/components/participant-links";
-import MeetingExceptionRequest from "@/components/meeting-exception-request";
+import MeetingsParticipantsPanel from "@/components/meetings-participants-panel";
 import { requireAuth } from "@/lib/guards";
 import {
   getMeetingInfoForEmail,
@@ -121,6 +121,23 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Meetings you are hosting
         </p>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-[#3b1a1f]">
+          Request participants to my meetings
+        </h2>
+        <p className="mt-1 text-sm text-[#6b4e3d]">
+          Add participant requests for your meetings by entering participant emails below, or select
+          participants from your state list to auto-fill their emails.
+        </p>
+        <MeetingsParticipantsPanel
+          isAdmin={
+            session.user.role === Role.ADMIN ||
+            session.user.role === Role.SUPERADMIN
+          }
+          currentUserId={session.user.id ?? ""}
+        />
       </div>
 
       {meetingsFromJson ? (

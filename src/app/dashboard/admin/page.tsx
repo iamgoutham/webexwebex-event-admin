@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/guards";
 import { ADMIN_ROLES } from "@/lib/rbac";
 import GridImportButton from "@/components/grid-import-button";
 import UpdateMeetingSheetButton from "@/components/update-meeting-sheet-button";
+import AdminParticipantsByState from "@/components/admin-participants-by-state";
 
 export default async function AdminDashboardPage() {
   const session = await requireRole(ADMIN_ROLES);
@@ -84,6 +85,17 @@ export default async function AdminDashboardPage() {
             clientName="Chinmaya Sanjose"
             label="Update (Chinmaya Sanjose)"
           />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Participants by state</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Select any state to see all participants currently stored for that state. Uses the normalized state
+          value (e.g. &quot;New Jersey&quot; rather than &quot;NJ&quot;).
+        </p>
+        <div className="mt-4">
+          <AdminParticipantsByState />
         </div>
       </div>
 
