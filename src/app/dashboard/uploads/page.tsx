@@ -53,7 +53,7 @@ export default async function UploadsPage() {
                 <th className="px-4 py-3">Size</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Uploaded</th>
-                <th className="px-4 py-3">Key</th>
+                <th className="px-4 py-3">Key / Download</th>
               </tr>
             </thead>
             <tbody>
@@ -68,7 +68,29 @@ export default async function UploadsPage() {
                     {upload.createdAt.toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-xs text-[#6b4e3d]">
-                    {upload.key}
+                    <span className="block break-all">{upload.key}</span>
+                    {(session.user.role === Role.ADMIN ||
+                      session.user.role === Role.SUPERADMIN ||
+                      session.user.role === Role.HOST) && (
+                      <span className="mt-1 flex flex-wrap gap-2">
+                        <a
+                          href={`/api/uploads/download?key=${encodeURIComponent(upload.key)}`}
+                          className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Download file
+                        </a>
+                        <a
+                          href={`/api/uploads/download?key=${encodeURIComponent(`${upload.key}.attest`)}`}
+                          className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Download .attest
+                        </a>
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
