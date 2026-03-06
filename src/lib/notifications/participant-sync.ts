@@ -217,6 +217,26 @@ export async function syncParticipants(
           ])
         : -1;
 
+      // Additional registrant email/phone columns per row (up to 8)
+      const registrantEmailIdxs = [
+        findColumnIndex(headers, ["Registrant 2 Email"]),
+        findColumnIndex(headers, ["Registrant 3 Email"]),
+        findColumnIndex(headers, ["Registrant 4 Email"]),
+        findColumnIndex(headers, ["Registrant 5 Email"]),
+        findColumnIndex(headers, ["Registrant 6 Email"]),
+        findColumnIndex(headers, ["Registrant 7 Email"]),
+        findColumnIndex(headers, ["Registrant 8 Email"]),
+      ];
+      const registrantPhoneIdxs = [
+        findColumnIndex(headers, ["Registrant 2 Phone"]),
+        findColumnIndex(headers, ["Registrant 3 Phone"]),
+        findColumnIndex(headers, ["Registrant 4 Phone"]),
+        findColumnIndex(headers, ["Registrant 5 Phone"]),
+        findColumnIndex(headers, ["Registrant 6 Phone"]),
+        findColumnIndex(headers, ["Registrant 7 Phone"]),
+        findColumnIndex(headers, ["Registrant 8 Phone"]),
+      ];
+
       if (emailIdx === -1) {
         result.errors.push(
           `Sheet ${config.sheet_id}: email column not found (tried "${config.email_column_name}"). Available columns: ${formatAvailableColumns(headers)}`,
@@ -225,10 +245,6 @@ export async function syncParticipants(
       }
 
       for (const row of rows.slice(1)) {
-        const email = row[emailIdx]?.trim().toLowerCase();
-        if (!email || email === "" || email === "n/a") continue;
-
-        const phone = phoneIdx >= 0 ? row[phoneIdx]?.trim() ?? null : null;
         const firstName =
           firstNameIdx >= 0 ? row[firstNameIdx]?.trim() ?? null : null;
         const lastName =
@@ -239,40 +255,84 @@ export async function syncParticipants(
           stateIdx >= 0 ? row[stateIdx]?.trim() ?? null : null;
         const state = normalizeUsState(rawState);
 
-        try {
-          const existing = await prisma.participant.findFirst({
-            where: { email, tenantId },
-            select: { id: true },
-          });
+        type Registrant = { email: string; phone: string | null };
+        const registrants: Registrant[] = [];
+        const seenEmails = new Set<string>();
 
-          const participantData = {
-            phone: phone || null,
-            firstName: firstName || null,
-            lastName: lastName || null,
-            center: center || null,
-            state: state || null,
-          };
+        // Primary registrant (row's main email/phone)
+        const baseEmailRaw = row[emailIdx]?.trim().toLowerCase();
+        if (
+          baseEmailRaw &&
+          baseEmailRaw !== "" &&
+          baseEmailRaw !== "n/a"
+        ) {
+          const basePhone =
+            phoneIdx >= 0 ? row[phoneIdx]?.trim() ?? null : null;
+          registrants.push({ email: baseEmailRaw, phone: basePhone });
+          seenEmails.add(baseEmailRaw);
+        }
 
-          if (existing) {
-            await prisma.participant.update({
-              where: { id: existing.id },
-              data: participantData,
-            });
-            result.updated++;
-          } else {
-            await prisma.participant.create({
-              data: {
-                email,
-                name: null,
-                tenantId,
-                optedOut: false,
-                ...participantData,
-              },
-            });
-            result.created++;
+        // Registrant 2–8 emails/phones from the same row
+        registrantEmailIdxs.forEach((emailIdx2, i) => {
+          if (emailIdx2 < 0) return;
+          const regEmailRaw = row[emailIdx2]?.trim().toLowerCase();
+          if (
+            !regEmailRaw ||
+            regEmailRaw === "" ||
+            regEmailRaw === "n/a"
+          ) {
+            return;
           }
-        } catch {
-          result.skipped++;
+          if (seenEmails.has(regEmailRaw)) {
+            return;
+          }
+          const phoneIdx2 = registrantPhoneIdxs[i];
+          const regPhone =
+            phoneIdx2 >= 0 ? row[phoneIdx2]?.trim() ?? null : null;
+          registrants.push({ email: regEmailRaw, phone: regPhone });
+          seenEmails.add(regEmailRaw);
+        });
+
+        if (!registrants.length) {
+          continue;
+        }
+
+        for (const { email, phone } of registrants) {
+          try {
+            const existing = await prisma.participant.findFirst({
+              where: { email, tenantId },
+              select: { id: true },
+            });
+
+            const participantData = {
+              phone: phone || null,
+              firstName: firstName || null,
+              lastName: lastName || null,
+              center: center || null,
+              state: state || null,
+            };
+
+            if (existing) {
+              await prisma.participant.update({
+                where: { id: existing.id },
+                data: participantData,
+              });
+              result.updated++;
+            } else {
+              await prisma.participant.create({
+                data: {
+                  email,
+                  name: null,
+                  tenantId,
+                  optedOut: false,
+                  ...participantData,
+                },
+              });
+              result.created++;
+            }
+          } catch {
+            result.skipped++;
+          }
         }
       }
     } catch (err) {

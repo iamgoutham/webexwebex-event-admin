@@ -1,6 +1,6 @@
 import { Role } from "@prisma/client";
 import ParticipantLinks from "@/components/participant-links";
-import MeetingExceptionRequest from "@/components/meeting-exception-request";
+import AdminPreviewParticipantsPanel from "@/components/admin-preview-participants-panel";
 import { requireRole } from "@/lib/guards";
 import { ADMIN_ROLES } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
@@ -108,7 +108,7 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
   let meetingInfoRaw: string | null = null;
   let meetingsFromJson: SheetMeeting[] | null = null;
   let lookupDebug: Awaited<ReturnType<typeof getMeetingInfoLookupDebug>> = null;
-  let previewUser: { id: string; email: string | null; name: string | null } | null = null;
+  let previewUser: { id: string; email: string | null; name: string | null; state: string | null } | null = null;
 
   if (email) {
     meetingInfoRaw = await getMeetingInfoForEmail(email);
@@ -123,10 +123,9 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
       where: {
         email: normalizedEmail,
       },
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, state: true },
     });
   }
-  console.log("Preview user; ",previewUser)
 
   return (
     <div className="space-y-6 text-[#3b1a1f]">
@@ -182,6 +181,32 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
           <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4 text-sm text-[#6b4e3d]">
             <span className="font-semibold">Previewing as:</span> {email}
           </div>
+
+          {previewUser ? (
+            <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+              <h2 className="text-lg font-semibold text-[#3b1a1f]">
+                Request participants to this user&apos;s meetings
+              </h2>
+              <p className="mt-1 text-sm text-[#6b4e3d]">
+                Requests created here are recorded as the preview user. Select participants from this user&apos;s
+                state or enter emails manually.
+              </p>
+              <div className="mt-4">
+                <AdminPreviewParticipantsPanel
+                  previewUserId={previewUser.id}
+                  previewUserLabel={
+                    previewUser.name || previewUser.email || email || ""
+                  }
+                  currentAdminUserId={session.user.id ?? ""}
+                  state={previewUser.state ?? null}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-4 text-[11px] text-[#8a5b44]">
+              Request participants is available only when the previewed email belongs to a registered host.
+            </div>
+          )}
 
           {meetingsFromJson ? (
             <div className="grid gap-4">
@@ -244,22 +269,6 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
                         </span>
                       ) : null}
                     </div>
-                    {meeting.title && previewUser ? (
-                      <MeetingExceptionRequest
-                        meetingTitle={meeting.title}
-                        isAdmin
-                        currentUserId={session.user.id ?? ""}
-                        previewUserId={previewUser.id}
-                        previewUserLabel={
-                          previewUser.name || previewUser.email || email || ""
-                        }
-                      />
-                    ) : meeting.title ? (
-                      <p className="mt-3 text-[11px] text-[#8a5b44]">
-                        Request participants is available only when the previewed
-                        email belongs to a registered user.
-                      </p>
-                    ) : null}
                   </div>
                 );
               })}

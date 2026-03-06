@@ -1,5 +1,6 @@
 import { Role } from "@prisma/client";
 import ParticipantLinks from "@/components/participant-links";
+import MeetingExceptionRequest from "@/components/meeting-exception-request";
 import MeetingsParticipantsPanel from "@/components/meetings-participants-panel";
 import { requireAuth } from "@/lib/guards";
 import {
@@ -196,16 +197,6 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
                     <span className="text-xs text-[#8a5b44]">MTID: {mtid}</span>
                   ) : null}
                 </div>
-                {meeting.title ? (
-                  <MeetingExceptionRequest
-                    meetingTitle={meeting.title}
-                    isAdmin={
-                      session.user.role === Role.ADMIN ||
-                      session.user.role === Role.SUPERADMIN
-                    }
-                    currentUserId={session.user.id ?? ""}
-                  />
-                ) : null}
               </div>
             );
           })}
