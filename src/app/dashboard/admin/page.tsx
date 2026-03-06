@@ -1,0 +1,168 @@
+import Link from "next/link";
+import { Role } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/guards";
+import { ADMIN_ROLES } from "@/lib/rbac";
+import GridImportButton from "@/components/grid-import-button";
+import UpdateMeetingSheetButton from "@/components/update-meeting-sheet-button";
+import AdminParticipantsByState from "@/components/admin-participants-by-state";
+
+export default async function AdminDashboardPage() {
+  const session = await requireRole(ADMIN_ROLES);
+
+  const tenant = session.user.tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: session.user.tenantId },
+        select: { id: true, name: true, slug: true },
+      })
+    : null;
+
+  const users = tenant
+    ? await prisma.user.findMany({
+        where: { tenantId: tenant.id },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, name: true, email: true, role: true, createdAt: true },
+      })
+    : [];
+
+  const tenantSummaries =
+    session.user.role === Role.SUPERADMIN
+      ? await prisma.tenant.findMany({
+          orderBy: { createdAt: "desc" },
+          select: { id: true, name: true, slug: true, _count: { select: { users: true } } },
+        })
+      : [];
+
+  return (
+    <div className="space-y-8 text-[#3b1a1f]">
+      <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
+        <h1 className="text-2xl font-semibold">Admin dashboard</h1>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Manage tenant-scoped users, roles, and uploads.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Video grid size imports</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Import grid sizes from the Google Sheet to update host allocations.
+        </p>
+        <div className="mt-4">
+          <GridImportButton />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Meetings preview (as user)</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          See the meetings page as it would appear for any user by email.
+        </p>
+        <Link
+          href="/dashboard/admin/meetings-preview"
+          className="mt-3 inline-flex rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
+        >
+          Open meetings preview
+        </Link>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Host meeting info</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Write meeting info from the adminsite to the Google Sheet (calls adminsite
+          <code className="mx-1 rounded bg-[#f7e2b6] px-1 text-xs">/meetings/update-sheet</code>
+          ).
+        </p>
+        <div className="mt-4 flex flex-wrap gap-4">
+          <UpdateMeetingSheetButton
+            clientName="Chinmaya Mission"
+            label="Update (Chinmaya Mission)"
+          />
+          <UpdateMeetingSheetButton
+            clientName="Chinmaya Vrindavan"
+            label="Update (Chinmaya Vrindavan)"
+          />
+          <UpdateMeetingSheetButton
+            clientName="Chinmaya Sanjose"
+            label="Update (Chinmaya Sanjose)"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Participants by state</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Select any state to see all participants currently stored for that state. Uses the normalized state
+          value (e.g. &quot;New Jersey&quot; rather than &quot;NJ&quot;).
+        </p>
+        <div className="mt-4">
+          <AdminParticipantsByState />
+        </div>
+      </div>
+
+      {session.user.role === Role.SUPERADMIN ? (
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6">
+          <h2 className="text-lg font-semibold">Tenant overview</h2>
+          <p className="mt-2 text-sm text-[#6b4e3d]">
+            Use the Users API with a tenantId query parameter to drill into a
+            tenant’s roster.
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {tenantSummaries.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4"
+              >
+                <p className="text-sm font-semibold">{item.name}</p>
+                <p className="text-xs text-[#8a5b44]">{item.slug}</p>
+                <p className="mt-2 text-xs text-[#8a5b44]">
+                  Users: {item._count.users}
+                </p>
+              </div>
+            ))}
+            {!tenantSummaries.length ? (
+              <p className="text-sm text-[#8a5b44]">No tenants available yet.</p>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6">
+          <h2 className="text-lg font-semibold">Tenant users</h2>
+          <p className="mt-2 text-sm text-[#6b4e3d]">
+            Current tenant: {tenant?.name ?? "Unassigned"}
+          </p>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-[#e5c18e] bg-white/70">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-[#f3d6a3] text-xs uppercase text-[#8a5b44]">
+                <tr>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id} className="border-t border-[#e5c18e]">
+                    <td className="px-4 py-3">{user.name ?? "—"}</td>
+                    <td className="px-4 py-3">{user.email ?? "—"}</td>
+                    <td className="px-4 py-3">{user.role}</td>
+                    <td className="px-4 py-3">
+                      {user.createdAt.toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+                {!users.length ? (
+                  <tr>
+                    <td className="px-4 py-6 text-sm text-[#8a5b44]" colSpan={4}>
+                      No users assigned yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Host` ADD COLUMN `state` VARCHAR(191) NULL;
