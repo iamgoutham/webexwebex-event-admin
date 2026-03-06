@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Role } from "@prisma/client";
-import { CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
+import {
+  CompleteMultipartUploadCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import { requireApiAuth } from "@/lib/api-guards";
 import { getHostIdForEmail } from "@/lib/license-site";
 import { prisma } from "@/lib/prisma";
 import { s3Bucket, s3Client } from "@/lib/s3";
 import { ensureUserShortId } from "@/lib/user-short-id";
+
+const attestationSchema = z.object({
+  hostName: z.string().min(1),
+  hostEmail: z.string().email(),
+  participantsAssigned: z.number().int().min(0),
+  participantsAttendedWithVideo: z.number().int().min(0),
+  signature: z.string().min(1),
+  attestedAt: z.string().optional(),
+});
 
 const completeSchema = z.object({
   key: z.string().min(1),
@@ -22,6 +34,7 @@ const completeSchema = z.object({
       }),
     )
     .min(1),
+  attestation: attestationSchema,
 });
 
 const safeSegment = (value: string) =>
@@ -122,6 +135,17 @@ export async function POST(request: Request) {
   });
 
   const result = await s3Client.send(command);
+
+  const attestationKey = `${parsed.data.key}.attest`;
+  const attestationBody = JSON.stringify(parsed.data.attestation, null, 2);
+  await s3Client.send(
+    new PutObjectCommand({
+      Bucket: s3Bucket,
+      Key: attestationKey,
+      Body: attestationBody,
+      ContentType: "application/json",
+    }),
+  );
 
   await prisma.upload.create({
     data: {

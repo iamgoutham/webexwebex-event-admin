@@ -39,7 +39,10 @@ export default async function UploadsPage() {
           Guinness records.
         </p>
       </div>
-      <UploadPanel />
+      <UploadPanel
+        defaultHostName={session.user.name ?? undefined}
+        defaultHostEmail={session.user.email ?? undefined}
+      />
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8">
         <h2 className="text-lg font-semibold">Recent uploads</h2>
         <div className="mt-4 overflow-x-auto">

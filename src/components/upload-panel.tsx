@@ -55,13 +55,38 @@ const buildErrorMessage = async (response: Response) => {
   }
 };
 
-export default function UploadPanel() {
+type UploadPanelProps = {
+  defaultHostName?: string;
+  defaultHostEmail?: string;
+};
+
+export default function UploadPanel({
+  defaultHostName = "",
+  defaultHostEmail = "",
+}: UploadPanelProps) {
   const [file, setFile] = useState<File | null>(null);
   const [folder] = useState("recordings");
+  const [hostName, setHostName] = useState(defaultHostName);
+  const [hostEmail, setHostEmail] = useState(defaultHostEmail);
+  const [participantsAssigned, setParticipantsAssigned] = useState("");
+  const [participantsAttendedWithVideo, setParticipantsAttendedWithVideo] =
+    useState("");
+  const [signature, setSignature] = useState("");
   const [state, setState] = useState<UploadState>({
     status: "idle",
     progress: 0,
   });
+
+  const assignedNum = participantsAssigned.trim() === "" ? NaN : parseInt(participantsAssigned, 10);
+  const attendedNum = participantsAttendedWithVideo.trim() === "" ? NaN : parseInt(participantsAttendedWithVideo, 10);
+  const formComplete =
+    hostName.trim() !== "" &&
+    hostEmail.trim() !== "" &&
+    !Number.isNaN(assignedNum) &&
+    assignedNum >= 0 &&
+    !Number.isNaN(attendedNum) &&
+    attendedNum >= 0 &&
+    signature.trim() !== "";
 
   const partSize = useMemo(
     () => (file ? computePartSize(file.size) : 0),
@@ -156,6 +181,15 @@ export default function UploadPanel() {
         message: "Finalizing multipart upload...",
       });
 
+      const attestation = {
+        hostName: hostName.trim(),
+        hostEmail: hostEmail.trim(),
+        participantsAssigned: assignedNum,
+        participantsAttendedWithVideo: attendedNum,
+        signature: signature.trim(),
+        attestedAt: new Date().toISOString(),
+      };
+
       const completeResponse = await fetch("/api/uploads/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -166,6 +200,7 @@ export default function UploadPanel() {
           contentType: file.type || "application/octet-stream",
           sizeBytes: file.size,
           parts,
+          attestation,
         }),
       });
 
@@ -203,6 +238,66 @@ export default function UploadPanel() {
       </div>
 
       <div className="mt-6 grid gap-4">
+        <p className="text-sm font-medium text-[#6b4e3d]">
+          Attestation (host information prefilled from your account)
+        </p>
+        <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
+          Host name
+          <input
+            type="text"
+            value={hostName}
+            onChange={(e) => setHostName(e.target.value)}
+            placeholder="Your name"
+            className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
+          Host email
+          <input
+            type="email"
+            value={hostEmail}
+            onChange={(e) => setHostEmail(e.target.value)}
+            placeholder="your@email.com"
+            className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
+          />
+        </label>
+        <p className="text-sm italic text-[#6b4e3d]">
+          I <strong>{hostName || "[Host name]"}</strong>{" "}
+          <strong>{hostEmail || "[Host email]"}</strong> attest the following
+          information is observed by me in the following file I am uploading.
+        </p>
+        <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
+          1) No of participants assigned to me
+          <input
+            type="number"
+            min={0}
+            value={participantsAssigned}
+            onChange={(e) => setParticipantsAssigned(e.target.value)}
+            placeholder="0"
+            className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
+          2) No of participants attended for the whole duration with video on
+          <input
+            type="number"
+            min={0}
+            value={participantsAttendedWithVideo}
+            onChange={(e) => setParticipantsAttendedWithVideo(e.target.value)}
+            placeholder="0"
+            className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
+          />
+        </label>
+        <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
+          Signature
+          <input
+            type="text"
+            value={signature}
+            onChange={(e) => setSignature(e.target.value)}
+            placeholder="Your signature"
+            className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
+          />
+        </label>
         <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
           File
           <input
@@ -234,6 +329,7 @@ export default function UploadPanel() {
           type="button"
           onClick={handleUpload}
           disabled={
+            !formComplete ||
             !file ||
             state.status === "requesting" ||
             state.status === "uploading" ||
