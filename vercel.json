@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-hosts-and-participants",
+      "schedule": "0 */2 * * *"
+    }
+  ]
+}

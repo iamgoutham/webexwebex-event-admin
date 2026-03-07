@@ -81,6 +81,99 @@ Role and tenant checks are enforced in:
 | `/api/uploads/presign` | POST | Admin, SuperAdmin | S3 presigned URL |
 | `/api/uploads/complete` | POST | Admin, SuperAdmin | Complete multipart upload |
 
+## Cron jobs (Vercel)
+
+A scheduled task runs every 2 hours to sync hosts and participants from Google Sheets (same logic as the “Sync Hosts” and “Sync Participants” buttons on the Broadcast page).
+
+- **Endpoint:** `GET /api/cron/sync-hosts-and-participants`
+- **Schedule:** `0 */2 * * *` (every 2 hours; configured in `vercel.json`)
+- **Auth:** Set `CRON_SECRET` in Vercel environment variables. Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`. For external cron services, you can use the header `x-cron-secret: <CRON_SECRET>`.
+
+If `CRON_SECRET` is not set, the endpoint returns 503.
+
+### Cron on AWS (EventBridge + Lambda)
+
+Use EventBridge to run every 2 hours and a small Lambda that calls your app’s cron URL with the secret.
+
+1. **Set `CRON_SECRET`** in your app’s environment (e.g. EC2 user data, ECS task def, or Parameter Store). Use a long random string (e.g. 32+ chars).
+
+2. **Create a Lambda** (Node 18+):
+   - **Runtime:** Node.js 18.x or 20.x
+   - **Code:** Use the following handler. Replace `CRON_URL` with your app’s base URL (e.g. `https://your-domain.com`).
+
+   ```javascript
+   const https = require('https');
+   const url = new URL(process.env.CRON_URL + '/api/cron/sync-hosts-and-participants');
+
+   exports.handler = async () => {
+     const secret = process.env.CRON_SECRET;
+     if (!secret) throw new Error('CRON_SECRET not set');
+     return new Promise((resolve, reject) => {
+       const req = https.request(url, { method: 'GET', headers: { 'x-cron-secret': secret } }, (res) => {
+         let body = '';
+         res.on('data', (c) => body += c);
+         res.on('end', () => {
+           if (res.statusCode >= 400) reject(new Error(`Cron failed: ${res.statusCode} ${body}`));
+           else resolve({ statusCode: 200, body });
+         });
+       });
+       req.on('error', reject);
+       req.end();
+     });
+   };
+   ```
+
+   **Lambda env vars:**  
+   - `CRON_URL` = your app URL (e.g. `https://your-domain.com`)  
+   - `CRON_SECRET` = same value as in your app (store in Lambda env or use Secrets Manager).
+
+3. **Create an EventBridge rule:**
+   - **Schedule:** `cron(0 */2 * * * ? *)` (every 2 hours, on the hour)
+   - **Target:** the Lambda above
+   - Enable the default permission so EventBridge can invoke the Lambda.
+
+4. **Optional:** If your app is in a private VPC and not reachable from the internet, run the cron from the same network (e.g. use the app’s internal URL for `CRON_URL`, and put the Lambda in the same VPC with access to that URL), or use the EC2 crontab option below.
+
+### Cron on AWS (EC2 crontab)
+
+If the app runs on an EC2 instance, you can trigger the cron from the same server with `curl`.
+
+1. **Set `CRON_SECRET`** in your app’s environment (e.g. in `.env` or the process manager’s env).
+
+2. **On the EC2 instance**, add a crontab entry (run `crontab -e` as the app user or root):
+
+   ```bash
+   0 */2 * * * curl -sf -H "x-cron-secret: YOUR_CRON_SECRET" "http://127.0.0.1:3000/api/cron/sync-hosts-and-participants" || true
+   ```
+
+   Replace `YOUR_CRON_SECRET` with the same value as `CRON_SECRET` in your app. Using `127.0.0.1` avoids going through the public URL. If the app listens on a different port, change `3000` accordingly.
+
+3. **Optional:** Store the secret in a file with restricted permissions and source it:
+
+   ```bash
+   0 */2 * * * curl -sf -H "x-cron-secret: $(cat /etc/app/CRON_SECRET)" "http://127.0.0.1:3000/api/cron/sync-hosts-and-participants" || true
+   ```
+
+### Amazon Linux
+
+On Amazon Linux 2 or 2023, cron is provided by `crond`. Ensure it’s running:
+
+```bash
+sudo systemctl enable crond
+sudo systemctl start crond
+sudo systemctl status crond
+```
+
+Then add your cron job with the same entry as above:
+
+```bash
+crontab -e
+# Add:
+# 0 */2 * * * curl -sf -H "x-cron-secret: YOUR_CRON_SECRET" "http://127.0.0.1:3000/api/cron/sync-hosts-and-participants" || true
+```
+
+Use `crontab -l` to list jobs. Logs: `sudo tail -f /var/log/cron` (Amazon Linux 2) or `journalctl -u crond -f` (Amazon Linux 2023).
+
 ## Multipart uploads
 
 - `POST /api/uploads/presign` expects `filename`, `contentType`, `partCount`,
