@@ -448,12 +448,12 @@ export default function FaqPage() {
             <div className="mt-2 pl-0 text-sm text-[#6b4e3d]">
               Refer to Tech Support contacts listed at{" "}
               <a
-                href="https://tinyurl.com/UsefulCgsInfo"
+                href="https://tinyurl.com/UsefulCgsInfo2"
                 target="_blank"
                 rel="noreferrer"
                 className={linkClass}
               >
-                tinyurl.com/UsefulCgsInfo
+                tinyurl.com/UsefulCgsInfo2
               </a>
               .<br />
               Regional tech support contacts are available.

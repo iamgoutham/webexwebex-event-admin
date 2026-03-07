@@ -243,7 +243,7 @@ export default async function Home() {
             </li>
             <li>
               <a
-                href="https://tinyurl.com/UsefulCgsInfo"
+                href="https://tinyurl.com/UsefulCgsInfo2"
                 target="_blank"
                 rel="noreferrer"
                 className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
