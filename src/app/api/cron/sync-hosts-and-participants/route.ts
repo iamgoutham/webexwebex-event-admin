@@ -23,8 +23,10 @@ export async function GET(request: Request) {
 
   const authHeader = request.headers.get("authorization");
   const headerSecret = request.headers.get("x-cron-secret");
-  const bearerMatch = authHeader?.startsWith("Bearer ");
-  const token = bearerMatch ? authHeader.slice(7) : null;
+  const token =
+    authHeader != null && authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : null;
 
   if (token !== secret && headerSecret !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
