@@ -80,6 +80,17 @@ Role and tenant checks are enforced in:
 | `/api/users` | GET/POST | Admin, SuperAdmin | Tenant user management |
 | `/api/uploads/presign` | POST | Admin, SuperAdmin | S3 presigned URL |
 | `/api/uploads/complete` | POST | Admin, SuperAdmin | Complete multipart upload |
+| `/api/verify-email` | GET | Secret | Check if email is a host or participant (see below) |
+
+### Verify email (public API with secret)
+
+`GET /api/verify-email?email=...` returns whether the email is registered as a host and/or participant. No login required; protect with a shared secret.
+
+- **Auth:** Set `VERIFY_EMAIL_SECRET` in the environment. Callers must send it via:
+  - `Authorization: Bearer <VERIFY_EMAIL_SECRET>`, or
+  - `x-verify-email-secret: <VERIFY_EMAIL_SECRET>`
+- **Response:** `{ isHostOrParticipant: boolean, host: boolean, participant: boolean }`
+- If `VERIFY_EMAIL_SECRET` is not set, the endpoint returns 503.
 
 ## Cron jobs (Vercel)
 
