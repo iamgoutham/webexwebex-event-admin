@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     submitAsUserId !== user.id &&
     isRoleAllowed(user.role, ADMIN_ROLES)
   ) {
-    const targetUser = await prisma.user.findUnique({
+    const targetUser = await prisma.host.findUnique({
       where: { id: submitAsUserId },
       select: { id: true, email: true, tenantId: true },
     });
