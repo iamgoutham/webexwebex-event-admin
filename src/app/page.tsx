@@ -9,6 +9,14 @@ export default async function Home() {
   const tenantConfig = await getTenantConfigFromHeaders();
   const providerId = tenantConfig?.providerId ?? "webex";
 
+  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
+  const pptxPublicUrl = baseUrl
+    ? `${baseUrl}/webex-host-training.pptx`
+    : null;
+  const presentationEmbedSrc = pptxPublicUrl
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(pptxPublicUrl)}`
+    : null;
+
   return (
     <div className="space-y-10 rounded-[32px] bg-[#fdf6e9] px-4 py-8 text-[#2b1f13] shadow-[0_30px_80px_rgba(58,25,15,0.15)] sm:px-6 sm:py-10 md:px-8">
       <section className="rounded-3xl border border-[#e7b474] bg-gradient-to-br from-[#f7e2b6] via-[#f3c16e] to-[#d8792d] p-6 text-[#3b1a1f] shadow-xl sm:p-8 md:p-10">
@@ -63,18 +71,36 @@ export default async function Home() {
         </span>
         <h2 className="mt-4 text-xl font-semibold">Webex Host Training</h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          View or download the host training presentation to prepare for the
-          event.
+          Watch the host training slideshow below. Use the controls in the
+          viewer to move between slides.
         </p>
-        <div className="mt-4">
+        {presentationEmbedSrc ? (
+          <div className="mt-4 aspect-video w-full overflow-hidden rounded-xl border border-[#e5c18e] bg-[#f7e2b6]">
+            <iframe
+              src={presentationEmbedSrc}
+              title="Webex Host Training presentation"
+              className="h-full min-h-[360px] w-full"
+              allowFullScreen
+            />
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-[#6b4e3d]">
+            Set <code className="rounded bg-[#f7e2b6] px-1">NEXTAUTH_URL</code>{" "}
+            to your site’s public URL for the embedded slideshow. Until then,
+            use the download link below.
+          </p>
+        )}
+        <p className="mt-4 text-xs text-[#6b4e3d]">
+          If the slideshow does not load (e.g. in local development),{" "}
           <a
             href="/webex-host-training.pptx"
             download="webex-host-training.pptx"
-            className="inline-flex items-center gap-2 rounded-full bg-[#d8792d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b86425]"
+            className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
           >
-            Download Host Training (PowerPoint)
+            download the presentation
           </a>
-        </div>
+          .
+        </p>
       </section>
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
