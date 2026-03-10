@@ -159,6 +159,12 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
 
       const rows = parseCsv(csv);
       if (rows.length < 2) continue;
+      console.log(
+        "[host-sync] Parsed rows from sheet",
+        config.sheet_id,
+        "- total rows (including header):",
+        rows.length,
+      );
       const headers = rows[0];
       const emailIdx = findColumnIndex(headers, [
         config.email_column_name,
