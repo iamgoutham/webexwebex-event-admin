@@ -13,8 +13,15 @@ import {
 //
 // Configuration via env HOST_MAP_LIST (JSON array), same shape as PARTICIPANT_MAP_LIST:
 //   [
-//     { "sheet_id": "...", "email_column_name": "Email", "phone_column_name": "Phone" },
-//     ... optionally "name_column_name": "Name"
+//     {
+//       "sheet_id": "...",
+//       "email_column_name": "Email",
+//       "phone_column_name": "Phone",
+//       "name_column_name": "Name",                // optional
+//       "first_name_column_name": "First Name",    // optional
+//       "last_name_column_name": "Last Name"       // optional
+//     },
+//     ...
 //   ]
 //
 // All hosts get tenantId: null; messages sent to all as a group.
@@ -95,6 +102,8 @@ export interface HostSheetConfig {
   email_column_name: string;
   phone_column_name: string;
   name_column_name?: string;
+  first_name_column_name?: string;
+  last_name_column_name?: string;
   state_column_name?: string;
 }
 
@@ -178,6 +187,26 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
       ]);
       const statusIdx = findColumnIndex(headers, ["Status"]);
       const webexActiveIdx = findColumnIndex(headers, ["Webex Active"]);
+      const firstNameIdx =
+        config.first_name_column_name != null &&
+        config.first_name_column_name !== ""
+          ? findColumnIndex(headers, [
+              config.first_name_column_name,
+              "firstName",
+              "First Name",
+              "First name",
+            ])
+          : -1;
+      const lastNameIdx =
+        config.last_name_column_name != null &&
+        config.last_name_column_name !== ""
+          ? findColumnIndex(headers, [
+              config.last_name_column_name,
+              "lastName",
+              "Last Name",
+              "Last name",
+            ])
+          : -1;
       const nameIdx =
         config.name_column_name != null && config.name_column_name !== ""
           ? findColumnIndex(headers, [config.name_column_name, "name", "Name"])
@@ -197,6 +226,8 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
           email_column_name: config.email_column_name,
           phone_column_name: config.phone_column_name,
           name_column_name: config.name_column_name ?? "(not set)",
+          first_name_column_name: config.first_name_column_name ?? "(not set)",
+          last_name_column_name: config.last_name_column_name ?? "(not set)",
           state_column_name: config.state_column_name ?? "(not set)",
         });
         console.log("[host-sync] Headers:", headers);
@@ -205,6 +236,8 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
           phoneIdx,
           statusIdx,
           webexActiveIdx,
+          firstNameIdx,
+          lastNameIdx,
           nameIdx,
           stateIdx,
         });
@@ -241,7 +274,16 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
         }
 
         const phone = phoneIdx >= 0 ? row[phoneIdx]?.trim() ?? null : null;
-        const name = nameIdx >= 0 ? row[nameIdx]?.trim() ?? null : null;
+        const firstName =
+          firstNameIdx >= 0 ? row[firstNameIdx]?.trim() ?? "" : "";
+        const lastName =
+          lastNameIdx >= 0 ? row[lastNameIdx]?.trim() ?? "" : "";
+        let name: string | null =
+          (firstName || lastName ? `${firstName} ${lastName}`.trim() : "") ||
+          null;
+        if (!name && nameIdx >= 0) {
+          name = row[nameIdx]?.trim() ?? null;
+        }
         const rawState = stateIdx >= 0 ? row[stateIdx]?.trim() ?? null : null;
         const state = normalizeUsState(rawState);
 
@@ -252,8 +294,10 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
             status,
             webexActive,
             extracted: {
-              phone,
+              firstName,
+              lastName,
               name,
+              phone,
               rawState,
               state,
             },
