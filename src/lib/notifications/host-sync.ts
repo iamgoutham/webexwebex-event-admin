@@ -18,7 +18,12 @@ import {
 //   ]
 //
 // All hosts get tenantId: null; messages sent to all as a group.
+//
+// Debug: set HOST_SYNC_DEBUG=1 to log sheet headers, column indices, extracted
+// row values, and the exact data written to Host and Participant tables.
 // ---------------------------------------------------------------------------
+
+const DEBUG = process.env.HOST_SYNC_DEBUG === "1";
 
 const US_STATE_MAP: Record<string, string> = {
   AL: "Alabama",
@@ -154,7 +159,6 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
 
       const rows = parseCsv(csv);
       if (rows.length < 2) continue;
-      console.log("Found rows: ",rows.length)
       const headers = rows[0];
       const emailIdx = findColumnIndex(headers, [
         config.email_column_name,
@@ -181,6 +185,26 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
             ])
           : -1;
 
+      if (DEBUG) {
+        console.log("[host-sync] Sheet config:", {
+          sheet_id: config.sheet_id,
+          email_column_name: config.email_column_name,
+          phone_column_name: config.phone_column_name,
+          name_column_name: config.name_column_name ?? "(not set)",
+          state_column_name: config.state_column_name ?? "(not set)",
+        });
+        console.log("[host-sync] Headers:", headers);
+        console.log("[host-sync] Column indices:", {
+          emailIdx,
+          phoneIdx,
+          statusIdx,
+          webexActiveIdx,
+          nameIdx,
+          stateIdx,
+        });
+        console.log("[host-sync] Row count (including header):", rows.length);
+      }
+
       if (emailIdx === -1) {
         result.errors.push(
           `Sheet ${config.sheet_id}: email column not found (tried "${config.email_column_name}"). Available columns: ${formatAvailableColumns(headers)}`,
@@ -204,22 +228,31 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
         const webexActiveRaw = row[webexActiveIdx] ?? "";
         const status = statusRaw.trim().toUpperCase();
         const webexActive = webexActiveRaw.trim().toLowerCase();
-	if (email.startsWith("anjanarsuresh")){
-        console.log("Found record ",email)
-	}
         // Only import hosts that are provisioned and Webex-active
         if (status !== "PROVISIONED" || webexActive !== "yes") {
           result.skipped++;
           continue;
         }
-	if (email.startsWith("anjanarsuresh")){
-        console.log("Syncing ",email)
-	}
 
         const phone = phoneIdx >= 0 ? row[phoneIdx]?.trim() ?? null : null;
         const name = nameIdx >= 0 ? row[nameIdx]?.trim() ?? null : null;
         const rawState = stateIdx >= 0 ? row[stateIdx]?.trim() ?? null : null;
         const state = normalizeUsState(rawState);
+
+        if (DEBUG && row.some((c) => c?.trim())) {
+          console.log("[host-sync] Row read (raw row, extracted):", {
+            rawRow: row,
+            email,
+            status,
+            webexActive,
+            extracted: {
+              phone,
+              name,
+              rawState,
+              state,
+            },
+          });
+        }
 
         try {
           const existing = await prisma.host.findFirst({
@@ -235,6 +268,16 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
             if (state != null) {
               data.state = state;
             }
+
+            if (DEBUG) {
+              console.log("[host-sync] Host DB payload:", {
+                email,
+                action: "update",
+                id: existing.id,
+                data,
+              });
+            }
+
             await prisma.host.update({
               where: { id: existing.id },
               data,
@@ -251,6 +294,15 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
             if (state != null) {
               data.state = state;
             }
+
+            if (DEBUG) {
+              console.log("[host-sync] Host DB payload:", {
+                email,
+                action: "create",
+                data,
+              });
+            }
+
             await prisma.host.create({ data });
             result.created++;
           }
@@ -267,6 +319,18 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
           });
 
           if (existingParticipant) {
+            if (DEBUG) {
+              console.log("[host-sync] Participant DB payload:", {
+                email,
+                action: "update",
+                id: existingParticipant.id,
+                data: {
+                  name: name ?? undefined,
+                  phone: phone ?? undefined,
+                },
+              });
+            }
+
             await prisma.participant.update({
               where: { id: existingParticipant.id },
               data: {
@@ -276,14 +340,24 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
               },
             });
           } else {
-            await prisma.participant.create({
-              data: {
+            const data = {
+              email,
+              name: name ?? null,
+              phone: phone ?? null,
+              tenantId,
+              optedOut: false,
+            };
+
+            if (DEBUG) {
+              console.log("[host-sync] Participant DB payload:", {
                 email,
-                name: name ?? null,
-                phone: phone ?? null,
-                tenantId,
-                optedOut: false,
-              },
+                action: "create",
+                data,
+              });
+            }
+
+            await prisma.participant.create({
+              data,
             });
           }
         } catch {
