@@ -24,7 +24,12 @@ import {
 //   4. All participants get tenantId: null (communications sent to all together)
 //
 // Triggered by the "Sync Participants" button on the admin dashboard.
+//
+// Debug: set PARTICIPANT_SYNC_DEBUG=1 to log sheet headers, column indices,
+// extracted row values, and the exact data inserted/updated per participant.
 // ---------------------------------------------------------------------------
+
+const DEBUG = process.env.PARTICIPANT_SYNC_DEBUG === "1";
 
 const US_STATE_MAP: Record<string, string> = {
   AL: "Alabama",
@@ -244,6 +249,24 @@ export async function syncParticipants(
         continue;
       }
 
+      if (DEBUG) {
+        console.log("[participant-sync] Sheet config:", {
+          sheet_id: config.sheet_id,
+          email_column_name: config.email_column_name,
+          first_name_column_name: config.first_name_column_name ?? "(not set)",
+          last_name_column_name: config.last_name_column_name ?? "(not set)",
+        });
+        console.log("[participant-sync] Headers:", headers);
+        console.log("[participant-sync] Column indices:", {
+          emailIdx,
+          phoneIdx,
+          firstNameIdx,
+          lastNameIdx,
+          centerIdx,
+          stateIdx,
+        });
+      }
+
       for (const row of rows.slice(1)) {
         const firstName =
           firstNameIdx >= 0 ? row[firstNameIdx]?.trim() ?? null : null;
@@ -254,6 +277,19 @@ export async function syncParticipants(
         const rawState =
           stateIdx >= 0 ? row[stateIdx]?.trim() ?? null : null;
         const state = normalizeUsState(rawState);
+
+        if (DEBUG && row.some((c) => c?.trim())) {
+          console.log("[participant-sync] Row read (raw row, extracted):", {
+            rawRow: row,
+            extracted: {
+              firstName,
+              lastName,
+              center,
+              rawState,
+              state,
+            },
+          });
+        }
 
         type Registrant = { email: string; phone: string | null };
         const registrants: Registrant[] = [];
@@ -311,6 +347,24 @@ export async function syncParticipants(
               center: center || null,
               state: state || null,
             };
+
+            if (DEBUG) {
+              console.log("[participant-sync] Participant DB payload:", {
+                email,
+                ...(existing
+                  ? { action: "update", id: existing.id, data: participantData }
+                  : {
+                      action: "create",
+                      data: {
+                        email,
+                        name: null,
+                        tenantId,
+                        optedOut: false,
+                        ...participantData,
+                      },
+                    }),
+              });
+            }
 
             if (existing) {
               await prisma.participant.update({
