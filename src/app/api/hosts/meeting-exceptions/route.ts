@@ -74,38 +74,56 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Resolve host identity: admins may submit as another user.
+  // Resolve host identity: admins may submit as another user (User id) or preview as host (Host id).
   let hostEmail = user.email ?? "";
   let hostUserId = user.id ?? "";
+  let hostShortId = user.shortId ?? "";
   if (
     submitAsUserId &&
     submitAsUserId !== user.id &&
     isRoleAllowed(user.role, ADMIN_ROLES)
   ) {
-    const targetUser = await prisma.host.findUnique({
+    const targetUser = await prisma.user.findUnique({
       where: { id: submitAsUserId },
-      select: { id: true, email: true, tenantId: true },
+      select: { id: true, email: true, tenantId: true, shortId: true },
     });
-    if (!targetUser) {
-      return NextResponse.json(
-        { error: "Selected host user not found." },
-        { status: 400 },
-      );
+    if (targetUser) {
+      if (
+        !hasTenantAccess(
+          user.role as Role,
+          user.tenantId,
+          targetUser.tenantId ?? null,
+        )
+      ) {
+        return NextResponse.json(
+          { error: "You cannot submit as a user from another tenant." },
+          { status: 403 },
+        );
+      }
+      hostEmail = targetUser.email ?? "";
+      hostUserId = targetUser.id;
+      hostShortId = targetUser.shortId ?? "";
+    } else {
+      const targetHost = await prisma.host.findUnique({
+        where: { id: submitAsUserId },
+        select: { id: true, email: true },
+      });
+      if (!targetHost) {
+        return NextResponse.json(
+          { error: "Selected host user not found." },
+          { status: 400 },
+        );
+      }
+      hostEmail = targetHost.email ?? "";
+      hostUserId = targetHost.id;
+      const userByEmail = targetHost.email
+        ? await prisma.user.findUnique({
+            where: { email: targetHost.email.toLowerCase() },
+            select: { shortId: true },
+          })
+        : null;
+      hostShortId = userByEmail?.shortId ?? "";
     }
-    if (
-      !hasTenantAccess(
-        user.role as Role,
-        user.tenantId,
-        targetUser.tenantId ?? null,
-      )
-    ) {
-      return NextResponse.json(
-        { error: "You cannot submit as a user from another tenant." },
-        { status: 403 },
-      );
-    }
-    hostEmail = targetUser.email ?? "";
-    hostUserId = targetUser.id;
   }
 
   const timestamp = new Date().toISOString();
@@ -114,7 +132,7 @@ export async function POST(request: NextRequest) {
     timestamp,
     hostEmail,
     hostUserId,
-    meetingCmsxId,
+    hostShortId,
     meetingTitle,
     email,
     "PENDING",

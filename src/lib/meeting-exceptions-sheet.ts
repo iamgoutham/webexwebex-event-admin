@@ -33,7 +33,7 @@ export async function appendMeetingExceptionRows(rows: string[][]) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    // Sheet tab name: meeting exception list, columns A–H (A1:H required for API parse)
+    // Sheet tab: meeting exception list. Columns A–H: timestamp, hostEmail, hostUserId, hostId (shortId), meetingTitle, participantEmail, status, notes
     range: "'meeting exception list'!A1:H",
     valueInputOption: "USER_ENTERED",
     requestBody: {
