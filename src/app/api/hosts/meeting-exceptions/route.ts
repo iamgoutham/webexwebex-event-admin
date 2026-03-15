@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
 import { appendMeetingExceptionRows } from "@/lib/meeting-exceptions-sheet";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import { isRoleAllowed } from "@/lib/rbac";
 import { ADMIN_ROLES } from "@/lib/rbac";
 import { hasTenantAccess } from "@/lib/rbac";
@@ -150,6 +151,26 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 },
     );
+  }
+
+  const postgres = getPostgresPrisma();
+  if (postgres) {
+    try {
+      await postgres.meetingException.createMany({
+        data: normalizedEmails.map((participantEmail) => ({
+          hostEmail,
+          hostUserId,
+          hostShortId,
+          meetingTitle,
+          participantEmail,
+          status: "PENDING",
+          notes: null,
+        })),
+      });
+    } catch (err) {
+      console.error("[meeting-exceptions] Failed to write to Postgres:", err);
+      // Do not fail the request; sheet write already succeeded.
+    }
   }
 
   return NextResponse.json({

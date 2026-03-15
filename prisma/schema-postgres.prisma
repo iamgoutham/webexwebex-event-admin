@@ -1,0 +1,39 @@
+// ---------------------------------------------------------------------------
+// Postgres (downstream) database — sample schema
+// Replace this file with your actual schema; keep datasource and generator.
+//
+// Generate client:  pnpm run db:generate:postgres
+// Create migration: pnpm prisma migrate dev --schema=prisma/schema-postgres.prisma --name init
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/postgres-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Meeting exception requests (moved from sheet / MySQL)
+// One row per participant request; host identity and meeting context on each row.
+// ---------------------------------------------------------------------------
+
+model MeetingException {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  hostEmail        String
+  hostUserId       String
+  hostShortId      String
+  meetingTitle     String
+  participantEmail String
+  status           String   @default("PENDING")
+  notes            String?
+
+  @@index([hostShortId])
+  @@index([participantEmail])
+  @@index([status])
+  @@index([createdAt])
+}
