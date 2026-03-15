@@ -155,18 +155,18 @@ export async function POST(request: NextRequest) {
 
   const postgres = getPostgresPrisma();
   if (postgres) {
+    const rawRows = normalizedEmails.map((participantemail) => ({
+      timestamp,
+      hostemailid: hostEmail,
+      hostsiteid: null,
+      hostid: hostShortId,
+      meetingTitle,
+      participantemail,
+      status: "PENDING",
+    }));
     try {
-      await postgres.meetingException.createMany({
-        data: normalizedEmails.map((participantEmail) => ({
-          hostEmail,
-          hostUserId,
-          hostShortId,
-          meetingTitle,
-          participantEmail,
-          status: "PENDING",
-          notes: null,
-        })),
-      });
+      await postgres.nonIndiaParticipantExceptRaw.createMany({ data: rawRows });
+      await postgres.indiaParticipantExceptRaw.createMany({ data: rawRows });
     } catch (err) {
       console.error("[meeting-exceptions] Failed to write to Postgres:", err);
       // Do not fail the request; sheet write already succeeded.

@@ -9,31 +9,262 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/postgres-client"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("POSTGRES_URL")
+  schemas  = ["mission", "vrindavan"]
 }
 
-// ---------------------------------------------------------------------------
-// Meeting exception requests (moved from sheet / MySQL)
-// One row per participant request; host identity and meeting context on each row.
-// ---------------------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+// mission.webex_participants_non_india_raw
+// Raw non-India participant form responses. One row per group registration.
+// Up to 9 registrants per row (registrant_2_* through registrant_9_*).
+// ─────────────────────────────────────────────────────────────────────────────
+model NonIndiaParticipantRaw {
+  id                    Int      @id @default(autoincrement())
+  entryId               Int?     @map("entry_id")
+  groupSize             Int?     @map("how_many_people_are_you_registering_today_(including_you)?")
+  name                  String?
+  email                 String?
+  contactPhone          String?  @map("contact_phone_(whatsapp)")
+  addressLine1          String?  @map("address_line_1")
+  addressLine2          String?  @map("address_line_2")
+  city                  String?
+  stateProvinceRegion   String?  @map("state_/_province_/_region")
+  postalCode            String?  @map("postal_code")
+  country               String?
+  isCmMember            String?  @map("are_you_a_chinmaya_mission_member?")
+  cmCenter              String?  @map("which_chinmaya_mission_center_are_you_associated_with?")
+  cmCenterName          String?  @map("your_chinmaya_mission_center_name")
+  isOtherOrgMember      String?  @map("are_you_a_member_of_any_other_organization?")
+  otherOrg              String?  @map("which_organization_are_you_associated_with?")
+  registrant2Name       String?  @map("registrant_2_name")
+  registrant2Email      String?  @map("registrant_2_email")
+  registrant2Phone      String?  @map("registrant_2_phone")
+  registrant3Name       String?  @map("registrant_3_name")
+  registrant3Email      String?  @map("registrant_3_email")
+  registrant3Phone      String?  @map("registrant_3_phone")
+  registrant3PhoneDup   String?  @map("registrant_3_phone.1")  // schema artifact — duplicate column from form change
+  registrant4Name       String?  @map("registrant_4_name")
+  registrant4Email      String?  @map("registrant_4_email")
+  registrant4Phone      String?  @map("registrant_4_phone")
+  registrant5Name       String?  @map("registrant_5_name")
+  registrant5Email      String?  @map("registrant_5_email")
+  registrant5Phone      String?  @map("registrant_5_phone")
+  registrant6Name       String?  @map("registrant_6_name")
+  registrant6Email      String?  @map("registrant_6_email")
+  registrant6Phone      String?  @map("registrant_6_phone")
+  registrant7Name       String?  @map("registrant_7_name")
+  registrant7Email      String?  @map("registrant_7_email")
+  registrant7Phone      String?  @map("registrant_7_phone")
+  registrant8Name       String?  @map("registrant_8_name")
+  registrant8Email      String?  @map("registrant_8_email")
+  registrant8Phone      String?  @map("registrant_8_phone")
+  registrant9Name       String?  @map("registrant_9_name")
+  registrant9Email      String?  @map("registrant_9_email")
+  registrant9Phone      String?  @map("registrant_9_phone")
+  donationChoice        String?  @map("choose_the_donation_amount_for_registration_and_additional_dona")
+  additionalDonation    Decimal? @map("additional_registrant(s)_donation")
+  customDonation        Decimal? @map("custom_additional_donation_amount")
+  ccProcessingFee       Decimal? @map("credit_card_processing_fee")
+  total                 Decimal?
 
-model MeetingException {
-  id               String   @id @default(cuid())
-  createdAt        DateTime @default(now())
-  hostEmail        String
-  hostUserId       String
-  hostShortId      String
-  meetingTitle     String
-  participantEmail String
-  status           String   @default("PENDING")
-  notes            String?
+  @@map("webex_participants_non_india_raw")
+  @@schema("mission")
+}
 
-  @@index([hostShortId])
-  @@index([participantEmail])
-  @@index([status])
-  @@index([createdAt])
+// ─────────────────────────────────────────────────────────────────────────────
+// mission.webex_participants_non_india_except
+// Manual host-participant assignment overrides for non-India track.
+// Applied before the automatic geographic allocation.
+//
+// ⚠️  No primary key exists on this table. The composite @@id below is a
+//     Prisma requirement — it will work for inserts and filtered queries,
+//     but (host_unq_shortid, prtcpnt_entry_id) is NOT enforced as unique
+//     in the database. Consider adding a serial PK column.
+// ─────────────────────────────────────────────────────────────────────────────
+model NonIndiaParticipantExcept {
+  hostLicSite      String? @map("host_lic_site")
+  hostUnqShortid   String  @map("host_unq_shortid")
+  hostEmailId      String? @map("host_email_id")
+  hostName         String? @map("host_name")
+  prtcpntEntryId   Int     @map("prtcpnt_entry_id")
+  prtcpntEmailId   String? @map("prtcpnt_email_id")
+  prtcpntName      String? @map("prtcpnt_name")
+
+  @@id([hostUnqShortid, prtcpntEntryId])
+  @@map("webex_participants_non_india_except")
+  @@schema("mission")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// vrindavan.webex_participants_india_except
+// Manual host-participant assignment overrides for India track.
+// Currently empty. India exception flow not yet active.
+//
+// ⚠️  No primary key exists on this table. Same caveat as NonIndiaParticipantExcept.
+//     Note: ind_prtcpnt_entry_resp_id is varchar in this table (matches
+//     webex_participants_india.ind_prtcpnt_entry_resp_id correctly).
+// ─────────────────────────────────────────────────────────────────────────────
+model IndiaParticipantExcept {
+  hostLicSite            String? @map("host_lic_site")
+  hostUnqShortid         String  @map("host_unq_shortid")
+  hostEmailId            String? @map("host_email_id")
+  hostName               String? @map("host_name")
+  indPrtcpntEntryRespId  String  @map("ind_prtcpnt_entry_resp_id")
+  indPrtcpntEmailId      String? @map("ind_prtcpnt_email_id")
+  indPrtcpntName         String? @map("ind_prtcpnt_name")
+
+  @@id([hostUnqShortid, indPrtcpntEntryRespId])
+  @@map("webex_participants_india_except")
+  @@schema("vrindavan")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// vrindavan.webex_participants_india_raw
+// Raw India participant form responses. One row = one participant.
+// Uses response_id (string) as the business key; id is the DB surrogate PK.
+// ─────────────────────────────────────────────────────────────────────────────
+model IndiaParticipantRaw {
+  id                    Int      @id @default(autoincrement())
+  addedTime             String?  @map("added_time")
+  ipAddress             String?  @map("ip_address")
+  responseId            String?  @map("response_id")
+  nationality           String?
+  nationalitySpecified  String?  @map("please_specify_your_nationality")
+  name                  String?
+  email                 String?
+  contactPhone          Decimal? @map("contact_phone_(whatsapp)")  // stored as numeric in DB
+  country               String?
+  isCmMember            String?  @map("are_you_a_chinmaya_mission_member?")
+  cmCenter              String?  @map("which_chinmaya_mission_center_are_you_associated_with?")
+  isOtherOrgMember      String?  @map("are_you_a_member_of_any_other_organization?")
+  otherOrg              String?  @map("please_enter_organization")
+  currency              String?
+  donationChoice        String?  @map("choose_additional_donation_(yatha_shakti)")
+  customDonation        Decimal? @map("custom_additional_donation_amount")
+  totalDonationInr      Int?     @map("total_donation_amount_in_inr")
+  paymentAmount         Decimal? @map("payment_amount")
+  paymentStatus         String?  @map("payment_status")
+  paymentCurrency       String?  @map("payment_currency")
+  paymentMerchant       String?  @map("payment_merchant")
+  panNumber             String?  @map("pan_number")
+  streetAddress         String?  @map("street_address")
+  city                  String?
+  state                 String?
+  dropdown              String?  // secondary state/region dropdown from form platform
+  pincode               String?
+  eventId               String?  @map("eventid")
+  centreId              String?  @map("centreid")
+
+  @@map("webex_participants_india_raw")
+  @@schema("vrindavan")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// mission.webex_participants_non_india
+// Curated non-India participants loaded from the raw table via
+// proc_load_nonindia_raw('P'). Each row is one individual participant
+// (multi-registrant groups are already pivoted out here).
+// PK is numeric to accommodate fractional IDs (e.g. 5.2 = entry 5, slot 2).
+// ─────────────────────────────────────────────────────────────────────────────
+model NonIndiaParticipant {
+  prtcpntEntryId      Decimal  @id @map("prtcpnt_entry_id")
+  prtcpntEntryGrpId   Int      @map("prtcpnt_entry_grp_id")
+  prtcpntName         String?  @map("prtcpnt_name")
+  prtcpntPhoneNo      String?  @map("prtcpnt_phone_no")
+  prtcpntEmailId      String?  @map("prtcpnt_email_id")
+  prtcpntAddrLn       String?  @map("prtcpnt_addr_ln")
+  prtcpntAddrCity     String?  @map("prtcpnt_addr_city")
+  prtcpntAddrState    String?  @map("prtcpnt_addr_state")
+  prtcpntAddrCountry  String?  @map("prtcpnt_addr_country")
+  prtcpntAddrZipcode  String?  @map("prtcpnt_addr_zipcode")
+  prtcpntTotalRegFees Decimal? @map("prtcpnt_total_reg_fees")
+  chinmayaMemberInd   String?  @map("chinmaya_member_ind")
+  chinmayaCenterName  String?  @map("chinmaya_center_name")
+  prtcpntOtherOrgInd  String?  @map("prtcpnt_other_org_ind")
+  prtcpntOtherOrgName String?  @map("prtcpnt_other_org_name")
+  // 'Y' = this participant is also a host; updated by proc_load_nonindia_raw('P')
+  prtcpntIsHostInd    String?  @map("prtcpnt_is_host_ind")
+  // 'Y' = a Webex meeting has been created for this participant; default 'N'
+  prtcpntHostAllotedInd String  @default("N") @map("prtcpnt_host_alloted_ind")
+
+  @@map("webex_participants_non_india")
+  @@schema("mission")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// vrindavan.webex_participants_india
+// Curated India participants loaded from the raw table via
+// proc_load_india_raw('P'). One row per participant (no pivoting needed).
+// PK is the string response_id from the form platform.
+// ─────────────────────────────────────────────────────────────────────────────
+model IndiaParticipant {
+  indPrtcpntEntryRespId   String    @id @map("ind_prtcpnt_entry_resp_id")
+  indPrtcpntEntryGrpId    String    @map("ind_prtcpnt_entry_grp_id")
+  indPrtcpntRecCreateTstmp DateTime? @map("ind_prtcpnt_rec_create_tstmp")
+  indPrtcpntName          String?   @map("ind_prtcpnt_name")
+  indPrtcpntPhoneNo       String?   @map("ind_prtcpnt_phone_no")
+  indPrtcpntEmailId       String?   @map("ind_prtcpnt_email_id")
+  indPrtcpntAddrLn        String?   @map("ind_prtcpnt_addr_ln")
+  indPrtcpntAddrCity      String?   @map("ind_prtcpnt_addr_city")
+  indPrtcpntAddrState     String?   @map("ind_prtcpnt_addr_state")
+  indPrtcpntAddrCountry   String?   @map("ind_prtcpnt_addr_country")
+  indPrtcpntAddrZipcode   String?   @map("ind_prtcpnt_addr_zipcode")
+  indPrtcpntPanNumber     String?   @map("ind_prtcpnt_pan_number")
+  indPrtcpntTotalRegFees  Decimal?  @map("ind_prtcpnt_total_reg_fees")
+  indPrtcpntPmntStatus    String?   @map("ind_prtcpnt_pmnt_status")  // 'C' = Completed
+  indChinmayaMemberInd    String?   @map("ind_chinmaya_member_ind")
+  indChinmayaCenterName   String?   @map("ind_chinmaya_center_name")
+  indPrtcpntOtherOrgInd   String?   @map("ind_prtcpnt_other_org_ind")
+  indPrtcpntOtherOrgName  String?   @map("ind_prtcpnt_other_org_name")
+  // 'Y' = this participant is also a host; updated by proc_load_india_raw('P')
+  indPrtcpntIsHostInd     String?   @map("ind_prtcpnt_is_host_ind")
+  // 'Y' = a Webex meeting has been created for this participant; default 'N'
+  indPrtcpntHostAllotedInd String   @default("N") @map("ind_prtcpnt_host_alloted_ind")
+
+  @@map("webex_participants_india")
+  @@schema("vrindavan")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// mission.webex_participants_non_india_except_raw
+// Raw source for manual host-participant exception assignments (non-India).
+// 376 rows; only 57 are processed into webex_participants_non_india_except.
+// No ETL procedure connects this table to the processed except table —
+// that step is manual or handled by an external script.
+// ─────────────────────────────────────────────────────────────────────────────
+model NonIndiaParticipantExceptRaw {
+  id               Int     @id @default(autoincrement())
+  timestamp        String?
+  hostemailid      String?
+  hostsiteid       String?
+  hostid           String?
+  meetingTitle     String? @map("meeting_title")
+  participantemail String?
+  status           String?
+
+  @@map("webex_participants_non_india_except_raw")
+  @@schema("mission")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// vrindavan.webex_participants_india_except_raw
+// Raw source for manual host-participant exception assignments (India).
+// Same schema as mission.webex_participants_non_india_except_raw.
+// ─────────────────────────────────────────────────────────────────────────────
+model IndiaParticipantExceptRaw {
+  id               Int     @id @default(autoincrement())
+  timestamp        String?
+  hostemailid      String?
+  hostsiteid       String?
+  hostid           String?
+  meetingTitle     String? @map("meeting_title")
+  participantemail String?
+  status           String?
+
+  @@map("webex_participants_india_except_raw")
+  @@schema("vrindavan")
 }
