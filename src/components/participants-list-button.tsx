@@ -20,6 +20,7 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [list, setList] = useState<ParticipantRow[]>([]);
+  const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const load = async () => {
@@ -38,6 +39,7 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
         return;
       }
       setList(data.participants ?? []);
+      setSearch("");
       setSelectedIds([]);
       setOpen(true);
     } catch {
@@ -54,7 +56,20 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
     );
   };
 
-  const allSelectableIds = list.map((p) => p.id);
+  const query = search.trim().toLowerCase();
+  const filteredList =
+    query === ""
+      ? list
+      : list.filter((p) => {
+          const name = p.name?.toLowerCase() ?? "";
+          const email = p.email?.toLowerCase() ?? "";
+          return (
+            name.includes(query) ||
+            email.includes(query)
+          );
+        });
+
+  const allSelectableIds = filteredList.map((p) => p.id);
   const allSelected =
     allSelectableIds.length > 0 &&
     allSelectableIds.every((id) => selectedIds.includes(id));
@@ -69,7 +84,7 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
 
   const handleAddSelected = () => {
     if (!onAddEmails) return;
-    const selectedEmails = list
+    const selectedEmails = filteredList
       .filter((p) => selectedIds.includes(p.id))
       .map((p) => p.email);
     if (selectedEmails.length === 0) return;
@@ -95,6 +110,19 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
       )}
       {open && list.length > 0 && (
         <div className="mt-3 w-full overflow-hidden rounded-xl border border-[#e5c18e] bg-[#fff9ef]">
+          <div className="flex items-center justify-between gap-3 border-b border-[#e5c18e] px-3 py-2 text-[11px] text-[#8a5b44]">
+            <p>
+              {filteredList.length} participant
+              {filteredList.length !== 1 ? "s" : ""} in your state
+            </p>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or email"
+              className="w-48 rounded-full border border-[#e5c18e] bg-white px-2 py-1 text-[11px] text-[#3b1a1f] placeholder:text-[#b08b6b] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
+            />
+          </div>
           <div className="max-h-80 overflow-y-auto p-3">
             <table className="w-full text-left text-xs text-[#6b4e3d]">
               <thead>
@@ -115,7 +143,7 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {list.map((p) => {
+                {filteredList.map((p) => {
                   const selected = selectedIds.includes(p.id);
                   return (
                     <tr
@@ -141,10 +169,7 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
               </tbody>
             </table>
           </div>
-          <div className="flex items-center justify-between border-t border-[#e5c18e] px-3 py-2 text-[11px] text-[#8a5b44]">
-            <p>
-              {list.length} participant{list.length !== 1 ? "s" : ""} in your state
-            </p>
+          <div className="flex items-center justify-end border-t border-[#e5c18e] px-3 py-2 text-[11px] text-[#8a5b44]">
             {onAddEmails && (
               <button
                 type="button"

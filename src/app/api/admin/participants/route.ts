@@ -84,7 +84,14 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "50", 10)));
+  const limitParam = searchParams.get("limit");
+  const unlimited = limitParam === "all";
+  const limit = unlimited
+    ? null
+    : Math.min(
+        100,
+        Math.max(1, parseInt(limitParam ?? "50", 10)),
+      );
   const search = searchParams.get("search") ?? "";
   const tenantId = searchParams.get("tenantId") ?? undefined;
   const optedOutFilter = searchParams.get("optedOut");
@@ -117,26 +124,31 @@ export async function GET(request: NextRequest) {
     ];
   }
 
+  const findArgs: Parameters<typeof prisma.participant.findMany>[0] = {
+    where,
+    orderBy: { email: "asc" },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      firstName: true,
+      lastName: true,
+      center: true,
+      state: true,
+      phone: true,
+      optedOut: true,
+      tenantId: true,
+      createdAt: true,
+    },
+  };
+
+  if (!unlimited && limit != null) {
+    findArgs.skip = (page - 1) * limit;
+    findArgs.take = limit;
+  }
+
   const [participants, total, totalOptedOut] = await Promise.all([
-    prisma.participant.findMany({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: { email: "asc" },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        firstName: true,
-        lastName: true,
-        center: true,
-        state: true,
-        phone: true,
-        optedOut: true,
-        tenantId: true,
-        createdAt: true,
-      },
-    }),
+    prisma.participant.findMany(findArgs),
     prisma.participant.count({ where }),
     prisma.participant.count({ where: { ...where, optedOut: true } }),
   ]);
@@ -150,10 +162,10 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     participants,
     pagination: {
-      page,
-      limit,
+      page: unlimited ? 1 : page,
+      limit: unlimited ? total : limit,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: unlimited || !limit ? 1 : Math.ceil(total / limit),
     },
     stats: {
       totalParticipants: totalAll,

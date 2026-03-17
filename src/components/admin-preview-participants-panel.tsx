@@ -30,6 +30,7 @@ export default function AdminPreviewParticipantsPanel({
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminParticipantRow[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
 
   const canLoad = !!state && state.trim().length > 0;
 
@@ -42,10 +43,16 @@ export default function AdminPreviewParticipantsPanel({
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({
-        state: state!,
-        limit: "500",
-      });
+      const params = new URLSearchParams();
+      if (state) {
+        params.set("state", state);
+      }
+      if (search.trim()) {
+        params.set("search", search.trim());
+        params.set("limit", "all");
+      } else {
+        params.set("limit", "all");
+      }
       const res = await fetch(`/api/admin/participants?${params.toString()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -65,13 +72,26 @@ export default function AdminPreviewParticipantsPanel({
     }
   };
 
+  const query = search.trim().toLowerCase();
+  const filteredRows =
+    query === ""
+      ? rows
+      : rows.filter((p) => {
+          const fullName = `${p.firstName ?? ""} ${p.lastName ?? ""}`.toLowerCase();
+          const email = p.email.toLowerCase();
+          return (
+            fullName.includes(query) ||
+            email.includes(query)
+          );
+        });
+
   const toggleId = (id: string) => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
-  const allSelectableIds = rows.map((p) => p.id);
+  const allSelectableIds = filteredRows.map((p) => p.id);
   const allSelected =
     allSelectableIds.length > 0 &&
     allSelectableIds.every((id) => selectedIds.includes(id));
@@ -85,7 +105,7 @@ export default function AdminPreviewParticipantsPanel({
   };
 
   const handleAddSelected = () => {
-    const selectedEmails = rows
+    const selectedEmails = filteredRows
       .filter((p) => selectedIds.includes(p.id))
       .map((p) => p.email);
     if (!selectedEmails.length) return;
@@ -144,19 +164,28 @@ export default function AdminPreviewParticipantsPanel({
               State: <span className="font-medium">{state || "Unknown"}</span>
             </p>
           </div>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading || !canLoad}
-            className="rounded-full border border-[#7a3b2a]/50 px-3 py-1.5 text-[11px] font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loading ? "Loading…" : "Load participants"}
-          </button>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or email"
+              className="w-48 rounded-full border border-[#e5c18e] bg-white px-2 py-1 text-[11px] text-[#3b1a1f] placeholder:text-[#b08b6b] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
+            />
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading || !canLoad}
+              className="rounded-full border border-[#7a3b2a]/50 px-3 py-1.5 text-[11px] font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loading ? "Loading…" : "Load participants"}
+            </button>
+          </div>
         </div>
         {error && (
           <p className="mt-2 text-[11px] text-red-700">{error}</p>
         )}
-        {rows.length > 0 && (
+        {filteredRows.length > 0 && (
           <div className="mt-3 overflow-hidden rounded-xl border border-[#e5c18e] bg-[#fff9ef]">
             <div className="max-h-64 overflow-y-auto p-2">
               <table className="w-full text-left text-[11px] text-[#6b4e3d]">
@@ -176,7 +205,7 @@ export default function AdminPreviewParticipantsPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((p) => {
+                  {filteredRows.map((p) => {
                     const selected = selectedIds.includes(p.id);
                     const name =
                       p.lastName && p.firstName
@@ -206,7 +235,8 @@ export default function AdminPreviewParticipantsPanel({
             </div>
             <div className="flex items-center justify-between border-t border-[#e5c18e] px-3 py-1.5 text-[11px] text-[#8a5b44]">
               <span>
-                {rows.length} participant{rows.length !== 1 ? "s" : ""} in this state
+                {filteredRows.length} participant
+                {filteredRows.length !== 1 ? "s" : ""} in this state
               </span>
               <button
                 type="button"
