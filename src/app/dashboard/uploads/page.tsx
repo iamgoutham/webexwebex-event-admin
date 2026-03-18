@@ -147,7 +147,7 @@ export default async function UploadsPage({ searchParams }: PageProps) {
                             Download .report
                           </a>
                           <a
-                            href={`/api/uploads/summarize-report?key=${encodeURIComponent(upload.key)}`}
+                            href={`/dashboard/uploads/summarize-report?key=${encodeURIComponent(upload.key)}`}
                             className="text-[#1f6b4a] underline hover:text-[#145037]"
                             target="_blank"
                             rel="noopener noreferrer"

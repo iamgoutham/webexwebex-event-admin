@@ -316,9 +316,27 @@ export default async function Home() {
               >
                 Confirm registration (email)
               </Link>
+              <p className="mt-1 text-xs font-normal text-[#8a5b44]">
+                Not sure if you are registered? Use this link to receive a
+                confirmation email with your role and meeting info.
+              </p>
             </li>
           </ul>
           <ul className="space-y-2">
+            <li>
+              <a
+                href="https://webex-usa.chinmayavrindavan.org/dashboard/meetings"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Host Dashboard
+              </a>
+              <p className="mt-1 text-xs font-normal text-[#8a5b44]">
+                View your assigned meeting link and participant contact details
+                (emails/phone numbers) here.
+              </p>
+            </li>
             <li>Meeting link assigned after login.</li>
             <li>Recording required for verification.</li>
             <li>Follow event timing strictly.</li>

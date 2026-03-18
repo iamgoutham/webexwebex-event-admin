@@ -21,10 +21,9 @@ export default function ConfirmRegistrationClient({
   const canSubmit = useMemo(() => {
     return (
       email.trim().length > 3 &&
-      token.trim().length > 0 &&
       status.type !== "loading"
     );
-  }, [email, token, status.type]);
+  }, [email, status.type]);
 
   const resetForm = () => {
     setEmail("");
@@ -36,12 +35,22 @@ export default function ConfirmRegistrationClient({
   const submit = async () => {
     setStatus({ type: "loading" });
     try {
+      // Prefer the latest token directly from Turnstile if available.
+      let captchaToken = token;
+      if (typeof window !== "undefined" && (window as any).turnstile?.getResponse) {
+        const resp = (window as any).turnstile.getResponse();
+        if (typeof resp === "string" && resp.trim()) {
+          captchaToken = resp.trim();
+          setToken(captchaToken);
+        }
+      }
+
       const res = await fetch("/api/public/confirm-registration", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
-          captchaToken: token,
+          captchaToken,
         }),
       });
       const data = await res.json().catch(() => ({}));
