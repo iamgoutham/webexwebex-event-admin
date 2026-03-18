@@ -119,10 +119,10 @@ export default async function AdminDashboardPage() {
         postgres.$queryRaw<{ ind_prtcpnt_addr_country: string | null }[]>`
           SELECT ind_prtcpnt_addr_country FROM vrindavan.webex_participants_india
         `,
-        postgres.$queryRaw<{ ind_chinmaya_center_name: string | null; c: bigint }[]>`
-          SELECT ind_chinmaya_center_name, COUNT(*)::bigint AS c
+        postgres.$queryRaw<{ ind_cv_center_name: string | null; c: bigint }[]>`
+          SELECT ind_cv_center_name, COUNT(*)::bigint AS c
           FROM vrindavan.webex_participants_india_students
-          GROUP BY ind_chinmaya_center_name
+          GROUP BY ind_cv_center_name
           ORDER BY COUNT(*)::bigint DESC
           LIMIT 10
         `,
@@ -147,7 +147,7 @@ export default async function AdminDashboardPage() {
       });
 
       topStudentCenters = studentCenters.map((row) => ({
-        center: row.ind_chinmaya_center_name,
+        center: row.ind_cv_center_name,
         count: Number(row.c ?? 0),
       }));
     } catch (err) {

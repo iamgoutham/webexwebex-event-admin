@@ -96,18 +96,16 @@ function MeetingInfoContent({ text }: { text: string }) {
 }
 
 type PageProps = {
-  searchParams: Promise<{ email?: string; debug?: string }>;
+  searchParams: Promise<{ email?: string }>;
 };
 
 export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
   const session = await requireRole(ADMIN_ROLES);
   const params = await searchParams;
   const email = params?.email?.trim();
-  const showDebug = params?.debug === "1";
 
   let meetingInfoRaw: string | null = null;
   let meetingsFromJson: SheetMeeting[] | null = null;
-  let lookupDebug: Awaited<ReturnType<typeof getMeetingInfoLookupDebug>> = null;
   let previewUser: { id: string; email: string | null; name: string | null; state: string | null } | null = null;
 
   if (email) {
@@ -115,9 +113,6 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
     meetingsFromJson = meetingInfoRaw?.trim()
       ? parseMeetingInfoJson(meetingInfoRaw)
       : null;
-    if (showDebug || !meetingsFromJson) {
-      lookupDebug = await getMeetingInfoLookupDebug(email);
-    }
     const normalizedEmail = email.toLowerCase().trim();
     previewUser = await prisma.host.findFirst({
       where: {
@@ -132,8 +127,8 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
         <h1 className="text-2xl font-semibold">Meetings preview (as user)</h1>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          See the meetings page as it would appear for a given user email. Enter
-          the email and optionally enable debug.
+          See the meetings page as it would appear for a given user email.
+          Enter the email below to preview their meetings and participant list.
         </p>
 
         <form
@@ -151,16 +146,6 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
               placeholder="user@example.com"
               className="rounded-lg border border-[#e5c18e] bg-white px-3 py-2 text-sm text-[#3b1a1f] placeholder:text-[#8a5b44] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
             />
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="debug"
-              value="1"
-              defaultChecked={showDebug}
-              className="rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d]"
-            />
-            <span className="text-sm text-[#6b4e3d]">Include debug</span>
           </label>
           <button
             type="submit"
@@ -283,71 +268,8 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-sm text-[#8a5b44]">
-                No meeting info found for this email in the license sheet.
-              </div>
-              {lookupDebug && (
-                <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 font-mono text-xs">
-                  <h3 className="mb-3 font-semibold text-[#3b1a1f]">
-                    Lookup debug
-                  </h3>
-                  <p className="text-[#6b4e3d]">
-                    <span className="font-semibold">Email used:</span>{" "}
-                    {lookupDebug.emailUsed}
-                  </p>
-                  <p className="mt-1 text-[#6b4e3d]">
-                    <span className="font-semibold">Normalized:</span>{" "}
-                    {lookupDebug.emailNormalized}
-                  </p>
-                  <div className="mt-4 space-y-3">
-                    <div>
-                      <p className="font-semibold text-[#8a2f2a]">
-                        Sheet 1 (Email column)
-                      </p>
-                      <p>
-                        found={String(lookupDebug.sheet1.found)} •
-                        rowCount={lookupDebug.sheet1.rowCount} •
-                        emailColIdx={lookupDebug.sheet1.emailColumnIndex} •
-                        meetingInfoColIdx={lookupDebug.sheet1.valueColumnIndex}
-                      </p>
-                      {lookupDebug.sheet1.sampleEmailsMasked.length > 0 && (
-                        <p className="mt-1">
-                          Sample emails (masked):{" "}
-                          {lookupDebug.sheet1.sampleEmailsMasked.join(", ")}
-                        </p>
-                      )}
-                      {lookupDebug.sheet1.mismatchHint && (
-                        <p className="mt-1 text-amber-700">
-                          {lookupDebug.sheet1.mismatchHint}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-[#8a2f2a]">
-                        Sheet 2 (Email Address column)
-                      </p>
-                      <p>
-                        found={String(lookupDebug.sheet2.found)} •
-                        rowCount={lookupDebug.sheet2.rowCount} •
-                        emailColIdx={lookupDebug.sheet2.emailColumnIndex} •
-                        meetingInfoColIdx={lookupDebug.sheet2.valueColumnIndex}
-                      </p>
-                      {lookupDebug.sheet2.sampleEmailsMasked.length > 0 && (
-                        <p className="mt-1">
-                          Sample emails (masked):{" "}
-                          {lookupDebug.sheet2.sampleEmailsMasked.join(", ")}
-                        </p>
-                      )}
-                      {lookupDebug.sheet2.mismatchHint && (
-                        <p className="mt-1 text-amber-700">
-                          {lookupDebug.sheet2.mismatchHint}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+            <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-sm text-[#8a5b44]">
+              No meeting info found for this email in the license sheet.
             </div>
           )}
         </>

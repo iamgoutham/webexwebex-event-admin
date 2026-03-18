@@ -256,18 +256,17 @@ export default function FaqPage() {
               How do I download the pacer video?
             </summary>
             <div className="mt-2 pl-0 text-sm text-[#6b4e3d]">
-              Refer to section &quot;4.2 Host self-view…&quot; in the{" "}
+              Download the pacer video directly from the host portal:&nbsp;
               <a
-                href="https://tinyurl.com/docWebexHostGuide"
-                target="_blank"
-                rel="noreferrer"
+                href="/pacervideo.mp4"
                 className={linkClass}
               >
-                Host Guide
+                pacervideo.mp4
               </a>
               .
               <p className="mt-2 text-xs text-[#8a5b44]">
-                File to download: CGS-Chapter15-Lyrics-Audio-Taal.mp4
+                Save this file and configure it as your background pacer video in
+                Webex as shown in the Host Guide.
               </p>
             </div>
           </details>
