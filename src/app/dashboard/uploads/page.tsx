@@ -119,27 +119,25 @@ export default async function UploadsPage({ searchParams }: PageProps) {
                   </td>
                   <td className="px-4 py-3 text-xs text-[#6b4e3d]">
                     <span className="block break-all">{upload.key}</span>
-                    {(session.user.role === Role.ADMIN ||
-                      session.user.role === Role.SUPERADMIN ||
-                      session.user.role === Role.HOST) && (
-                      <span className="mt-1 flex flex-wrap gap-2">
-                        <a
-                          href={`/api/uploads/download?key=${encodeURIComponent(upload.key)}`}
-                          className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Download file
-                        </a>
-                        <a
-                          href={`/api/uploads/download?key=${encodeURIComponent(`${upload.key}.attest`)}`}
-                          className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Download .attest
-                        </a>
-                        {reportExistsByIndex[index] && (
+                    <span className="mt-1 flex flex-wrap gap-2">
+                      <a
+                        href={`/api/uploads/download?key=${encodeURIComponent(upload.key)}`}
+                        className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Download file
+                      </a>
+                      <a
+                        href={`/api/uploads/download?key=${encodeURIComponent(`${upload.key}.attest`)}`}
+                        className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Download .attest
+                      </a>
+                      {reportExistsByIndex[index] && (
+                        <>
                           <a
                             href={`/api/uploads/download?key=${encodeURIComponent(`${upload.key}.report`)}`}
                             className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
@@ -148,9 +146,17 @@ export default async function UploadsPage({ searchParams }: PageProps) {
                           >
                             Download .report
                           </a>
-                        )}
-                      </span>
-                    )}
+                          <a
+                            href={`/api/uploads/summarize-report?key=${encodeURIComponent(upload.key)}`}
+                            className="text-[#1f6b4a] underline hover:text-[#145037]"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Summarize .report
+                          </a>
+                        </>
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}

@@ -1,5 +1,6 @@
 import { Role } from "@prisma/client";
 import ParticipantLinks from "@/components/participant-links";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import MeetingExceptionRequest from "@/components/meeting-exception-request";
 import MeetingsParticipantsPanel from "@/components/meetings-participants-panel";
 import { requireAuth } from "@/lib/guards";
@@ -115,6 +116,31 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
       ? await getMeetingInfoLookupDebug(session.user.email)
       : null;
 
+  const postgres = getPostgresPrisma();
+  let pendingRequests: { timestamp: string; participantEmail: string }[] = [];
+  if (postgres && session.user.email) {
+    try {
+      const rows =
+        await postgres.$queryRaw<
+          { timestamp: string | null; participantemail: string | null }[]
+        >`
+        SELECT
+          timestamp,
+          participantemail
+        FROM mission.webex_participants_non_india_except_raw
+        WHERE hostemailid = ${session.user.email.toLowerCase()} AND status = 'PENDING'
+        ORDER BY timestamp DESC
+        LIMIT 50
+      `;
+      pendingRequests = rows.map((r) => ({
+        timestamp: r.timestamp ?? "",
+        participantEmail: r.participantemail ?? "",
+      }));
+    } catch {
+      // Ignore Postgres errors on the meetings page; core functionality should still work.
+    }
+  }
+
   return (
     <div className="space-y-6 text-[#3b1a1f]">
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
@@ -140,6 +166,43 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
           currentUserId={session.user.id ?? ""}
         />
       </div>
+
+      {pendingRequests.length > 0 && (
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 text-sm text-[#6b4e3d]">
+          <h2 className="text-lg font-semibold text-[#3b1a1f]">
+            Your pending meeting exception requests
+          </h2>
+          <p className="mt-1 text-xs text-[#8a5b44]">
+            These requests are still marked as <span className="font-semibold">PENDING</span> in
+            the exception list.
+          </p>
+          <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-[#e5c18e] bg-[#fffdf7]">
+            <table className="w-full text-left text-xs text-[#6b4e3d]">
+              <thead>
+                <tr className="border-b border-[#e5c18e] bg-[#fff4df] text-[#3b1a1f]">
+                  <th className="px-3 py-2">When</th>
+                  <th className="px-3 py-2">Participant email</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingRequests.map((r, idx) => (
+                  <tr
+                    key={`${r.timestamp}-${r.participantEmail}-${idx}`}
+                    className="border-b border-[#e5c18e]/60"
+                  >
+                    <td className="px-3 py-1.5">
+                      {r.timestamp
+                        ? new Date(r.timestamp).toLocaleString()
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-1.5">{r.participantEmail}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {meetingsFromJson ? (
         <div className="grid gap-4">

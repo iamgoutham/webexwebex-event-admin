@@ -29,11 +29,11 @@ export async function GET(request: Request) {
       ? requestedTenantId
       : session.user.tenantId;
 
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: "Tenant is required" },
-      { status: 400 },
-    );
+  // For SUPERADMIN without an explicit tenantId, return all users.
+  // For ADMIN, we require tenantId on the session; if missing, it's a config error.
+  const where: Record<string, unknown> = {};
+  if (tenantId) {
+    where.tenantId = tenantId;
   }
 
   if (!hasTenantAccess(session.user.role, session.user.tenantId, tenantId)) {
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   }
 
   const users = await prisma.user.findMany({
-    where: { tenantId },
+    where,
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

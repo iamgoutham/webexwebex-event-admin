@@ -99,8 +99,9 @@ export default async function BroadcastPage() {
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
         <h2 className="text-lg font-semibold">Host Data</h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          Sync host emails from Google Sheets (HOST_MAP_LIST). Broadcasts to
-          hosts use this list; it is separate from the User table (portal logins).
+          Sync host emails from the downstream database (mission/vrindavan
+          Webex host tables). Broadcasts to hosts use this list; it is separate
+          from the User table (portal logins).
         </p>
         <div className="mt-4">
           <HostSyncButton />
@@ -111,7 +112,8 @@ export default async function BroadcastPage() {
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
         <h2 className="text-lg font-semibold">Participant Data</h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          Sync participant emails from Google Sheets (PARTICIPANT_MAP_LIST).
+          Sync participant emails from the downstream database (hosts +
+          participants tables across mission and vrindavan schemas).
         </p>
         <div className="mt-4">
           <ParticipantSyncButton />

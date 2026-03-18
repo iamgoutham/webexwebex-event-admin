@@ -4,7 +4,7 @@ import { requireApiAuth } from "@/lib/api-guards";
 import { syncParticipants } from "@/lib/notifications/participant-sync";
 
 // ---------------------------------------------------------------------------
-// POST /api/admin/participants/sync — Sync participants from Google Sheets
+// POST /api/admin/participants/sync — Sync participants from downstream DB
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {

@@ -190,7 +190,26 @@ export async function syncParticipants(
       state: p.indPrtcpntAddrState,
     }));
 
-    rows = [...hostNonIndia, ...hostIndia, ...nonIndiaRows, ...indiaRows];
+    // India students (additional participant source)
+    const indiaStudents =
+      await postgres.$queryRaw<ParticipantSourceRow[]>`
+        SELECT
+          ind_prtcpnt_email_id   AS email,
+          ind_prtcpnt_phone_no   AS phone,
+          ind_prtcpnt_name       AS "firstName",
+          NULL::text             AS "lastName",
+          ind_chinmaya_center_name AS center,
+          ind_prtcpnt_addr_state AS state
+        FROM vrindavan.webex_participants_india_students
+      `;
+
+    rows = [
+      ...hostNonIndia,
+      ...hostIndia,
+      ...nonIndiaRows,
+      ...indiaRows,
+      ...indiaStudents,
+    ];
 
     if (DEBUG) {
       console.log("[participant-sync] Source counts:", {
@@ -198,6 +217,7 @@ export async function syncParticipants(
         hostIndia: hostIndia.length,
         nonIndiaParticipants: nonIndiaRows.length,
         indiaParticipants: indiaRows.length,
+        indiaStudents: indiaStudents.length,
         combinedRows: rows.length,
       });
     }

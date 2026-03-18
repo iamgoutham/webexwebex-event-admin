@@ -292,11 +292,29 @@ export default async function Home() {
               </a>
             </li>
             <li>
+              <a
+                href="https://tinyurl.com/GitaSamarpanamLyrics"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Chapter 15 Lyrics
+              </a>
+            </li>
+            <li>
               <Link
                 href="/faq"
                 className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
               >
                 Troubleshooting FAQ
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/confirm-registration"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Confirm registration (email)
               </Link>
             </li>
           </ul>
