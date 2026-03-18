@@ -39,6 +39,18 @@ export default function ParticipantInstructionsPage() {
             </span>{" "}
             on all three days.
           </p>
+          <p className="mt-3 text-sm text-[#3b1a1f]">
+            <strong>Participants:</strong>{" "}
+            Not sure if you are registered?{" "}
+            <a
+              href="/confirm-registration"
+              className="text-[#8a2f2a] underline hover:text-[#5c2a2d]"
+            >
+              Click here to verify.
+            </a>{" "}
+            You will receive an email confirmation and your meeting assignment if
+            one has been generated.
+          </p>
         </div>
       </section>
 
