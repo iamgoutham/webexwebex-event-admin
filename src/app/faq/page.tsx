@@ -25,6 +25,43 @@ export default function FaqPage() {
         </p>
       </section>
 
+      {/* Accessing Your Meeting */}
+      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-[#8a5b44]">
+          Accessing Your Meeting
+        </h2>
+        <div className="mt-4 space-y-0 divide-y divide-[#e5c18e]">
+          <details className="group py-3 first:pt-0">
+            <summary className="cursor-pointer list-none font-medium text-[#3b1a1f] hover:text-[#8a2f2a] [&::-webkit-details-marker]:hidden">
+              When will I get my meeting link?
+            </summary>
+            <div className="mt-2 pl-0 text-sm text-[#6b4e3d]">
+              Final meetings will be assigned soon. Every host and participant
+              will receive an email with their specific access link once
+              assignments are completed.
+            </div>
+          </details>
+          <details className="group py-3">
+            <summary className="cursor-pointer list-none font-medium text-[#3b1a1f] hover:text-[#8a2f2a] [&::-webkit-details-marker]:hidden">
+              Where can I find my assigned participants?
+            </summary>
+            <div className="mt-2 pl-0 text-sm text-[#6b4e3d]">
+              Log in to the{" "}
+              <a
+                href="https://webex-usa.chinmayavrindavan.org/dashboard/meetings"
+                target="_blank"
+                rel="noreferrer"
+                className={linkClass}
+              >
+                Host Dashboard
+              </a>
+              . It shows your meeting link as well as the names, emails, and
+              phone numbers of the participants assigned to your group.
+            </div>
+          </details>
+        </div>
+      </section>
+
       {/* Website & Documentation */}
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-[#8a5b44]">

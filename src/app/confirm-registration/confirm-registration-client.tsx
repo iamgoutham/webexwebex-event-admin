@@ -17,6 +17,7 @@ export default function ConfirmRegistrationClient({
 
   const [token, setToken] = useState<string>("");
   const [captchaKey, setCaptchaKey] = useState(0);
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
 
   const canSubmit = useMemo(() => {
     return (
@@ -30,6 +31,7 @@ export default function ConfirmRegistrationClient({
     setToken("");
     setStatus({ type: "idle" });
     setCaptchaKey((k) => k + 1);
+    setCaptchaError(null);
   };
 
   const submit = async () => {
@@ -126,12 +128,16 @@ export default function ConfirmRegistrationClient({
                 className="cf-turnstile"
                 data-sitekey={siteKey}
                 data-callback="turnstileCallback"
+                data-error-callback="turnstileErrorCallback"
               />
               <script
                 dangerouslySetInnerHTML={{
                   __html: `
                     window.turnstileCallback = function (t) {
                       window.dispatchEvent(new CustomEvent('turnstile-token', { detail: t }));
+                    };
+                    window.turnstileErrorCallback = function (code) {
+                      window.dispatchEvent(new CustomEvent('turnstile-error', { detail: code }));
                     };
                   `,
                 }}
@@ -145,12 +151,13 @@ export default function ConfirmRegistrationClient({
         </div>
 
         <TurnstileTokenListener onToken={setToken} />
+        <TurnstileErrorListener onError={setCaptchaError} />
 
         {status.type !== "success" && (
           <button
             type="button"
             onClick={submit}
-            disabled={!siteKey || !canSubmit}
+            disabled={!siteKey || !canSubmit || !!captchaError}
             className="mt-4 rounded-full bg-[#d8792d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:bg-[#d8792d]/40"
           >
             {status.type === "loading" ? "Sending…" : "Email me confirmation"}
@@ -160,6 +167,14 @@ export default function ConfirmRegistrationClient({
         {status.type === "error" ? (
           <p className="mt-3 text-sm text-red-700">{status.message}</p>
         ) : null}
+
+        {captchaError && (
+          <p className="mt-2 text-xs text-red-700">
+            The verification test could not be completed (error {captchaError}).
+            Please reload the page and try again. If this keeps happening, try a
+            different browser or network.
+          </p>
+        )}
 
         <p className="mt-4 text-xs text-[#8a5b44]">
           We only send event-related confirmation details. If your email is not
@@ -180,6 +195,21 @@ function TurnstileTokenListener({ onToken }: { onToken: (t: string) => void }) {
     return () =>
       window.removeEventListener("turnstile-token", handler as EventListener);
   }, [onToken]);
+
+  return null;
+}
+
+function TurnstileErrorListener({ onError }: { onError: (code: string | null) => void }) {
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === "string") onError(detail);
+      else onError("unknown");
+    };
+    window.addEventListener("turnstile-error", handler as EventListener);
+    return () =>
+      window.removeEventListener("turnstile-error", handler as EventListener);
+  }, [onError]);
 
   return null;
 }

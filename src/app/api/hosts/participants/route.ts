@@ -101,7 +101,32 @@ export async function GET() {
     },
   });
 
-  const list = participants.map((p) => {
+  // Remove any emails that are also in the Host table (hosts are handled separately).
+  const emails = participants
+    .map((p) => p.email?.trim().toLowerCase())
+    .filter((e): e is string => Boolean(e));
+
+  const hostEmails =
+    emails.length > 0
+      ? await prisma.host.findMany({
+          where: { email: { in: emails } },
+          select: { email: true },
+        })
+      : [];
+
+  const hostEmailSet = new Set(
+    hostEmails
+      .map((h) => h.email?.trim().toLowerCase())
+      .filter((e): e is string => Boolean(e)),
+  );
+
+  const filteredParticipants = participants.filter((p) => {
+    const email = p.email?.trim().toLowerCase();
+    if (!email) return false;
+    return !hostEmailSet.has(email);
+  });
+
+  const list = filteredParticipants.map((p) => {
     const displayName =
       p.lastName && p.firstName
         ? `${p.lastName}, ${p.firstName}`

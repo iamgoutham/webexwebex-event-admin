@@ -63,6 +63,21 @@ export default async function Home() {
             />
           </div>
         </div>
+        <div className="mt-6 rounded-2xl border border-[#fbe9c6]/70 bg-[#fff9ef]/70 p-4 text-sm text-[#3b1a1f]">
+          <p className="font-semibold">
+            Participants:
+            <Link
+              href="/confirm-registration"
+              className="ml-1 text-[#8a2f2a] underline hover:text-[#5c2a2d]"
+            >
+              Not sure if you are registered? Click here to verify.
+            </Link>
+          </p>
+          <p className="mt-1 text-xs text-[#5b3b2b]">
+            You will receive an email confirmation and your meeting assignment if
+            one has been generated.
+          </p>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
@@ -163,6 +178,10 @@ export default async function Home() {
               <li>Understand your role as a Webex Host.</li>
               <li>Know when to start and stop recording.</li>
               <li>Review meeting flow for chanting.</li>
+              <li>
+                Hosts can access their meeting links directly via the Webex App
+                once assigned, or through the online dashboard.
+              </li>
             </ul>
           </div>
           <div>

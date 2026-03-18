@@ -158,6 +158,16 @@ export async function sendConfirmationEmail(result: ConfirmationLookupResult) {
   );
   lines.push("");
 
+  if (result.isHost && !result.isParticipant) {
+    lines.push(
+      "Note: You are registered as a host, but we could not find a matching participant registration for this email.",
+    );
+    lines.push(
+      "All hosts should also register as participants so they are counted correctly. Please make sure you (or your family members) have also registered as participants using this email.",
+    );
+    lines.push("");
+  }
+
   if (result.meetings.length > 0) {
     lines.push("Your assigned meeting(s):");
     for (const m of result.meetings) {
