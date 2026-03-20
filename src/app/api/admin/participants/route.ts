@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
+import { fetchEmailsInProcessedExceptTables } from "@/lib/postgres-participant-except-emails";
 
 const US_STATE_MAP: Record<string, string> = {
   AL: "Alabama",
@@ -96,6 +97,9 @@ export async function GET(request: NextRequest) {
   const tenantId = searchParams.get("tenantId") ?? undefined;
   const optedOutFilter = searchParams.get("optedOut");
   const stateParam = searchParams.get("state");
+  const markProcessedExceptPickability =
+    searchParams.get("markProcessedExceptPickability") === "true" ||
+    searchParams.get("markProcessedExceptPickability") === "1";
 
   // Build where clause
   const where: Record<string, unknown> = {};
@@ -147,11 +151,47 @@ export async function GET(request: NextRequest) {
     findArgs.take = limit;
   }
 
-  const [participants, total, totalOptedOut] = await Promise.all([
+  const [participantsRaw, total, totalOptedOut] = await Promise.all([
     prisma.participant.findMany(findArgs),
     prisma.participant.count({ where }),
     prisma.participant.count({ where: { ...where, optedOut: true } }),
   ]);
+
+  let participants = participantsRaw;
+  if (markProcessedExceptPickability) {
+    const exceptSet = await fetchEmailsInProcessedExceptTables();
+    const emailsForHostCheck = participantsRaw
+      .map((p) => p.email?.trim().toLowerCase())
+      .filter((e): e is string => Boolean(e));
+    const hostRows =
+      emailsForHostCheck.length > 0
+        ? await prisma.host.findMany({
+            where: { email: { in: emailsForHostCheck } },
+            select: { email: true },
+          })
+        : [];
+    const hostEmailSet = new Set(
+      hostRows
+        .map((h) => h.email?.trim().toLowerCase())
+        .filter((e): e is string => Boolean(e)),
+    );
+
+    participants = participantsRaw.map((p) => {
+      const e = p.email?.trim().toLowerCase();
+      if (!e) {
+        return { ...p, pickable: true };
+      }
+      const isAlsoHost = hostEmailSet.has(e);
+      const inExceptTable = exceptSet.has(e);
+      const pickable = !isAlsoHost && !inExceptTable;
+      const nonPickableReason = !pickable
+        ? isAlsoHost
+          ? "host"
+          : "except"
+        : undefined;
+      return { ...p, pickable, nonPickableReason };
+    });
+  }
 
   // Also get aggregate counts
   const [totalAll, totalActiveAll] = await Promise.all([

@@ -8,6 +8,10 @@ type ParticipantRow = {
   name: string;
   center: string;
   state: string;
+  /** When false, row is shown but cannot be selected (e.g. already on DB exception list). */
+  pickable?: boolean;
+  /** Why the row cannot be selected when `pickable` is false */
+  nonPickableReason?: "host" | "except";
 };
 
 interface Props {
@@ -50,7 +54,11 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
     }
   };
 
+  const isRowPickable = (p: ParticipantRow) => p.pickable !== false;
+
   const toggleId = (id: string) => {
+    const row = list.find((p) => p.id === id);
+    if (row && !isRowPickable(row)) return;
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
@@ -69,23 +77,25 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
           );
         });
 
-  const allSelectableIds = filteredList.map((p) => p.id);
+  const pickableFilteredIds = filteredList
+    .filter((p) => isRowPickable(p))
+    .map((p) => p.id);
   const allSelected =
-    allSelectableIds.length > 0 &&
-    allSelectableIds.every((id) => selectedIds.includes(id));
+    pickableFilteredIds.length > 0 &&
+    pickableFilteredIds.every((id) => selectedIds.includes(id));
 
   const toggleAll = () => {
     if (allSelected) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(allSelectableIds);
+      setSelectedIds(pickableFilteredIds);
     }
   };
 
   const handleAddSelected = () => {
     if (!onAddEmails) return;
     const selectedEmails = filteredList
-      .filter((p) => selectedIds.includes(p.id))
+      .filter((p) => selectedIds.includes(p.id) && isRowPickable(p))
       .map((p) => p.email);
     if (selectedEmails.length === 0) return;
     onAddEmails(selectedEmails);
@@ -114,6 +124,12 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
             <p>
               {filteredList.length} participant
               {filteredList.length !== 1 ? "s" : ""} in your state
+              {onAddEmails ? (
+                <span className="ml-1 text-[#b08b6b]">
+                  (greyed rows: also a host, or on the exception list — cannot be
+                  selected)
+                </span>
+              ) : null}
             </p>
             <input
               type="text"
@@ -132,8 +148,9 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
                       <input
                         type="checkbox"
                         checked={allSelected}
+                        disabled={pickableFilteredIds.length === 0}
                         onChange={toggleAll}
-                        className="h-3 w-3 rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d]"
+                        className="h-3 w-3 rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d] disabled:cursor-not-allowed"
                       />
                     </th>
                   )}
@@ -144,19 +161,28 @@ export default function ParticipantsListButton({ onAddEmails }: Props) {
               </thead>
               <tbody>
                 {filteredList.map((p) => {
+                  const pickable = isRowPickable(p);
                   const selected = selectedIds.includes(p.id);
+                  const nonPickableTitle =
+                    p.nonPickableReason === "host"
+                      ? "Also registered as a host — cannot add here"
+                      : p.nonPickableReason === "except"
+                        ? "Already on participant exception list"
+                        : "Cannot be selected";
                   return (
                     <tr
                       key={p.id}
-                      className={`border-b border-[#e5c18e]/60 ${selected ? "bg-[#fbe9c6]/40" : ""}`}
+                      className={`border-b border-[#e5c18e]/60 ${selected ? "bg-[#fbe9c6]/40" : ""} ${!pickable ? "opacity-55" : ""}`}
                     >
                       {onAddEmails && (
                         <td className="py-1.5 pr-2 text-center">
                           <input
                             type="checkbox"
                             checked={selected}
+                            disabled={!pickable}
+                            title={pickable ? undefined : nonPickableTitle}
                             onChange={() => toggleId(p.id)}
-                            className="h-3 w-3 rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d]"
+                            className="h-3 w-3 rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d] disabled:cursor-not-allowed"
                           />
                         </td>
                       )}

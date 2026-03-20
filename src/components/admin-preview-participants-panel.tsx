@@ -10,6 +10,8 @@ type AdminParticipantRow = {
   lastName: string | null;
   center: string | null;
   state: string | null;
+  pickable?: boolean;
+  nonPickableReason?: "host" | "except";
 };
 
 interface Props {
@@ -53,6 +55,7 @@ export default function AdminPreviewParticipantsPanel({
       } else {
         params.set("limit", "all");
       }
+      params.set("markProcessedExceptPickability", "true");
       const res = await fetch(`/api/admin/participants?${params.toString()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -85,28 +88,34 @@ export default function AdminPreviewParticipantsPanel({
           );
         });
 
+  const isRowPickable = (p: AdminParticipantRow) => p.pickable !== false;
+
   const toggleId = (id: string) => {
+    const row = rows.find((p) => p.id === id);
+    if (row && !isRowPickable(row)) return;
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
-  const allSelectableIds = filteredRows.map((p) => p.id);
+  const pickableFilteredIds = filteredRows
+    .filter((p) => isRowPickable(p))
+    .map((p) => p.id);
   const allSelected =
-    allSelectableIds.length > 0 &&
-    allSelectableIds.every((id) => selectedIds.includes(id));
+    pickableFilteredIds.length > 0 &&
+    pickableFilteredIds.every((id) => selectedIds.includes(id));
 
   const toggleAll = () => {
     if (allSelected) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(allSelectableIds);
+      setSelectedIds(pickableFilteredIds);
     }
   };
 
   const handleAddSelected = () => {
     const selectedEmails = filteredRows
-      .filter((p) => selectedIds.includes(p.id))
+      .filter((p) => selectedIds.includes(p.id) && isRowPickable(p))
       .map((p) => p.email);
     if (!selectedEmails.length) return;
 
@@ -188,6 +197,10 @@ export default function AdminPreviewParticipantsPanel({
         {filteredRows.length > 0 && (
           <div className="mt-3 overflow-hidden rounded-xl border border-[#e5c18e] bg-[#fff9ef]">
             <div className="max-h-64 overflow-y-auto p-2">
+              <p className="mb-2 text-[10px] text-[#8a5b44]">
+                Greyed rows are also registered as hosts or are on the participant
+                exception list in the database and cannot be selected.
+              </p>
               <table className="w-full text-left text-[11px] text-[#6b4e3d]">
                 <thead>
                   <tr className="border-b border-[#e5c18e] font-semibold text-[#3b1a1f]">
@@ -195,8 +208,9 @@ export default function AdminPreviewParticipantsPanel({
                       <input
                         type="checkbox"
                         checked={allSelected}
+                        disabled={pickableFilteredIds.length === 0}
                         onChange={toggleAll}
-                        className="h-3 w-3 rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d]"
+                        className="h-3 w-3 rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d] disabled:cursor-not-allowed"
                       />
                     </th>
                     <th className="py-1.5 pr-3">Last, First</th>
@@ -206,22 +220,31 @@ export default function AdminPreviewParticipantsPanel({
                 </thead>
                 <tbody>
                   {filteredRows.map((p) => {
+                    const pickable = isRowPickable(p);
                     const selected = selectedIds.includes(p.id);
                     const name =
                       p.lastName && p.firstName
                         ? `${p.lastName}, ${p.firstName}`
                         : p.firstName || p.lastName || p.email;
+                    const nonPickableTitle =
+                      p.nonPickableReason === "host"
+                        ? "Also registered as a host — cannot add here"
+                        : p.nonPickableReason === "except"
+                          ? "Already on participant exception list"
+                          : "Cannot be selected";
                     return (
                       <tr
                         key={p.id}
-                        className={`border-b border-[#e5c18e]/60 ${selected ? "bg-[#fbe9c6]/40" : ""}`}
+                        className={`border-b border-[#e5c18e]/60 ${selected ? "bg-[#fbe9c6]/40" : ""} ${!pickable ? "opacity-55" : ""}`}
                       >
                         <td className="py-1.5 pr-2 text-center">
                           <input
                             type="checkbox"
                             checked={selected}
+                            disabled={!pickable}
+                            title={pickable ? undefined : nonPickableTitle}
                             onChange={() => toggleId(p.id)}
-                            className="h-3 w-3 rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d]"
+                            className="h-3 w-3 rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d] disabled:cursor-not-allowed"
                           />
                         </td>
                         <td className="py-1.5 pr-3">{name}</td>

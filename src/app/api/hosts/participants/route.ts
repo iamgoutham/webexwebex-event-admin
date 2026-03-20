@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
+import { fetchEmailsInProcessedExceptTables } from "@/lib/postgres-participant-except-emails";
 
 const US_STATE_MAP: Record<string, string> = {
   AL: "Alabama",
@@ -101,7 +102,7 @@ export async function GET() {
     },
   });
 
-  // Remove any emails that are also in the Host table (hosts are handled separately).
+  // Emails that also exist in Host are shown but marked pickable: false.
   const emails = participants
     .map((p) => p.email?.trim().toLowerCase())
     .filter((e): e is string => Boolean(e));
@@ -120,24 +121,36 @@ export async function GET() {
       .filter((e): e is string => Boolean(e)),
   );
 
-  const filteredParticipants = participants.filter((p) => {
-    const email = p.email?.trim().toLowerCase();
-    if (!email) return false;
-    return !hostEmailSet.has(email);
-  });
+  const exceptEmailSet = await fetchEmailsInProcessedExceptTables();
 
-  const list = filteredParticipants.map((p) => {
+  const list = participants.map((p) => {
+    const emailLower = p.email?.trim().toLowerCase() ?? "";
     const displayName =
       p.lastName && p.firstName
         ? `${p.lastName}, ${p.firstName}`
         : p.firstName ?? p.email;
     const centerName = p.center ?? p.tenant?.name ?? "—";
+    const isAlsoHost = Boolean(emailLower) && hostEmailSet.has(emailLower);
+    const inExceptTable = Boolean(emailLower) && exceptEmailSet.has(emailLower);
+    const pickable = Boolean(emailLower) && !isAlsoHost && !inExceptTable;
+    const nonPickableReason =
+      !pickable && emailLower
+        ? isAlsoHost
+          ? "host"
+          : inExceptTable
+            ? "except"
+            : undefined
+        : undefined;
+
     return {
       id: p.id,
       email: p.email,
       name: displayName,
       center: centerName,
       state: p.state ?? "",
+      /** false = listed for visibility but cannot be added to exception request */
+      pickable,
+      nonPickableReason,
     };
   });
 
