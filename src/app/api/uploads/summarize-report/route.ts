@@ -4,11 +4,9 @@ import { InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 import { requireAuth } from "@/lib/guards";
 import { s3Bucket, s3Client } from "@/lib/s3";
 import { bedrockClient } from "@/lib/bedrock";
+import { REPORT_SUMMARY_PROMPT } from "@/lib/report-summary-prompt";
 
 const MODEL_ID = "us.anthropic.claude-sonnet-4-5-20250929-v1:0";
-
-const SUMMARY_PROMPT =
-  'Analyze this report to check and make sure the user can know if the video is valid. For a valid video all persons in the video should have their video turned on, a clock must be present with the title "Chinmaya Gita Samarpanam" on the screen not blocking any users. Show this is a Good or Needs Correction kind of summary low tech users can understand.';
 
 async function getReportText(key: string): Promise<string> {
   if (!s3Bucket) {
@@ -31,6 +29,10 @@ async function getReportText(key: string): Promise<string> {
 }
 
 async function summarizeWithBedrock(report: string): Promise<string> {
+  console.log(
+    "[summarize-report] Bedrock instructions (prompt before report body):",
+    REPORT_SUMMARY_PROMPT,
+  );
   const payload = {
     anthropic_version: "bedrock-2023-05-31",
     max_tokens: 600,
@@ -41,7 +43,7 @@ async function summarizeWithBedrock(report: string): Promise<string> {
         content: [
           {
             type: "text",
-            text: `${SUMMARY_PROMPT}\n\nReport:\n\n${report}`,
+            text: `${REPORT_SUMMARY_PROMPT}\n\nReport:\n\n${report}`,
           },
         ],
       },
