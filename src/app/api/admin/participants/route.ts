@@ -125,6 +125,8 @@ export async function GET(request: NextRequest) {
     where.OR = [
       { email: { contains: search } },
       { name: { contains: search } },
+      { firstName: { contains: search } },
+      { lastName: { contains: search } },
     ];
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 type AdminParticipantRow = {
   id: string;
@@ -65,8 +65,13 @@ const STATE_OPTIONS = [
   "District of Columbia",
 ];
 
+type ViewMode = "state" | "global";
+
 export default function AdminParticipantsByState() {
   const [selectedState, setSelectedState] = useState<string>("");
+  const [globalSearchInput, setGlobalSearchInput] = useState("");
+  const [activeGlobalQuery, setActiveGlobalQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("state");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminParticipantRow[]>([]);
@@ -110,12 +115,71 @@ export default function AdminParticipantsByState() {
     }
   };
 
+  const loadGlobalSearch = async (pageParam = 1, query?: string) => {
+    const q = (query ?? activeGlobalQuery).trim();
+    if (!q) {
+      setError("Enter a name or email to search.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        search: q,
+        limit: "100",
+        page: String(pageParam),
+      });
+      const res = await fetch(`/api/admin/participants?${params.toString()}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Failed to load participants");
+        setRows([]);
+        return;
+      }
+      setActiveGlobalQuery(q);
+      setViewMode("global");
+      setRows((data.participants ?? []) as AdminParticipantRow[]);
+      const pagination = data.pagination ?? {};
+      setPage(pagination.page ?? pageParam);
+      setTotalPages(pagination.totalPages ?? 1);
+      setTotal(pagination.total ?? (data.participants?.length ?? 0));
+    } catch {
+      setError("Failed to load participants");
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleChange = (value: string) => {
     setSelectedState(value);
+    setGlobalSearchInput("");
+    setActiveGlobalQuery("");
+    setViewMode("state");
     setPage(1);
     setTotalPages(1);
     setTotal(0);
     void loadForState(value, 1);
+  };
+
+  const handleGlobalSearchSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const q = globalSearchInput.trim();
+    if (!q) return;
+    setSelectedState("");
+    setPage(1);
+    void loadGlobalSearch(1, q);
+  };
+
+  const clearGlobalSearch = () => {
+    setGlobalSearchInput("");
+    setActiveGlobalQuery("");
+    setViewMode("state");
+    setRows([]);
+    setPage(1);
+    setTotalPages(1);
+    setTotal(0);
+    setError(null);
   };
 
   return (
@@ -139,14 +203,64 @@ export default function AdminParticipantsByState() {
         {loading && (
           <span className="text-xs text-[#8a5b44]">Loading…</span>
         )}
-        {error && (
+        {error && viewMode === "state" && (
           <span className="text-xs text-red-700">{error}</span>
         )}
       </div>
 
-      {selectedState && !loading && !error && (
+      <form
+        onSubmit={handleGlobalSearchSubmit}
+        className="flex flex-wrap items-end gap-2 rounded-xl border border-[#e5c18e]/80 bg-[#fff9ef] p-3"
+      >
+        <div className="min-w-[12rem] flex-1">
+          <label
+            htmlFor="admin-participants-global-search"
+            className="block text-xs font-medium text-[#3b1a1f]"
+          >
+            Search all states
+          </label>
+          <input
+            id="admin-participants-global-search"
+            type="search"
+            value={globalSearchInput}
+            onChange={(e) => setGlobalSearchInput(e.target.value)}
+            placeholder="Name or email (any state)"
+            className="mt-1 w-full min-w-[14rem] rounded-lg border border-[#e5c18e] bg-white px-3 py-1.5 text-sm text-[#3b1a1f] placeholder:text-[#b08b6b] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={loading || !globalSearchInput.trim()}
+          className="rounded-lg bg-[#d8792d] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Search
+        </button>
+        {viewMode === "global" && activeGlobalQuery ? (
+          <button
+            type="button"
+            onClick={() => clearGlobalSearch()}
+            className="rounded-lg border border-[#e5c18e] px-3 py-1.5 text-sm font-medium text-[#3b1a1f] hover:bg-[#fff4df]"
+          >
+            Clear search
+          </button>
+        ) : null}
+      </form>
+      {error && viewMode === "global" && (
+        <p className="text-xs text-red-700">{error}</p>
+      )}
+
+      {viewMode === "state" && selectedState && !loading && !error && (
         <p className="text-xs text-[#8a5b44]">
           Showing participants for <span className="font-semibold">{selectedState}</span>
+          {total ? ` (${total.toLocaleString()} total)` : " — none found"}
+        </p>
+      )}
+
+      {viewMode === "global" && activeGlobalQuery && !loading && !error && (
+        <p className="text-xs text-[#8a5b44]">
+          Showing participants matching{" "}
+          <span className="font-semibold">&quot;{activeGlobalQuery}&quot;</span> in{" "}
+          <span className="font-semibold">all states</span>
           {total ? ` (${total.toLocaleString()} total)` : " — none found"}
         </p>
       )}
@@ -185,7 +299,11 @@ export default function AdminParticipantsByState() {
             <div className="flex items-center justify-between border-t border-[#e5c18e] px-4 py-2 text-xs text-[#8a5b44]">
               <button
                 type="button"
-                onClick={() => void loadForState(selectedState, page - 1)}
+                onClick={() =>
+                  void (viewMode === "global"
+                    ? loadGlobalSearch(page - 1)
+                    : loadForState(selectedState, page - 1))
+                }
                 disabled={page <= 1 || loading}
                 className="rounded-full border border-[#e5c18e] px-3 py-1 text-[11px] font-medium text-[#3b1a1f] disabled:opacity-60"
               >
@@ -196,7 +314,11 @@ export default function AdminParticipantsByState() {
               </span>
               <button
                 type="button"
-                onClick={() => void loadForState(selectedState, page + 1)}
+                onClick={() =>
+                  void (viewMode === "global"
+                    ? loadGlobalSearch(page + 1)
+                    : loadForState(selectedState, page + 1))
+                }
                 disabled={page >= totalPages || loading}
                 className="rounded-full border border-[#e5c18e] px-3 py-1 text-[11px] font-medium text-[#3b1a1f] disabled:opacity-60"
               >

@@ -23,15 +23,15 @@ export default async function Home() {
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between md:gap-8">
           <div className="flex flex-1 flex-col gap-6">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#b86b2a] bg-white/40 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#8a2f2a]">
-              Global Gita Chanting - Webex Host Portal
+              Chinmaya Gita Samarpanam
             </div>
             <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
-              Welcome, Webex Hosts
+              Welcome, Participants and Hosts
             </h1>
             <p className="max-w-2xl text-base text-[#5b3b2b] md:text-lg">
-              Thank you for supporting the Global Gita Chanting initiative. This
-              portal will help you prepare, practice, and confidently host your
-              Webex meeting on the event day.
+              Thank you for supporting the Chinmaya Gita Samarpanam. This portal
+              will help you prepare, practice, and confidently host your Webex
+              meeting on the event day.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4 md:justify-start">
               <AuthButtons
@@ -63,24 +63,83 @@ export default async function Home() {
             />
           </div>
         </div>
-        <div className="mt-6 rounded-2xl border border-[#fbe9c6]/70 bg-[#fff9ef]/70 p-4 text-sm text-[#3b1a1f]">
-          <p className="font-semibold">
-            Participants:
-            <Link
-              href="/confirm-registration"
-              className="ml-1 text-[#8a2f2a] underline hover:text-[#5c2a2d]"
-            >
-              Not sure if you are registered? Click here to verify.
-            </Link>
-          </p>
-          <p className="mt-1 text-xs text-[#5b3b2b]">
-            You will receive an email confirmation and your meeting assignment if
-            one has been generated.
-          </p>
+      </section>
+
+      <section className="text-[#3b1a1f]">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
+          <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8">
+            <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
+              Participants
+            </span>
+            <h2 className="mt-4 text-xl font-semibold">Participants</h2>
+            <p className="mt-2 text-sm text-[#6b4e3d]">
+              <Link
+                href="/confirm-registration"
+                className="font-semibold text-[#8a2f2a] underline hover:text-[#5c2a2d]"
+              >
+                Not sure if you are registered? Click here to verify.
+              </Link>
+            </p>
+            <p className="mt-3 text-sm text-[#6b4e3d]">
+              <a
+                href="https://webex-usa.chinmayavrindavan.org/participant-instructions"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#8a2f2a] underline hover:text-[#5c2a2d]"
+              >
+                Participant instructions
+              </a>
+            </p>
+            <p className="mt-3 text-xs text-[#6b4e3d]">
+              You will receive an email confirmation and your meeting assignment
+              if one has been generated.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8">
+            <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
+              Hosts
+            </span>
+            <h2 className="mt-4 text-xl font-semibold">Hosts</h2>
+            <p className="mt-2 text-sm text-[#6b4e3d]">
+              Log in to manage your meeting, uploads, and participant details.
+            </p>
+            <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
+              <li>
+                <Link
+                  href="/dashboard/meetings"
+                  className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                >
+                  Host dashboard (meetings)
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="https://tinyurl.com/WebexCheatSheet"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                >
+                  Webex host cheat sheet
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#host-training"
+                  className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                >
+                  Webex host training (slideshow)
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
+      <section
+        id="host-training"
+        className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8"
+      >
         <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
           Training
         </span>
@@ -257,12 +316,42 @@ export default async function Home() {
                 rel="noreferrer"
                 className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
               >
-                Register for the event
+                Register for the event as participant(Outside India)
               </a>
             </li>
             <li>
               <a
-                href="https://tinyurl.com/UsefulCgsInfo2"
+                href="https://tinyurl.com/CGSIndiaReg"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Register for the event as participant(India)
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://tinyurl.com/WebexHostReg"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Register for the event as Host(Outside India)
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://tinyurl.com/WebexHostIndia"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                Register for the event as Host(India)
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://tinyurl.com/UsefulCgsInfoVer2"
                 target="_blank"
                 rel="noreferrer"
                 className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
@@ -282,7 +371,7 @@ export default async function Home() {
             </li>
             <li>
               <a
-                href="https://youtu.be/wxOrlHBKXYk"
+                href="https://tinyurl.com/CGS-PracticeVideo"
                 target="_blank"
                 rel="noreferrer"
                 className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
@@ -341,25 +430,36 @@ export default async function Home() {
               </p>
             </li>
           </ul>
-          <ul className="space-y-2">
-            <li>
-              <a
-                href="https://webex-usa.chinmayavrindavan.org/dashboard/meetings"
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
-              >
-                Host Dashboard
-              </a>
-              <p className="mt-1 text-xs font-normal text-[#8a5b44]">
-                View your assigned meeting link and participant contact details
-                (emails/phone numbers) here.
-              </p>
-            </li>
-            <li>Meeting link assigned after login.</li>
-            <li>Recording required for verification.</li>
-            <li>Follow event timing strictly.</li>
-          </ul>
+          <div className="space-y-2">
+            <ul className="space-y-2">
+              <li>
+                <a
+                  href="https://webex-usa.chinmayavrindavan.org/dashboard/meetings"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+                >
+                  Host Dashboard
+                </a>
+                <p className="mt-1 text-xs font-normal text-[#8a5b44]">
+                  View your assigned meeting link and participant contact details
+                  (emails/phone numbers) here.
+                </p>
+              </li>
+            </ul>
+            <p className="text-sm font-medium text-[#6b4e3d]">
+              For technical support on whatsapp call:
+            </p>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>Goutham Puppala : +1 908 625 6672</li>
+              <li>Pramod Gadilkar : +1 732 318 5560</li>
+              <li>Darshan Shah : + 1 678 428 4718</li>
+              <li>Madhu Sringeri : +1 669 254 8653</li>
+              <li>Arun Ravisankar : + 1 267 432 2292</li>
+              <li>Keshav Iyer : +1 908 625 5846</li>
+              <li>Venugopal Nagarajan : + 1 508 340 2383</li>
+            </ul>
+          </div>
         </div>
       </section>
 
