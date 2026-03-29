@@ -1,4 +1,5 @@
 import { Role } from "@prisma/client";
+import CopyableMeetingLink from "@/components/copyable-meeting-link";
 import ParticipantLinks from "@/components/participant-links";
 import AdminPreviewParticipantsPanel from "@/components/admin-preview-participants-panel";
 import { requireRole } from "@/lib/guards";
@@ -37,11 +38,29 @@ function parseMeetingInfoJson(raw: string): SheetMeeting[] | null {
   }
 }
 
-const formatDateTime = (value?: string) => {
+const formatDateTimeWithZones = (value?: string) => {
   if (!value) return "TBD";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString();
+  const utc = parsed.toLocaleString("en-US", {
+    timeZone: "UTC",
+    dateStyle: "medium",
+    timeStyle: "short",
+    hour12: true,
+  });
+  const et = parsed.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    dateStyle: "medium",
+    timeStyle: "short",
+    hour12: true,
+  });
+  const ist = parsed.toLocaleString("en-US", {
+    timeZone: "Asia/Kolkata",
+    dateStyle: "medium",
+    timeStyle: "short",
+    hour12: true,
+  });
+  return `UTC: ${utc} | ET: ${et} | IST: ${ist}`;
 };
 
 function getMtidFromWebLink(webLink?: string): string | null {
@@ -217,8 +236,8 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
                         ) : null}
                       </div>
                       <div className="text-right text-xs text-[#8a5b44]">
-                        <p>Start: {formatDateTime(meeting.start)}</p>
-                        <p>End: {formatDateTime(meeting.end)}</p>
+                        <p>Start: {formatDateTimeWithZones(meeting.start)}</p>
+                        <p>End: {formatDateTimeWithZones(meeting.end)}</p>
                       </div>
                     </div>
                     {Array.isArray(invitees) && invitees.length > 0 ? (
@@ -232,26 +251,31 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
                         }
                       />
                     ) : null}
-                    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                    <div className="mt-4 space-y-1">
+                      <div className="flex flex-wrap items-center gap-3 text-sm">
+                        {meeting.webLink ? (
+                          <a
+                            href={meeting.webLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-full border border-[#7a3b2a]/50 px-3 py-1 text-xs font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
+                          >
+                            Open meeting
+                          </a>
+                        ) : null}
+                        {meeting.meetingNumber ? (
+                          <span className="text-xs text-[#8a5b44]">
+                            Meeting number: {meeting.meetingNumber}
+                          </span>
+                        ) : null}
+                        {mtid ? (
+                          <span className="text-xs text-[#8a5b44]">
+                            MTID: {mtid}
+                          </span>
+                        ) : null}
+                      </div>
                       {meeting.webLink ? (
-                        <a
-                          href={meeting.webLink}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-full border border-[#7a3b2a]/50 px-3 py-1 text-xs font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
-                        >
-                          Open meeting
-                        </a>
-                      ) : null}
-                      {meeting.meetingNumber ? (
-                        <span className="text-xs text-[#8a5b44]">
-                          Meeting number: {meeting.meetingNumber}
-                        </span>
-                      ) : null}
-                      {mtid ? (
-                        <span className="text-xs text-[#8a5b44]">
-                          MTID: {mtid}
-                        </span>
+                        <CopyableMeetingLink url={meeting.webLink} />
                       ) : null}
                     </div>
                   </div>
@@ -269,7 +293,7 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
             </div>
           ) : (
             <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6 text-sm text-[#8a5b44]">
-              No meeting info found for this email in the license sheet.
+              No meetings created. Please wait for admin to create the meetings and assign participants.
             </div>
           )}
         </>

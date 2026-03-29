@@ -1,6 +1,9 @@
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import { sendEmail } from "@/lib/notifications/channels/email";
-import type { PrismaClient as PostgresPrismaClient } from "@/generated/postgres-client";
+import {
+  Prisma,
+  type PrismaClient as PostgresPrismaClient,
+} from "@/generated/postgres-client";
 
 export type MeetingAssignment = {
   topic: string | null;
@@ -13,6 +16,13 @@ export type MeetingAssignment = {
   hostPhone: string | null;
 };
 
+/** Participants mapped to this host in host↔participant map tables (UI / API only). */
+export type HostMeetingParticipant = {
+  email: string;
+  phone: string | null;
+  name: string | null;
+};
+
 export type ConfirmationLookupResult = {
   valid: boolean;
   email: string;
@@ -20,6 +30,8 @@ export type ConfirmationLookupResult = {
   isParticipant: boolean;
   displayName: string | null;
   meetings: MeetingAssignment[];
+  /** Populated when {@link isHost}; emails/phones from participant tables. */
+  hostMeetingParticipants: HostMeetingParticipant[];
 };
 
 type GchantRow = {
@@ -220,6 +232,185 @@ async function collectHostEmailsFromParticipantMaps(
   return out;
 }
 
+/**
+ * Participant emails assigned to this host via mission/vrindavan host↔participant map tables.
+ */
+async function collectParticipantEmailsForHost(
+  postgres: PostgresPrismaClient,
+  hostEmailLower: string,
+): Promise<string[]> {
+  const set = new Set<string>();
+  const he = hostEmailLower;
+
+  const addEmails = (rows: { e: string | null }[]) => {
+    for (const r of rows) {
+      const x = r.e?.trim().toLowerCase();
+      if (x) set.add(x);
+    }
+  };
+
+  try {
+    const rows = await postgres.$queryRaw<{ e: string | null }[]>`
+      SELECT DISTINCT lower(btrim(m.prtcpnt_email_id::text)) AS e
+      FROM mission.host_prtcpnt_map_nonindia_nu m
+      INNER JOIN mission.webex_hosts_non_india h
+        ON btrim(h.license_site_code::text) = btrim(m.host_lic_site::text)
+       AND btrim(h.host_unq_shortid::text) = btrim(m.host_unq_shortid::text)
+      WHERE lower(btrim(h.host_email_id::text)) = ${he}
+        AND m.prtcpnt_email_id IS NOT NULL
+        AND btrim(m.prtcpnt_email_id::text) <> ''
+    `;
+    addEmails(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] collectParticipantEmailsForHost mission join failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ e: string | null }[]>`
+      SELECT DISTINCT lower(btrim(m.prtcpnt_email_id::text)) AS e
+      FROM mission.host_prtcpnt_map_nonindia_nu m
+      WHERE lower(btrim(m.host_email_id::text)) = ${he}
+        AND m.prtcpnt_email_id IS NOT NULL
+        AND btrim(m.prtcpnt_email_id::text) <> ''
+    `;
+    addEmails(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] collectParticipantEmailsForHost mission host_email_id failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ e: string | null }[]>`
+      SELECT DISTINCT lower(btrim(
+        COALESCE(
+          NULLIF(btrim(m.ind_prtcpnt_email_id::text), ''),
+          NULLIF(btrim(m.prtcpnt_email_id::text), '')
+        )
+      )) AS e
+      FROM vrindavan.host_prtcpnt_map_india m
+      INNER JOIN vrindavan.webex_hosts_india h
+        ON btrim(h.license_site_code::text) = btrim(m.host_lic_site::text)
+       AND btrim(h.host_unq_shortid::text) = btrim(m.host_unq_shortid::text)
+      WHERE lower(btrim(h.host_email_id::text)) = ${he}
+        AND COALESCE(
+          NULLIF(btrim(m.ind_prtcpnt_email_id::text), ''),
+          NULLIF(btrim(m.prtcpnt_email_id::text), '')
+        ) IS NOT NULL
+    `;
+    addEmails(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] collectParticipantEmailsForHost vrindavan join failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ e: string | null }[]>`
+      SELECT DISTINCT lower(btrim(
+        COALESCE(
+          NULLIF(btrim(m.ind_prtcpnt_email_id::text), ''),
+          NULLIF(btrim(m.prtcpnt_email_id::text), '')
+        )
+      )) AS e
+      FROM vrindavan.host_prtcpnt_map_india m
+      WHERE lower(btrim(m.host_email_id::text)) = ${he}
+        AND COALESCE(
+          NULLIF(btrim(m.ind_prtcpnt_email_id::text), ''),
+          NULLIF(btrim(m.prtcpnt_email_id::text), '')
+        ) IS NOT NULL
+    `;
+    addEmails(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] collectParticipantEmailsForHost vrindavan host_email_id failed:",
+      err,
+    );
+  }
+
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * One row per participant record — duplicate emails appear as multiple entries.
+ */
+async function enrichHostMeetingParticipants(
+  postgres: PostgresPrismaClient,
+  emails: string[],
+): Promise<HostMeetingParticipant[]> {
+  if (emails.length === 0) return [];
+
+  const emailSet = new Set(emails);
+
+  const [nonIndia, india, students] = await Promise.all([
+    postgres.nonIndiaParticipant.findMany({
+      where: { prtcpntEmailId: { in: emails } },
+      select: {
+        prtcpntEmailId: true,
+        prtcpntPhoneNo: true,
+        prtcpntName: true,
+      },
+    }),
+    postgres.indiaParticipant.findMany({
+      where: { indPrtcpntEmailId: { in: emails } },
+      select: {
+        indPrtcpntEmailId: true,
+        indPrtcpntPhoneNo: true,
+        indPrtcpntName: true,
+      },
+    }),
+    postgres.$queryRaw<{ email: string | null; phone: string | null; name: string | null }[]>`
+      SELECT
+        lower(btrim(ind_prtcpnt_email_id::text)) AS email,
+        ind_prtcpnt_phone_no::text AS phone,
+        ind_prtcpnt_name::text AS name
+      FROM vrindavan.webex_participants_india_students
+      WHERE lower(btrim(ind_prtcpnt_email_id::text)) IN (${Prisma.join(emails)})
+    `,
+  ]);
+
+  const out: HostMeetingParticipant[] = [];
+
+  const pushRow = (
+    emailRaw: string | null | undefined,
+    phone: string | null | undefined,
+    name: string | null | undefined,
+  ) => {
+    const e = emailRaw?.trim().toLowerCase();
+    if (!e || !emailSet.has(e)) return;
+    out.push({
+      email: e,
+      phone: phone?.trim() ? phone.trim() : null,
+      name: name?.trim() ? name.trim() : null,
+    });
+  };
+
+  for (const r of nonIndia) {
+    pushRow(r.prtcpntEmailId, r.prtcpntPhoneNo, r.prtcpntName);
+  }
+  for (const r of india) {
+    pushRow(r.indPrtcpntEmailId, r.indPrtcpntPhoneNo, r.indPrtcpntName);
+  }
+  for (const r of students) {
+    pushRow(r.email, r.phone, r.name);
+  }
+
+  out.sort((a, b) => {
+    const cmpE = a.email.localeCompare(b.email);
+    if (cmpE !== 0) return cmpE;
+    const cmpN = (a.name ?? "").localeCompare(b.name ?? "");
+    if (cmpN !== 0) return cmpN;
+    return (a.phone ?? "").localeCompare(b.phone ?? "");
+  });
+
+  return out;
+}
+
 export async function lookupConfirmation(emailRaw: string): Promise<ConfirmationLookupResult> {
   const email = emailRaw.trim().toLowerCase();
   const postgres = getPostgresPrisma();
@@ -228,7 +419,7 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
   }
 
   // Presence checks across curated participants + hosts + india students.
-  const [hostNonIndia, hostIndia, nonIndiaP, indiaP, indiaStudents] =
+  const [hostNonIndia, hostIndia, nonIndiaRows, indiaRows, indiaStudentRows] =
     await Promise.all([
       postgres.$queryRaw<{ host_first_name: string | null; host_last_name: string | null }[]>`
         SELECT host_first_name, host_last_name
@@ -242,11 +433,11 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
         WHERE lower(btrim(host_email_id::text)) = ${email}
         LIMIT 1
       `,
-      postgres.nonIndiaParticipant.findFirst({
+      postgres.nonIndiaParticipant.findMany({
         where: { prtcpntEmailId: email },
         select: { prtcpntName: true },
       }),
-      postgres.indiaParticipant.findFirst({
+      postgres.indiaParticipant.findMany({
         where: { indPrtcpntEmailId: email },
         select: { indPrtcpntName: true },
       }),
@@ -254,24 +445,41 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
         SELECT ind_prtcpnt_name
         FROM vrindavan.webex_participants_india_students
         WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${email}
-        LIMIT 1
       `,
     ]);
 
   const isHost = hostNonIndia.length > 0 || hostIndia.length > 0;
-  const isParticipant = Boolean(nonIndiaP || indiaP || indiaStudents.length > 0);
+  const isParticipant = Boolean(
+    nonIndiaRows.length > 0 ||
+      indiaRows.length > 0 ||
+      indiaStudentRows.length > 0,
+  );
+
+  const participantNameParts: string[] = [];
+  for (const r of nonIndiaRows) {
+    const n = r.prtcpntName?.trim();
+    if (n) participantNameParts.push(n);
+  }
+  for (const r of indiaRows) {
+    const n = r.indPrtcpntName?.trim();
+    if (n) participantNameParts.push(n);
+  }
+  for (const r of indiaStudentRows) {
+    const n = r.ind_prtcpnt_name?.trim();
+    if (n) participantNameParts.push(n);
+  }
+
+  const hostNameFallback =
+    hostNonIndia[0]?.host_first_name || hostNonIndia[0]?.host_last_name
+      ? `${hostNonIndia[0]?.host_first_name ?? ""} ${hostNonIndia[0]?.host_last_name ?? ""}`.trim()
+      : hostIndia[0]?.host_first_name || hostIndia[0]?.host_last_name
+        ? `${hostIndia[0]?.host_first_name ?? ""} ${hostIndia[0]?.host_last_name ?? ""}`.trim()
+        : null;
 
   const displayName =
-    nonIndiaP?.prtcpntName ??
-    indiaP?.indPrtcpntName ??
-    indiaStudents[0]?.ind_prtcpnt_name ??
-    (hostNonIndia[0]?.host_first_name || hostNonIndia[0]?.host_last_name
-      ? `${hostNonIndia[0]?.host_first_name ?? ""} ${hostNonIndia[0]?.host_last_name ?? ""}`.trim()
-      : null) ??
-    (hostIndia[0]?.host_first_name || hostIndia[0]?.host_last_name
-      ? `${hostIndia[0]?.host_first_name ?? ""} ${hostIndia[0]?.host_last_name ?? ""}`.trim()
-      : null) ??
-    null;
+    participantNameParts.length > 0
+      ? participantNameParts.join("; ")
+      : hostNameFallback;
 
   const collected: MeetingAssignment[] = [];
 
@@ -314,6 +522,22 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     return ta.localeCompare(tb);
   });
 
+  let hostMeetingParticipants: HostMeetingParticipant[] = [];
+  if (isHost) {
+    try {
+      const partEmails = await collectParticipantEmailsForHost(postgres, email);
+      hostMeetingParticipants = await enrichHostMeetingParticipants(
+        postgres,
+        partEmails,
+      );
+    } catch (err) {
+      console.error(
+        "[confirm-registration] Host meeting participants lookup failed:",
+        err,
+      );
+    }
+  }
+
   return {
     valid: isHost || isParticipant,
     email,
@@ -321,12 +545,24 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     isParticipant,
     displayName,
     meetings,
+    hostMeetingParticipants,
   };
 }
 
-export async function sendConfirmationEmail(result: ConfirmationLookupResult) {
-  const subject = "Registration confirmation — Chinmaya Gita Samarpanam 2026";
-  const greetingName = result.displayName?.trim() ? ` ${result.displayName.trim()}` : "";
+const CONFIRMATION_EMAIL_SUBJECT =
+  "Registration confirmation — Chinmaya Gita Samarpanam 2026";
+
+/**
+ * Builds the exact subject and plain-text body used by
+ * {@link sendConfirmationEmail} (and admin preview).
+ */
+export function buildConfirmationEmailContent(result: ConfirmationLookupResult): {
+  subject: string;
+  body: string;
+} {
+  const greetingName = result.displayName?.trim()
+    ? ` ${result.displayName.trim()}`
+    : "";
 
   const lines: string[] = [];
   lines.push(`Namaste${greetingName},`);
@@ -372,10 +608,35 @@ export async function sendConfirmationEmail(result: ConfirmationLookupResult) {
     lines.push("Meeting assignment: Not found yet (if you are a host, this may be assigned later).");
   }
 
+  if (result.isHost) {
+    lines.push("");
+    lines.push("Participants in your meeting(s) (from registration records):");
+    const parts = result.hostMeetingParticipants ?? [];
+    if (parts.length === 0) {
+      lines.push(
+        "(No participants are linked to your host record in the assignment map yet.)",
+      );
+    } else {
+      lines.push("  Email | Phone | Name");
+      for (const p of parts) {
+        const phone = p.phone?.trim() ? p.phone.trim() : "—";
+        const name = p.name?.trim() ? p.name.trim() : "—";
+        lines.push(`  ${p.email} | ${phone} | ${name}`);
+      }
+    }
+  }
+
   lines.push("");
   lines.push("If you did not request this email, you can ignore it.");
 
-  const body = lines.join("\n");
+  return {
+    subject: CONFIRMATION_EMAIL_SUBJECT,
+    body: lines.join("\n"),
+  };
+}
+
+export async function sendConfirmationEmail(result: ConfirmationLookupResult) {
+  const { subject, body } = buildConfirmationEmailContent(result);
   const sendResult = await sendEmail(result.email, subject, body);
   if (!sendResult.success) {
     throw new Error(sendResult.error ?? "Failed to send email.");

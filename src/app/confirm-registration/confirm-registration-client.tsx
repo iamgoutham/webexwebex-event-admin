@@ -81,11 +81,23 @@ export default function ConfirmRegistrationClient({
     <div className="mx-auto max-w-2xl space-y-6 text-[#3b1a1f]">
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
         <h1 className="text-2xl font-semibold">Confirm your registration</h1>
-        <p className="mt-2 text-sm text-[#6b4e3d]">
-          Enter your registration email address. If it matches a valid
-          participant (or host), we&apos;ll email you a confirmation and any
-          meeting assignment found for you.
-        </p>
+        <div className="mt-2 space-y-3 text-sm text-[#6b4e3d]">
+          <p>
+            Enter your registration email address. If it matches a valid
+            participant (or host):
+          </p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              If you are a participant we will email you a confirmation of your
+              registration and your host contact details.
+            </li>
+            <li>
+              If you are a host we will email you a confirmation and your
+              participant details.
+            </li>
+          </ul>
+          <p>Your meeting link if available will also be included.</p>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 shadow-sm">

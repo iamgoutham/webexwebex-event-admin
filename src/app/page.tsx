@@ -81,14 +81,20 @@ export default async function Home() {
               </Link>
             </p>
             <p className="mt-3 text-sm text-[#6b4e3d]">
-              <a
-                href="https://webex-usa.chinmayavrindavan.org/participant-instructions"
-                target="_blank"
-                rel="noreferrer"
+              <Link
+                href="/participant-instructions"
                 className="font-semibold text-[#8a2f2a] underline hover:text-[#5c2a2d]"
               >
                 Participant instructions
-              </a>
+              </Link>
+            </p>
+            <p className="mt-3 text-sm text-[#6b4e3d]">
+              <Link
+                href="#helpful-links"
+                className="font-semibold text-[#8a2f2a] underline hover:text-[#5c2a2d]"
+              >
+                Helpful links
+              </Link>
             </p>
             <p className="mt-3 text-xs text-[#6b4e3d]">
               You will receive an email confirmation and your meeting assignment
@@ -105,6 +111,14 @@ export default async function Home() {
               Log in to manage your meeting, uploads, and participant details.
             </p>
             <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
+              <li>
+                <Link
+                  href="/faq"
+                  className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                >
+                  Troubleshooting FAQ
+                </Link>
+              </li>
               <li>
                 <Link
                   href="/dashboard/meetings"
@@ -306,6 +320,25 @@ export default async function Home() {
       </section>
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
+        <h2 className="text-xl font-semibold">Support</h2>
+        <p className="mt-3 text-sm text-[#6b4e3d]">
+          For technical support on WhatsApp or call:
+        </p>
+        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
+          <li>Goutham Puppala: +1 908 625 6672</li>
+          <li>Pramod Gadilkar: +1 732 318 5560</li>
+          <li>Darshan Shah: +1 678 428 4718</li>
+          <li>Madhu Sringeri: +1 669 254 8653</li>
+          <li>Arun Ravisankar: +1 267 432 2292</li>
+          <li>Keshav Iyer: +1 908 625 5846</li>
+          <li>Venugopal Nagarajan: +1 508 340 2383</li>
+        </ul>
+      </section>
+
+      <section
+        id="helpful-links"
+        className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8"
+      >
         <h2 className="text-xl font-semibold">Helpful Links</h2>
         <div className="mt-4 grid gap-6 text-sm text-[#6b4e3d] sm:grid-cols-2 lg:grid-cols-3">
           <ul className="space-y-2">
@@ -446,18 +479,6 @@ export default async function Home() {
                   (emails/phone numbers) here.
                 </p>
               </li>
-            </ul>
-            <p className="text-sm font-medium text-[#6b4e3d]">
-              For technical support on whatsapp call:
-            </p>
-            <ul className="list-disc space-y-2 pl-5">
-              <li>Goutham Puppala : +1 908 625 6672</li>
-              <li>Pramod Gadilkar : +1 732 318 5560</li>
-              <li>Darshan Shah : + 1 678 428 4718</li>
-              <li>Madhu Sringeri : +1 669 254 8653</li>
-              <li>Arun Ravisankar : + 1 267 432 2292</li>
-              <li>Keshav Iyer : +1 908 625 5846</li>
-              <li>Venugopal Nagarajan : + 1 508 340 2383</li>
             </ul>
           </div>
         </div>

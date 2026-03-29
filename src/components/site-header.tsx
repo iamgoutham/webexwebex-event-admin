@@ -54,7 +54,7 @@ export default async function SiteHeader() {
                 Admin
               </Link>
             ) : null}
-            {user?.role === Role.ADMIN || user?.role === Role.SUPERADMIN ? (
+            {user?.role === Role.SUPERADMIN ? (
               <Link href="/dashboard/admin/broadcast" className="hover:text-[#fbe9c6]">
                 Broadcast
               </Link>

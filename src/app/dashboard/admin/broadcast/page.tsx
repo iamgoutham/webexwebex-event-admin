@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/guards";
-import { ADMIN_ROLES } from "@/lib/rbac";
+import { SUPERADMIN_ONLY } from "@/lib/rbac";
 import BroadcastForm from "@/components/notifications/broadcast-form";
 import QuickSendButtons from "@/components/notifications/quick-send-buttons";
 import BroadcastHistory from "@/components/notifications/broadcast-history";
@@ -9,7 +9,7 @@ import HostSyncButton from "@/components/notifications/host-sync-button";
 import TestSesButton from "@/components/notifications/test-ses-button";
 
 export default async function BroadcastPage() {
-  const session = await requireRole(ADMIN_ROLES);
+  const session = await requireRole(SUPERADMIN_ONLY);
 
   // Fetch tenants for the scope selector
   const tenants = await prisma.tenant.findMany({

@@ -9,6 +9,9 @@ type AdminParticipantRow = {
   lastName: string | null;
   center: string | null;
   state: string | null;
+  /** Synced participant row; true when same email exists in Host table */
+  isHost?: boolean;
+  isParticipant?: boolean;
 };
 
 const STATE_OPTIONS = [
@@ -274,6 +277,7 @@ export default function AdminParticipantsByState() {
                   <th className="px-4 py-2">Last, First</th>
                   <th className="px-4 py-2">Center</th>
                   <th className="px-4 py-2">State</th>
+                  <th className="px-4 py-2">Host / participant</th>
                   <th className="px-4 py-2">Email</th>
                 </tr>
               </thead>
@@ -283,12 +287,27 @@ export default function AdminParticipantsByState() {
                     p.lastName && p.firstName
                       ? `${p.lastName}, ${p.firstName}`
                       : p.firstName || p.lastName || p.email;
+                  const isHost = p.isHost === true;
+                  const roleLabel = isHost
+                    ? "Participant + Host"
+                    : "Participant";
                   return (
                     <tr key={p.id} className="border-t border-[#e5c18e]/70">
                       <td className="px-4 py-2">{name}</td>
                       <td className="px-4 py-2">{p.center || "—"}</td>
                       <td className="px-4 py-2">{p.state || "—"}</td>
-                      <td className="px-4 py-2">{p.email}</td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={
+                            isHost
+                              ? "font-semibold text-[#1f6b4a]"
+                              : "text-[#6b4e3d]"
+                          }
+                        >
+                          {roleLabel}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 break-all">{p.email}</td>
                     </tr>
                   );
                 })}

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Role, BroadcastTarget, DeliveryChannel, BroadcastStatus } from "@prisma/client";
+import { BroadcastTarget, DeliveryChannel, BroadcastStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
+import { SUPERADMIN_ONLY } from "@/lib/rbac";
 import {
   broadcastToHosts,
   broadcastToParticipants,
@@ -30,10 +31,7 @@ interface BroadcastBody {
 }
 
 export async function POST(request: NextRequest) {
-  const { session, response } = await requireApiAuth([
-    Role.ADMIN,
-    Role.SUPERADMIN,
-  ]);
+  const { session, response } = await requireApiAuth(SUPERADMIN_ONLY);
   if (response) return response;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -301,10 +299,7 @@ export async function POST(request: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export async function GET(request: NextRequest) {
-  const { session, response } = await requireApiAuth([
-    Role.ADMIN,
-    Role.SUPERADMIN,
-  ]);
+  const { session, response } = await requireApiAuth(SUPERADMIN_ONLY);
   if (response) return response;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

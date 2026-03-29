@@ -159,31 +159,46 @@ export async function GET(request: NextRequest) {
     prisma.participant.count({ where: { ...where, optedOut: true } }),
   ]);
 
-  let participants = participantsRaw;
+  const emailsForHostCheck = [
+    ...new Set(
+      participantsRaw
+        .map((p) => p.email?.trim().toLowerCase())
+        .filter((e): e is string => Boolean(e)),
+    ),
+  ];
+  const hostRows =
+    emailsForHostCheck.length > 0
+      ? await prisma.host.findMany({
+          where: { email: { in: emailsForHostCheck } },
+          select: { email: true },
+        })
+      : [];
+  const hostEmailSet = new Set(
+    hostRows
+      .map((h) => h.email?.trim().toLowerCase())
+      .filter((e): e is string => Boolean(e)),
+  );
+
+  /** Every row is a synced participant; isHost = same email exists in Host table (broadcast/sheet). */
+  let participants = participantsRaw.map((p) => {
+    const e = p.email?.trim().toLowerCase();
+    const isHost = Boolean(e && hostEmailSet.has(e));
+    return {
+      ...p,
+      isParticipant: true as const,
+      isHost,
+    };
+  });
+
   if (markProcessedExceptPickability) {
     const exceptSet = await fetchEmailsInProcessedExceptTables();
-    const emailsForHostCheck = participantsRaw
-      .map((p) => p.email?.trim().toLowerCase())
-      .filter((e): e is string => Boolean(e));
-    const hostRows =
-      emailsForHostCheck.length > 0
-        ? await prisma.host.findMany({
-            where: { email: { in: emailsForHostCheck } },
-            select: { email: true },
-          })
-        : [];
-    const hostEmailSet = new Set(
-      hostRows
-        .map((h) => h.email?.trim().toLowerCase())
-        .filter((e): e is string => Boolean(e)),
-    );
 
-    participants = participantsRaw.map((p) => {
+    participants = participants.map((p) => {
       const e = p.email?.trim().toLowerCase();
       if (!e) {
         return { ...p, pickable: true };
       }
-      const isAlsoHost = hostEmailSet.has(e);
+      const isAlsoHost = p.isHost;
       const inExceptTable = exceptSet.has(e);
       const pickable = !isAlsoHost && !inExceptTable;
       const nonPickableReason = !pickable

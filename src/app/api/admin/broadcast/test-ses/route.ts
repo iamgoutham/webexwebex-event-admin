@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Role } from "@prisma/client";
 import { requireApiAuth } from "@/lib/api-guards";
+import { SUPERADMIN_ONLY } from "@/lib/rbac";
 import { sendBulkEmail } from "@/lib/notifications/channels/email";
 import { renderEmailHtml } from "@/lib/notifications/channels/email-templates";
 
@@ -22,10 +22,7 @@ function getTestGroupEmails(): string[] {
 // ---------------------------------------------------------------------------
 
 export async function GET() {
-  const { session, response } = await requireApiAuth([
-    Role.ADMIN,
-    Role.SUPERADMIN,
-  ]);
+  const { session, response } = await requireApiAuth(SUPERADMIN_ONLY);
   if (response) return response;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -44,10 +41,7 @@ export async function GET() {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
-  const { session, response } = await requireApiAuth([
-    Role.ADMIN,
-    Role.SUPERADMIN,
-  ]);
+  const { session, response } = await requireApiAuth(SUPERADMIN_ONLY);
   if (response) return response;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

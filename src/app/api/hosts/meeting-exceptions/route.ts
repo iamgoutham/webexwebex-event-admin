@@ -7,6 +7,8 @@ import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import { isRoleAllowed } from "@/lib/rbac";
 import { ADMIN_ROLES } from "@/lib/rbac";
 import { hasTenantAccess } from "@/lib/rbac";
+import { lookupHostUnqShortIdFromPostgres } from "@/lib/postgres-host-short-id";
+import { formatHostShortIdForMeetingException } from "@/lib/short-id";
 
 type Body = {
   meetingCmsxId: string;
@@ -127,6 +129,26 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const postgres = getPostgresPrisma();
+  if (postgres && hostEmail.trim()) {
+    try {
+      const fromPg = await lookupHostUnqShortIdFromPostgres(
+        postgres,
+        hostEmail.trim().toLowerCase(),
+      );
+      if (fromPg) {
+        hostShortId = fromPg;
+      }
+    } catch (err) {
+      console.warn(
+        "[meeting-exceptions] Postgres host_unq_shortid lookup failed:",
+        err,
+      );
+    }
+  }
+
+  hostShortId = formatHostShortIdForMeetingException(hostShortId);
+
   const timestamp = new Date().toISOString();
 
   const rows: string[][] = normalizedEmails.map((email) => [
@@ -153,7 +175,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const postgres = getPostgresPrisma();
   if (postgres) {
     const rawRows = normalizedEmails.map((participantemail) => ({
       timestamp,

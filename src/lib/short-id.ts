@@ -13,3 +13,23 @@ export const generateShortIdFromEmail = (email: string) => {
   }
   return Math.abs(hash).toString(36);
 };
+
+/**
+ * Meeting exception sheet / Postgres expect a Webex-style host short id with prefix
+ * `CMS_`, `CMSI_`, or `CMSJ_`. Portal `User.shortId` is often a bare hash — prefix
+ * with `CMS_` when missing. Preserves an existing allowed prefix (normalized).
+ */
+export function formatHostShortIdForMeetingException(
+  raw: string | null | undefined,
+): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "";
+  const m = s.match(/^(CMS|CMSI|CMSJ)_(.+)$/i);
+  if (m) {
+    const tag = m[1].toUpperCase();
+    const prefix =
+      tag === "CMS" || tag === "CMSI" || tag === "CMSJ" ? tag : "CMS";
+    return `${prefix}_${m[2]}`;
+  }
+  return `CMS_${s}`;
+}

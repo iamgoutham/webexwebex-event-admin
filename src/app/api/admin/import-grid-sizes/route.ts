@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
+import { SUPERADMIN_ONLY } from "@/lib/rbac";
 
 const GRID_SHEET_ID: string = (() => {
   const id = process.env.GOOGLE_GRID_SHEET_ID;
@@ -115,10 +115,7 @@ const computeGridFromCount = (count: number) => {
 };
 
 export async function POST() {
-  const { session, response } = await requireApiAuth([
-    Role.ADMIN,
-    Role.SUPERADMIN,
-  ]);
+  const { session, response } = await requireApiAuth(SUPERADMIN_ONLY);
   if (response) {
     return response;
   }
@@ -173,9 +170,6 @@ export async function POST() {
   let skippedNotFound = 0;
   let skippedUnauthorized = 0;
 
-  const tenantFilter =
-    session.user.role === Role.ADMIN ? session.user.tenantId : null;
-
   for (const row of rows.slice(1)) {
     const email = row[emailIndex]?.trim().toLowerCase();
     const rowsValue = row[rowsIndex];
@@ -204,26 +198,14 @@ export async function POST() {
 
     processed += 1;
 
-    if (tenantFilter) {
-      const result = await prisma.user.updateMany({
-        where: { email, tenantId: tenantFilter },
-        data: { gridRows, gridCols },
-      });
-      if (result.count === 0) {
-        skippedUnauthorized += 1;
-      } else {
-        updated += result.count;
-      }
+    const result = await prisma.user.updateMany({
+      where: { email },
+      data: { gridRows, gridCols },
+    });
+    if (result.count === 0) {
+      skippedNotFound += 1;
     } else {
-      const result = await prisma.user.updateMany({
-        where: { email },
-        data: { gridRows, gridCols },
-      });
-      if (result.count === 0) {
-        skippedNotFound += 1;
-      } else {
-        updated += result.count;
-      }
+      updated += result.count;
     }
   }
 

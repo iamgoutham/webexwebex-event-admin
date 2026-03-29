@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Chinmaya Gita Samarpanam – Participant Instructions",
@@ -10,6 +11,14 @@ export const metadata: Metadata = {
 export default function ParticipantInstructionsPage() {
   return (
     <div className="space-y-10 rounded-[32px] bg-[#fdf6e9] px-4 py-8 text-[#2b1f13] shadow-[0_30px_80px_rgba(58,25,15,0.15)] sm:px-6 sm:py-10 md:px-8">
+      <p>
+        <Link
+          href="/"
+          className="text-sm font-medium text-[#8a2f2a] underline hover:text-[#5c2a2d]"
+        >
+          ← Back to home
+        </Link>
+      </p>
       {/* Header */}
       <section className="rounded-3xl border border-[#e7b474] bg-gradient-to-br from-[#f7e2b6] via-[#f3c16e] to-[#d8792d] p-6 text-[#3b1a1f] shadow-xl sm:p-8 md:p-10">
         <h1 className="text-center text-3xl font-semibold leading-tight md:text-4xl">

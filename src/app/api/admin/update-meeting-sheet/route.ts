@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { Role } from "@prisma/client";
 import { requireApiAuth } from "@/lib/api-guards";
-import { ADMIN_ROLES } from "@/lib/rbac";
+import { SUPERADMIN_ONLY } from "@/lib/rbac";
 
 const ADMINSITE_URL = (process.env.ADMINSITE_URL ?? "http://localhost:4000").replace(
   /\/+$/,
@@ -9,7 +8,7 @@ const ADMINSITE_URL = (process.env.ADMINSITE_URL ?? "http://localhost:4000").rep
 );
 
 export async function POST(request: Request) {
-  const { session, response } = await requireApiAuth(ADMIN_ROLES);
+  const { session, response } = await requireApiAuth(SUPERADMIN_ONLY);
   if (response) return response;
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
