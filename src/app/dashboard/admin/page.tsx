@@ -27,14 +27,6 @@ export default async function AdminDashboardPage() {
       })
     : [];
 
-  const tenantSummaries =
-    session.user.role === Role.SUPERADMIN
-      ? await prisma.tenant.findMany({
-          orderBy: { createdAt: "desc" },
-          select: { id: true, name: true, slug: true, _count: { select: { users: true } } },
-        })
-      : [];
-
   const postgres = getPostgresPrisma();
 
   let nonIndiaHostsCount = 0;
@@ -78,7 +70,14 @@ export default async function AdminDashboardPage() {
   };
 
   type CenterRow = { center: string | null; count: number };
+type NonIndiaCenterAggRow = {
+  center: string | null;
+  hosts: number;
+  participants: number;
+  total: number;
+};
   let topStudentCenters: CenterRow[] = [];
+let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
 
   if (postgres && session.user.role === Role.SUPERADMIN) {
     try {
@@ -153,6 +152,349 @@ export default async function AdminDashboardPage() {
         center: row.ind_cv_center_name,
         count: Number(row.c ?? 0),
       }));
+      try {
+        const nonIndiaCenterAgg = await postgres.$queryRaw<
+          {
+            center: string | null;
+            hosts: bigint;
+            participants: bigint;
+            total: bigint;
+          }[]
+        >`
+          WITH us_state_slug (abbr, name_slug) AS (
+            VALUES
+              ('AL','alabama'),('AK','alaska'),('AZ','arizona'),('AR','arkansas'),
+              ('CA','california'),('CO','colorado'),('CT','connecticut'),('DE','delaware'),
+              ('FL','florida'),('GA','georgia'),('HI','hawaii'),('ID','idaho'),
+              ('IL','illinois'),('IN','indiana'),('IA','iowa'),('KS','kansas'),
+              ('KY','kentucky'),('LA','louisiana'),('ME','maine'),('MD','maryland'),
+              ('MA','massachusetts'),('MI','michigan'),('MN','minnesota'),('MS','mississippi'),
+              ('MO','missouri'),('MT','montana'),('NE','nebraska'),('NV','nevada'),
+              ('NH','new-hampshire'),('NJ','new-jersey'),('NM','new-mexico'),('NY','new-york'),
+              ('NC','north-carolina'),('ND','north-dakota'),('OH','ohio'),('OK','oklahoma'),
+              ('OR','oregon'),('PA','pennsylvania'),('RI','rhode-island'),('SC','south-carolina'),
+              ('SD','south-dakota'),('TN','tennessee'),('TX','texas'),('UT','utah'),
+              ('VT','vermont'),('VA','virginia'),('WA','washington'),('WV','west-virginia'),
+              ('WI','wisconsin'),('WY','wyoming'),('DC','district-of-columbia')
+          ),
+          combined AS (
+            SELECT
+              hc.center_key AS center,
+              COUNT(*)::bigint AS hosts,
+              0::bigint AS participants
+            FROM (
+              SELECT
+                lower(btrim(h.host_email_id::text)) AS host_email,
+                MAX(
+                  NULLIF(
+                    trim(
+                      both '-'
+                      FROM
+                        concat_ws(
+                          '-',
+                          NULLIF(
+                            lower(
+                              regexp_replace(
+                                btrim(COALESCE(p.chinmaya_center_name::text, '')),
+                                '\\s+',
+                                ' ',
+                                'g'
+                              )
+                            ),
+                            ''
+                          ),
+                          NULLIF(
+                            COALESCE(
+                              (
+                                SELECT u.name_slug
+                                FROM us_state_slug u
+                                WHERE u.abbr = upper(
+                                  regexp_replace(
+                                    btrim(
+                                      COALESCE(
+                                        NULLIF(p.prtcpnt_addr_state::text, ''),
+                                        NULLIF(h.host_addr_state::text, '')
+                                      )
+                                    ),
+                                    '[^A-Za-z]',
+                                    '',
+                                    'g'
+                                  )
+                                )
+                                  AND length(
+                                    regexp_replace(
+                                      btrim(
+                                        COALESCE(
+                                          NULLIF(p.prtcpnt_addr_state::text, ''),
+                                          NULLIF(h.host_addr_state::text, '')
+                                        )
+                                      ),
+                                      '[^A-Za-z]',
+                                      '',
+                                      'g'
+                                    )
+                                  ) = 2
+                                LIMIT 1
+                              ),
+                              (
+                                SELECT u.name_slug
+                                FROM us_state_slug u
+                                WHERE u.name_slug = lower(
+                                  regexp_replace(
+                                    btrim(
+                                      COALESCE(
+                                        NULLIF(p.prtcpnt_addr_state::text, ''),
+                                        NULLIF(h.host_addr_state::text, '')
+                                      )
+                                    ),
+                                    '\\s+',
+                                    '-',
+                                    'g'
+                                  )
+                                )
+                                LIMIT 1
+                              ),
+                              CASE
+                                WHEN lower(
+                                  regexp_replace(
+                                    btrim(
+                                      COALESCE(
+                                        NULLIF(p.prtcpnt_addr_state::text, ''),
+                                        NULLIF(h.host_addr_state::text, '')
+                                      )
+                                    ),
+                                    '[^a-z]',
+                                    '',
+                                    'g'
+                                  )
+                                ) = 'virgina'
+                                  THEN 'virginia'
+                                ELSE NULL
+                              END,
+                              NULLIF(
+                                lower(
+                                  regexp_replace(
+                                    btrim(
+                                      COALESCE(
+                                        NULLIF(p.prtcpnt_addr_state::text, ''),
+                                        NULLIF(h.host_addr_state::text, '')
+                                      )
+                                    ),
+                                    '\\s+',
+                                    '-',
+                                    'g'
+                                  )
+                                ),
+                                ''
+                              )
+                            ),
+                            ''
+                          )
+                        )
+                    ),
+                    ''
+                  )
+                ) AS center_key
+              FROM mission.webex_hosts_non_india h
+              LEFT JOIN mission.webex_participants_non_india p
+                ON lower(btrim(p.prtcpnt_email_id::text)) = lower(btrim(h.host_email_id::text))
+              WHERE h.host_email_id IS NOT NULL
+                AND btrim(h.host_email_id::text) <> ''
+              GROUP BY lower(btrim(h.host_email_id::text))
+            ) hc
+            GROUP BY hc.center_key
+            UNION ALL
+            SELECT
+              NULLIF(
+                trim(
+                  both '-'
+                  FROM
+                    concat_ws(
+                      '-',
+                      NULLIF(
+                        lower(
+                          regexp_replace(
+                            btrim(COALESCE(p.chinmaya_center_name::text, '')),
+                            '\\s+',
+                            ' ',
+                            'g'
+                          )
+                        ),
+                        ''
+                      ),
+                      NULLIF(
+                        COALESCE(
+                          (
+                            SELECT u.name_slug
+                            FROM us_state_slug u
+                            WHERE u.abbr = upper(
+                              regexp_replace(
+                                btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                '[^A-Za-z]',
+                                '',
+                                'g'
+                              )
+                            )
+                              AND length(
+                                regexp_replace(
+                                  btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                  '[^A-Za-z]',
+                                  '',
+                                  'g'
+                                )
+                              ) = 2
+                            LIMIT 1
+                          ),
+                          (
+                            SELECT u.name_slug
+                            FROM us_state_slug u
+                            WHERE u.name_slug = lower(
+                              regexp_replace(
+                                btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                '\\s+',
+                                '-',
+                                'g'
+                              )
+                            )
+                            LIMIT 1
+                          ),
+                          CASE
+                            WHEN lower(
+                              regexp_replace(
+                                btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                '[^a-z]',
+                                '',
+                                'g'
+                              )
+                            ) = 'virgina'
+                              THEN 'virginia'
+                            ELSE NULL
+                          END,
+                          NULLIF(
+                            lower(
+                              regexp_replace(
+                                btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                '\\s+',
+                                '-',
+                                'g'
+                              )
+                            ),
+                            ''
+                          )
+                        ),
+                        ''
+                      )
+                    )
+                ),
+                ''
+              ) AS center,
+              0::bigint AS hosts,
+              COUNT(*)::bigint AS participants
+            FROM mission.webex_participants_non_india p
+            GROUP BY
+              NULLIF(
+                trim(
+                  both '-'
+                  FROM
+                    concat_ws(
+                      '-',
+                      NULLIF(
+                        lower(
+                          regexp_replace(
+                            btrim(COALESCE(p.chinmaya_center_name::text, '')),
+                            '\\s+',
+                            ' ',
+                            'g'
+                          )
+                        ),
+                        ''
+                      ),
+                      NULLIF(
+                        COALESCE(
+                          (
+                            SELECT u.name_slug
+                            FROM us_state_slug u
+                            WHERE u.abbr = upper(
+                              regexp_replace(
+                                btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                '[^A-Za-z]',
+                                '',
+                                'g'
+                              )
+                            )
+                              AND length(
+                                regexp_replace(
+                                  btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                  '[^A-Za-z]',
+                                  '',
+                                  'g'
+                                )
+                              ) = 2
+                            LIMIT 1
+                          ),
+                          (
+                            SELECT u.name_slug
+                            FROM us_state_slug u
+                            WHERE u.name_slug = lower(
+                              regexp_replace(
+                                btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                '\\s+',
+                                '-',
+                                'g'
+                              )
+                            )
+                            LIMIT 1
+                          ),
+                          CASE
+                            WHEN lower(
+                              regexp_replace(
+                                btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                '[^a-z]',
+                                '',
+                                'g'
+                              )
+                            ) = 'virgina'
+                              THEN 'virginia'
+                            ELSE NULL
+                          END,
+                          NULLIF(
+                            lower(
+                              regexp_replace(
+                                btrim(COALESCE(p.prtcpnt_addr_state::text, '')),
+                                '\\s+',
+                                '-',
+                                'g'
+                              )
+                            ),
+                            ''
+                          )
+                        ),
+                        ''
+                      )
+                    )
+                ),
+                ''
+              )
+          )
+          SELECT
+            center,
+            SUM(hosts)::bigint AS hosts,
+            SUM(participants)::bigint AS participants,
+            (SUM(hosts) + SUM(participants))::bigint AS total
+          FROM combined
+          GROUP BY center
+          ORDER BY total DESC, center NULLS LAST
+          LIMIT 20
+        `;
+        nonIndiaCenters = nonIndiaCenterAgg.map((row) => ({
+          center: row.center,
+          hosts: Number(row.hosts ?? 0),
+          participants: Number(row.participants ?? 0),
+          total: Number(row.total ?? 0),
+        }));
+      } catch (err) {
+        console.error("[admin-dashboard] Failed to read non-India center stats:", err);
+      }
     } catch (err) {
       console.error("[admin-dashboard] Failed to read Postgres stats:", err);
     }
@@ -285,6 +627,55 @@ export default async function AdminDashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* Non-India centers: hosts + participants */}
+            <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4 text-xs text-[#6b4e3d]">
+              <h3 className="text-sm font-semibold text-[#3b1a1f]">
+                Top 20 non-India centres (hosts + participants)
+              </h3>
+              {nonIndiaCenters.length === 0 ? (
+                <p className="mt-3 text-[11px] text-[#8a5b44]">
+                  No non-India centre data available from mission database.
+                </p>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {nonIndiaCenters.map((row) => {
+                    const max =
+                      nonIndiaCenters.reduce(
+                        (m, r) => (r.total > m ? r.total : m),
+                        1,
+                      ) || 1;
+                    const hostPct = Math.round((row.hosts / max) * 100);
+                    const partPct = Math.round((row.participants / max) * 100);
+                    return (
+                      <div key={row.center ?? "Unknown center"}>
+                        <div className="flex items-center justify-between">
+                          <span className="truncate text-[11px] font-semibold text-[#3b1a1f]">
+                            {row.center ?? "Unknown center"}
+                          </span>
+                          <span className="text-[11px] text-[#8a5b44]">
+                            T: {row.total.toLocaleString()} · H: {row.hosts.toLocaleString()} · P:{" "}
+                            {row.participants.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex h-3 gap-1">
+                          <div
+                            className="h-3 rounded-l-full bg-[#d8792d]/80"
+                            style={{ width: `${hostPct || 4}%` }}
+                            title={`Hosts: ${row.hosts}`}
+                          />
+                          <div
+                            className="h-3 rounded-r-full bg-[#1f6b4a]/80"
+                            style={{ width: `${partPct || 4}%` }}
+                            title={`Participants: ${row.participants}`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : null}
@@ -334,33 +725,6 @@ export default async function AdminDashboardPage() {
               clientName="Chinmaya Sanjose"
               label="Update (Chinmaya Sanjose)"
             />
-          </div>
-        </div>
-      ) : null}
-
-      {session.user.role === Role.SUPERADMIN ? (
-        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff1d6] p-6">
-          <h2 className="text-lg font-semibold">Tenant overview</h2>
-          <p className="mt-2 text-sm text-[#6b4e3d]">
-            Use the Users API with a tenantId query parameter to drill into a
-            tenant’s roster.
-          </p>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
-            {tenantSummaries.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4"
-              >
-                <p className="text-sm font-semibold">{item.name}</p>
-                <p className="text-xs text-[#8a5b44]">{item.slug}</p>
-                <p className="mt-2 text-xs text-[#8a5b44]">
-                  Users: {item._count.users}
-                </p>
-              </div>
-            ))}
-            {!tenantSummaries.length ? (
-              <p className="text-sm text-[#8a5b44]">No tenants available yet.</p>
-            ) : null}
           </div>
         </div>
       ) : null}

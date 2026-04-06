@@ -68,10 +68,10 @@ export default function SmsTermsPage() {
                 You may opt out at any time by replying <strong>STOP</strong> to
                 any message you receive. You may also email{" "}
                 <a
-                  href="mailto:noreply@chinmayavrindavan.org"
+                  href="mailto:cgs@chinmayavrindavan.org"
                   className="text-[#d8792d] underline-offset-2 hover:underline"
                 >
-                  noreply@chinmayavrindavan.org
+                  cgs@chinmayavrindavan.org
                 </a>{" "}
                 to request removal from SMS communications.
               </p>
@@ -129,6 +129,15 @@ export default function SmsTermsPage() {
               Phone numbers are stored securely and access is limited to the
               event coordination team.
             </p>
+            <p className="mt-3">
+              Text messaging originator opt-in data and consent will not be
+              shared with any third parties, provided that the foregoing does
+              not apply to sharing (1) with a customer&apos;s vendors,
+              consultants and other service providers who need access to such
+              information to carry out work on our behalf; and (2) if we
+              believe disclosure is required by any applicable law, rule, or
+              regulation.
+            </p>
           </section>
 
           <section className="mt-7">
@@ -150,10 +159,10 @@ export default function SmsTermsPage() {
               If you have questions about these terms or the SMS program,
               please contact us at{" "}
               <a
-                href="mailto:noreply@chinmayavrindavan.org"
+                href="mailto:cgs@chinmayavrindavan.org"
                 className="text-[#d8792d] underline-offset-2 hover:underline"
               >
-                noreply@chinmayavrindavan.org
+                cgs@chinmayavrindavan.org
               </a>
               .
             </p>

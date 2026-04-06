@@ -6,15 +6,20 @@ import type { ParticipantSyncResult } from "./types";
 // Participant Sync — Reads participants from downstream Postgres
 // ---------------------------------------------------------------------------
 //
-// Sources (combined and de-duplicated by email):
+// Sources (merged by email):
 //   - mission.webex_hosts_non_india
 //   - vrindavan.webex_hosts_india
 //   - mission.webex_participants_non_india
 //   - vrindavan.webex_participants_india
+//   - vrindavan.webex_participants_india_students
+// Host↔participant assignment maps (host roster / confirmation) also use
+// mission.host_prtcpnt_map_crossregion — see host-meeting-participants.ts.
 //
 // All rows are projected into a common { email, phone, firstName, lastName,
-// center, state } shape and then upserted into the local Participant table
-// (MySQL) with tenantId: null.
+// center, state } shape. Rows with the same email are merged: host first/last
+// stay primary; participant / alternate full names go into Participant.name
+// (semicolon-separated) so admin search finds registration names.
+// Upserted into the local Participant table (MySQL) with tenantId: null.
 //
 // Debug: set PARTICIPANT_SYNC_DEBUG=1 to log the rows read from Postgres and
 // the exact data inserted/updated per participant.
@@ -95,6 +100,82 @@ type ParticipantSourceRow = {
   center: string | null;
   state: string | null;
 };
+
+function combinedPrimaryName(
+  first: string | null,
+  last: string | null,
+): string {
+  return [first?.trim(), last?.trim()].filter(Boolean).join(" ").trim();
+}
+
+/**
+ * Combine all Postgres sources for one email. Primary firstName/lastName favor
+ * host-shaped rows (last name present); other distinct full names go to `name`.
+ */
+function mergeParticipantSourcesForEmail(
+  sources: ParticipantSourceRow[],
+): {
+  phone: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  name: string | null;
+  center: string | null;
+  state: string | null;
+} {
+  let primaryFirst: string | null = null;
+  let primaryLast: string | null = null;
+  const extras: string[] = [];
+  let phone: string | null = null;
+  let center: string | null = null;
+  let state: string | null = null;
+
+  for (const row of sources) {
+    phone = phone || row.phone?.trim() || null;
+    center = center || row.center?.trim() || null;
+    state = state || row.state?.trim() || null;
+
+    const fn = row.firstName?.trim() || null;
+    const ln = row.lastName?.trim() || null;
+
+    if (ln) {
+      if (!primaryFirst && !primaryLast) {
+        primaryFirst = fn;
+        primaryLast = ln;
+      } else {
+        const full = [fn, ln].filter(Boolean).join(" ").trim();
+        const cur = combinedPrimaryName(primaryFirst, primaryLast);
+        if (full && full.toLowerCase() !== cur.toLowerCase()) {
+          extras.push(full);
+        }
+      }
+    } else if (fn) {
+      const cur = combinedPrimaryName(primaryFirst, primaryLast);
+      if (cur && fn.toLowerCase() !== cur.toLowerCase()) {
+        extras.push(fn);
+      }
+      if (!primaryFirst && !primaryLast) {
+        primaryFirst = fn;
+      }
+    }
+  }
+
+  const seenExtra = new Set<string>();
+  const uniqueExtras = extras.filter((e) => {
+    const k = e.toLowerCase();
+    if (seenExtra.has(k)) return false;
+    seenExtra.add(k);
+    return true;
+  });
+
+  return {
+    phone,
+    firstName: primaryFirst,
+    lastName: primaryLast,
+    name: uniqueExtras.length > 0 ? uniqueExtras.join("; ") : null,
+    center,
+    state,
+  };
+}
 
 /**
  * Sync participants from downstream Postgres.
@@ -237,26 +318,27 @@ export async function syncParticipants(
     );
   }
 
-  const seen = new Map<string, ParticipantSourceRow>();
+  const byEmail = new Map<string, ParticipantSourceRow[]>();
   for (const row of rows) {
     const email = row.email?.trim().toLowerCase() ?? "";
     if (!email || email === "n/a") continue;
-    if (!seen.has(email)) {
-      seen.set(email, row);
-    }
+    if (!byEmail.has(email)) byEmail.set(email, []);
+    byEmail.get(email)!.push(row);
   }
 
   if (DEBUG) {
-    console.log("[participant-sync] Unique emails after merge:", seen.size);
+    console.log("[participant-sync] Unique emails after grouping:", byEmail.size);
   }
 
-  for (const [email, row] of seen) {
-    const state = normalizeUsState(row.state);
+  for (const [email, grouped] of byEmail) {
+    const merged = mergeParticipantSourcesForEmail(grouped);
+    const state = normalizeUsState(merged.state);
     const participantData = {
-      phone: row.phone?.trim() || null,
-      firstName: row.firstName?.trim() || null,
-      lastName: row.lastName?.trim() || null,
-      center: row.center?.trim() || null,
+      phone: merged.phone?.trim() || null,
+      firstName: merged.firstName?.trim() || null,
+      lastName: merged.lastName?.trim() || null,
+      name: merged.name?.trim() || null,
+      center: merged.center?.trim() || null,
       state,
     };
 
@@ -275,7 +357,6 @@ export async function syncParticipants(
                 action: "create",
                 data: {
                   email,
-                  name: null,
                   tenantId,
                   optedOut: false,
                   ...participantData,
@@ -294,7 +375,6 @@ export async function syncParticipants(
         await prisma.participant.create({
           data: {
             email,
-            name: null,
             tenantId,
             optedOut: false,
             ...participantData,

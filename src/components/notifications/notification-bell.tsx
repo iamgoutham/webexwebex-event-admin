@@ -24,8 +24,20 @@ export default function NotificationBell() {
   const [toast, setToast] = useState<NotificationItem | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  /** True after the user opens the bell once — SSE is started then and kept until unmount. */
+  const sseStartedRef = useRef(false);
 
-  // Fetch initial notifications
+  const fetchUnreadCountOnly = useCallback(async () => {
+    try {
+      const res = await fetch("/api/notifications?countOnly=true");
+      if (!res.ok) return;
+      const data = await res.json();
+      setUnreadCount(data.unreadCount ?? 0);
+    } catch {
+      // Silent fail — non-critical
+    }
+  }, []);
+
   const fetchNotifications = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications?limit=10");
@@ -38,9 +50,8 @@ export default function NotificationBell() {
     }
   }, []);
 
-  // Set up SSE connection
-  useEffect(() => {
-    fetchNotifications();
+  const connectSSE = useCallback(() => {
+    if (eventSourceRef.current) return;
 
     const eventSource = new EventSource("/api/notifications/stream");
     eventSourceRef.current = eventSource;
@@ -50,7 +61,6 @@ export default function NotificationBell() {
         const data = JSON.parse(event.data);
         if (data.type === "connected") return;
 
-        // New notification received
         const notification: NotificationItem = {
           id: data.id,
           type: data.type,
@@ -65,7 +75,6 @@ export default function NotificationBell() {
         setNotifications((prev) => [notification, ...prev.slice(0, 9)]);
         setUnreadCount((prev) => prev + 1);
 
-        // Show toast for urgent/critical notifications
         if (
           data.severity === "URGENT" ||
           data.severity === "CRITICAL"
@@ -81,12 +90,19 @@ export default function NotificationBell() {
     eventSource.onerror = () => {
       // EventSource will auto-reconnect
     };
+  }, []);
 
+  // Badge only on load — one REST call, no SSE
+  useEffect(() => {
+    void fetchUnreadCountOnly();
+  }, [fetchUnreadCountOnly]);
+
+  useEffect(() => {
     return () => {
-      eventSource.close();
+      eventSourceRef.current?.close();
       eventSourceRef.current = null;
     };
-  }, [fetchNotifications]);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -170,7 +186,15 @@ export default function NotificationBell() {
       <div ref={dropdownRef} className="relative">
         <button
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={() => {
+            const opening = !isOpen;
+            setIsOpen(opening);
+            if (opening && !sseStartedRef.current) {
+              sseStartedRef.current = true;
+              void fetchNotifications();
+              connectSSE();
+            }
+          }}
           className="relative rounded-full p-1.5 text-[#fbe9c6]/70 transition hover:text-[#fbe9c6]"
           aria-label="Notifications"
         >

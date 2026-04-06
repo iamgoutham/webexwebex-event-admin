@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CGS Host FAQ</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f9f7f3;
+    --ink: #1a1a18;
+    --muted: #7a7870;
+    --accent: #c8601a;
+    --line: #e2dfd8;
+    --hover-bg: #f0ece4;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 3rem 2rem 2rem;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  header .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+
+  header h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin-bottom: 0.75rem;
+  }
+
+  header p {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 1rem;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 2rem 5rem;
+  }
+
+  .section {
+    margin-top: 3rem;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 2rem 0 0.75rem;
+    border-top: 1px solid var(--line);
+    margin-bottom: 0.25rem;
+  }
+
+  details {
+    border-bottom: 1px solid var(--line);
+  }
+
+  summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 1.1rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    font-size: 1.05rem;
+    font-weight: 400;
+    transition: color 0.15s;
+  }
+
+  summary::-webkit-details-marker { display: none; }
+
+  summary:hover { color: var(--accent); }
+
+  summary .icon {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    color: var(--muted);
+    flex-shrink: 0;
+    transition: transform 0.2s, color 0.15s;
+    line-height: 1;
+    user-select: none;
+  }
+
+  details[open] summary .icon {
+    transform: rotate(45deg);
+    color: var(--accent);
+  }
+
+  details[open] summary { color: var(--accent); }
+
+  .answer {
+    padding: 0 0 1.5rem;
+    color: #3a3a38;
+    font-size: 0.97rem;
+    line-height: 1.7;
+  }
+
+  .answer a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid currentColor;
+    padding-bottom: 1px;
+  }
+
+  .answer a:hover { opacity: 0.7; }
+
+  .answer ul {
+    margin: 0.5rem 0 0.5rem 1.2rem;
+  }
+
+  .answer li { margin-bottom: 0.2rem; }
+
+  .answer .note {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 0.6rem;
+  }
+
+  .tbd {
+    font-style: italic;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  footer {
+    border-top: 1px solid var(--line);
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="eyebrow">Chinmaya Gita Satsang · Host Resources</div>
+  <h1>Frequently Asked<br>Questions</h1>
+  <p>For hosts of the CGS Webex sessions — setup, recording, and event logistics.</p>
+</header>
+
+<main>
+
+  <!-- WEBSITE & DOCS -->
+  <div class="section">
+    <div class="section-label">Website &amp; Documentation</div>
+
+    <details>
+      <summary>Is there a website with all relevant host information? <span class="icon">+</span></summary>
+      <div class="answer">
+        Yes. Visit <a href="https://webex-usa.chinmayavrindavan.org" target="_blank">webex-usa.chinmayavrindavan.org</a><br>
+        or the short link: <a href="https://tinyurl.com/CgsHostPage" target="_blank">tinyurl.com/CgsHostPage</a>
+      </div>
+    </details>
+
+    <details>
+      <summary>Where can I find the technical setup guide? <span class="icon">+</span></summary>
+      <div class="answer">
+        Visit <a href="https://tinyurl.com/docWebexHostGuide" target="_blank">tinyurl.com/docWebexHostGuide</a> or go to the host website and look for <em>Webex Host Detailed Guide</em> under "Helpful Links."
+      </div>
+    </details>
+  </div>
+
+  <!-- SYSTEM REQUIREMENTS -->
+  <div class="section">
+    <div class="section-label">System &amp; Technical Requirements</div>
+
+    <details>
+      <summary>Can I use a tablet or mobile device as host? <span class="icon">+</span></summary>
+      <div class="answer">
+        No. Hosts must use a laptop or desktop. Any working laptop or desktop is fine.<br><br>
+        <span class="note">Note: System capacity affects grid size. Visible participants may vary from 49 to 81 tiles depending on performance.</span>
+      </div>
+    </details>
+
+    <details>
+      <summary>What two applications do I need to install? <span class="icon">+</span></summary>
+      <div class="answer">
+        <strong>WebEx Desktop App</strong> and <strong>OBS Studio</strong>.<br>
+        See the "1. Introduction" and "2. Software Installation" sections of the <a href="https://tinyurl.com/docWebexHostGuide" target="_blank">Host Guide</a>.
+        <div class="note">Note: Installation steps vary slightly between Mac and Windows.</div>
+      </div>
+    </details>
+  </div>
+
+  <!-- WEBEX MEETING -->
+  <div class="section">
+    <div class="section-label">Webex Meeting &amp; Layout</div>
+
+    <details>
+      <summary>I don't see scheduled meetings in my Webex app. <span class="icon">+</span></summary>
+      <div class="answer">
+        Check Settings → Meetings and make sure the calendar is connected to <strong>Webex</strong>, not Google or another calendar.
+      </div>
+    </details>
+
+    <details>
+      <summary>Where do I find my laptop's max grid size capacity? <span class="icon">+</span></summary>
+      <div class="answer">
+        Refer to section "3.1 WebEx Configuration" in the <a href="https://tinyurl.com/docWebexHostGuide" target="_blank">Host Guide</a>.
+      </div>
+    </details>
+
+    <details>
+      <summary>Should the host stay in Grid mode? <span class="icon">+</span></summary>
+      <div class="answer">
+        Yes. Grid mode lets you capture the maximum number of participants in one page.
+      </div>
+    </details>
+
+    <details>
+      <summary>How can participants move the host/pacer video to center stage? <span class="icon">+</span></summary>
+      <div class="answer">
+        Ask participants to find the host video, click the <strong>three dots</strong> (⋯) in the top-right corner of that tile, and select <em>Move to Stage</em>.
+      </div>
+    </details>
+
+    <details>
+      <summary>How do I stop the screen from swapping between speakers? <span class="icon">+</span></summary>
+      <div class="answer">
+        Go to <strong>Layout → Stack Mode</strong> and disable <em>Active Speaker on Stage</em>.
+      </div>
+    </details>
+
+    <details>
+      <summary>Stack vs. Grid layout — which should I use? <span class="icon">+</span></summary>
+      <div class="answer">
+        <ul>
+          <li><strong>Hosts</strong> must choose Grid layout.</li>
+          <li><strong>Participants</strong> should choose Stack layout and move the Host tile to stage.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>Can participants lock their screen to see only the host? <span class="icon">+</span></summary>
+      <div class="answer">
+        Not on mobile devices. The active speaker/chanter will appear and disappear next to the host. This limitation does not apply to desktop participants.
+      </div>
+    </details>
+  </div>
+
+  <!-- PACER VIDEO -->
+  <div class="section">
+    <div class="section-label">Pacer Video</div>
+
+    <details>
+      <summary>How do I download the pacer video? <span class="icon">+</span></summary>
+      <div class="answer">
+        Refer to section "4.2 Host self-view…" in the <a href="https://tinyurl.com/docWebexHostGuide" target="_blank">Host Guide</a>.
+        <div class="note">File to download: CGS-Chapter15-Lyrics-Audio-Taal.mp4</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Can I pause the pacer video without restarting it? <span class="icon">+</span></summary>
+      <div class="answer">
+        No, this is not possible. You cannot pause and resume from the same point.
+      </div>
+    </details>
+
+    <details>
+      <summary>How do I stop and restart the pacer video? <span class="icon">+</span></summary>
+      <div class="answer">
+        Use the <strong>Stop &amp; Restart</strong> button located next to the Mute button at the bottom of the screen.
+      </div>
+    </details>
+
+    <details>
+      <summary>How do we sync the start of the pacer video across all hosts? <span class="icon">+</span></summary>
+      <div class="answer">
+        All hosts stop and restart the video simultaneously on cue.
+      </div>
+    </details>
+
+    <details>
+      <summary>My pacer video won't start after downloading. <span class="icon">+</span></summary>
+      <div class="answer">
+        Make sure:
+        <ul>
+          <li>You downloaded the <strong>.mp4</strong> file</li>
+          <li>It is properly selected as your virtual background</li>
+          <li>Camera permissions are enabled</li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>My camera keeps turning off and on. What should I do? <span class="icon">+</span></summary>
+      <div class="answer">
+        Possible causes: low bandwidth, system resource overload, or webcam driver issue.<br><br>
+        Try:
+        <ul>
+          <li>Restarting Webex</li>
+          <li>Closing other applications</li>
+          <li>Reconnecting the camera</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+
+  <!-- OBS -->
+  <div class="section">
+    <div class="section-label">OBS Setup &amp; Recording</div>
+
+    <details>
+      <summary>OBS is not capturing the Webex window. <span class="icon">+</span></summary>
+      <div class="answer">
+        Refer to section "3.2 OBS Studio…" in the <a href="https://tinyurl.com/docWebexHostGuide" target="_blank">Host Guide</a>.
+      </div>
+    </details>
+
+    <details>
+      <summary>I see a "screen within screen" (infinite mirror effect). Is this a problem? <span class="icon">+</span></summary>
+      <div class="answer">
+        No, this is not an issue. To resolve the visual:
+        <ul>
+          <li>Start recording</li>
+          <li>Minimize OBS</li>
+          <li>Keep Webex maximized</li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>Where is my OBS recording saved? <span class="icon">+</span></summary>
+      <div class="answer">
+        Two ways to find it:
+        <ul>
+          <li>In OBS: <strong>Controls → Settings → Output → Recording Path</strong></li>
+          <li>In OBS menu: <strong>File → Show Recordings</strong></li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>Should I enable "Hide OBS from Capture"? <span class="icon">+</span></summary>
+      <div class="answer">
+        This option is only available on Mac.
+      </div>
+    </details>
+
+    <details>
+      <summary>How do I upload my recording? <span class="icon">+</span></summary>
+      <div class="answer">
+        Refer to section "4.4 Upload…" in the <a href="https://tinyurl.com/docWebexHostGuide" target="_blank">Host Guide</a>.
+      </div>
+    </details>
+
+    <details>
+      <summary>Should Webex be started before OBS? <span class="icon">+</span></summary>
+      <div class="answer">
+        Order does not matter — as long as both are running before you click <em>Start Recording</em>.
+      </div>
+    </details>
+  </div>
+
+  <!-- VIRTUAL BACKGROUND -->
+  <div class="section">
+    <div class="section-label">Virtual Background &amp; Webex Settings</div>
+
+    <details>
+      <summary>How do I change my virtual background? <span class="icon">+</span></summary>
+      <div class="answer">
+        In the Host Guide, search for section <strong>"3.2 Host Self-View Setup for Chanting."</strong>
+      </div>
+    </details>
+
+    <details>
+      <summary>I don't see virtual background options. Why? <span class="icon">+</span></summary>
+      <div class="answer">
+        You may have joined via browser. Use the <strong>Webex Desktop Application</strong> — some options are not available in browser mode.
+      </div>
+    </details>
+  </div>
+
+  <!-- GROUP & LOGISTICS -->
+  <div class="section">
+    <div class="section-label">Group &amp; Event Logistics</div>
+
+    <details>
+      <summary>How do I see my participant list as a host? <span class="icon">+</span></summary>
+      <div class="answer">
+        Check the Participants panel in the Webex app during the meeting.
+      </div>
+    </details>
+
+    <details>
+      <summary>What is the expected output from hosts? <span class="icon">+</span></summary>
+      <div class="answer">
+        <ul>
+          <li>You have tested recording successfully.</li>
+          <li>Your test recording has been uploaded to the portal for QA check.</li>
+        </ul>
+      </div>
+    </details>
+
+    <details>
+      <summary>What if I need technical help? <span class="icon">+</span></summary>
+      <div class="answer">
+        Refer to Tech Support contacts listed at <a href="https://tinyurl.com/UsefulCgsInfo" target="_blank">tinyurl.com/UsefulCgsInfo</a>.<br>
+        Regional tech support contacts are available.
+      </div>
+    </details>
+  </div>
+
+</main>
+
+<footer>
+  <span>CGS Host FAQ · Updated Feb 2026</span>
+  <span>webex-usa.chinmayavrindavan.org</span>
+</footer>
+
+<script>
+  // Close other details when one opens
+  document.querySelectorAll('details').forEach(el => {
+    el.addEventListener('toggle', () => {
+      if (el.open) {
+        document.querySelectorAll('details').forEach(other => {
+          if (other !== el) other.removeAttribute('open');
+        });
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

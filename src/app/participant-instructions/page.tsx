@@ -85,7 +85,11 @@ export default function ParticipantInstructionsPage() {
           <li>Join 10 minutes early.</li>
           <li>Sit in a comfortable position.</li>
           <li>Center yourself clearly in the screen.</li>
-          <li>Set your screen name correctly.</li>
+          <li>Set your display name correctly.</li>
+          <li>
+            Participants can keep a print copy of the Chapter 15 lyrics and keep
+            it handy.
+          </li>
           <li>Ensure your camera is ON.</li>
           <li>
             Sit in a well-lit location. Ensure light is focused on your face with

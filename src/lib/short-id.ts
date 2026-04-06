@@ -33,3 +33,20 @@ export function formatHostShortIdForMeetingException(
   }
   return `CMS_${s}`;
 }
+
+/**
+ * All string forms that may appear in `host_unq_shortid` / map tables for the same
+ * logical Webex host (with or without `CMS_` / `CMSI_` / `CMSJ_` prefix).
+ */
+export function webexHostShortIdLookupCandidates(
+  raw: string | null | undefined,
+): string[] {
+  const t = (raw ?? "").trim();
+  if (!t) return [];
+  const out = new Set<string>();
+  out.add(t);
+  out.add(formatHostShortIdForMeetingException(t));
+  const m = t.match(/^(CMS|CMSI|CMSJ)_(.+)$/i);
+  if (m?.[2]?.trim()) out.add(m[2].trim());
+  return [...out];
+}

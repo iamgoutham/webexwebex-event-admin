@@ -12,6 +12,14 @@ export async function GET(request: NextRequest) {
   if (!session) return jsonError("Unauthorized", 401);
 
   const { searchParams } = new URL(request.url);
+
+  if (searchParams.get("countOnly") === "true") {
+    const unreadCount = await prisma.notification.count({
+      where: { userId: session.user.id, readAt: null },
+    });
+    return NextResponse.json({ unreadCount });
+  }
+
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
   const unreadOnly = searchParams.get("unread") === "true";

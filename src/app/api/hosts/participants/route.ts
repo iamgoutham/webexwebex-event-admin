@@ -125,10 +125,14 @@ export async function GET() {
 
   const list = participants.map((p) => {
     const emailLower = p.email?.trim().toLowerCase() ?? "";
-    const displayName =
+    let displayName =
       p.lastName && p.firstName
         ? `${p.lastName}, ${p.firstName}`
         : p.firstName ?? p.email;
+    const regAlias = p.name?.trim();
+    if (regAlias) {
+      displayName = `${displayName} (${regAlias})`;
+    }
     const centerName = p.center ?? p.tenant?.name ?? "—";
     const isAlsoHost = Boolean(emailLower) && hostEmailSet.has(emailLower);
     const inExceptTable = Boolean(emailLower) && exceptEmailSet.has(emailLower);

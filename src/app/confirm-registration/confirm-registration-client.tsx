@@ -15,7 +15,7 @@ export default function ConfirmRegistrationClient({
     | { type: "error"; message: string }
   >({ type: "idle" });
 
-  const [token, setToken] = useState<string>("");
+  const [token, setToken] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
   const [captchaError, setCaptchaError] = useState<string | null>(null);
 
@@ -225,4 +225,3 @@ function TurnstileErrorListener({ onError }: { onError: (code: string | null) =>
 
   return null;
 }
-

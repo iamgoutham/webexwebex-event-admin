@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
 import { fetchEmailsInProcessedExceptTables } from "@/lib/postgres-participant-except-emails";
@@ -87,13 +87,14 @@ export async function GET(request: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const limitParam = searchParams.get("limit");
   const unlimited = limitParam === "all";
+  const maxPageSize = 500;
   const limit = unlimited
     ? null
     : Math.min(
-        100,
+        maxPageSize,
         Math.max(1, parseInt(limitParam ?? "50", 10)),
       );
-  const search = searchParams.get("search") ?? "";
+  const searchTrimmed = (searchParams.get("search") ?? "").trim();
   const tenantId = searchParams.get("tenantId") ?? undefined;
   const optedOutFilter = searchParams.get("optedOut");
   const stateParam = searchParams.get("state");
@@ -101,8 +102,23 @@ export async function GET(request: NextRequest) {
     searchParams.get("markProcessedExceptPickability") === "true" ||
     searchParams.get("markProcessedExceptPickability") === "1";
 
-  // Build where clause
-  const where: Record<string, unknown> = {};
+  const matchTermClause = (term: string): Prisma.ParticipantWhereInput => ({
+    OR: [
+      { email: { contains: term } },
+      { name: { contains: term } },
+      { firstName: { contains: term } },
+      { lastName: { contains: term } },
+      { center: { contains: term } },
+      { phone: { contains: term } },
+    ],
+  });
+
+  const searchTerms =
+    searchTrimmed.length > 0
+      ? searchTrimmed.split(/\s+/).filter((t) => t.length > 0)
+      : [];
+
+  const where: Prisma.ParticipantWhereInput = {};
 
   if (tenantId) {
     where.tenantId = tenantId;
@@ -121,13 +137,28 @@ export async function GET(request: NextRequest) {
     where.optedOut = false;
   }
 
-  if (search) {
-    where.OR = [
-      { email: { contains: search } },
-      { name: { contains: search } },
-      { firstName: { contains: search } },
-      { lastName: { contains: search } },
-    ];
+  if (searchTerms.length === 1) {
+    Object.assign(where, matchTermClause(searchTerms[0]!));
+  } else if (searchTerms.length > 1) {
+    const termClauses = searchTerms.map(matchTermClause);
+    const baseEntries = Object.entries({ ...where }).filter(
+      ([, v]) => v !== undefined,
+    );
+    Object.keys(where).forEach((k) => {
+      delete (where as Record<string, unknown>)[k];
+    });
+    if (baseEntries.length === 0) {
+      Object.assign(where, { AND: termClauses });
+    } else {
+      Object.assign(where, {
+        AND: [
+          ...baseEntries.map(
+            ([k, v]) => ({ [k]: v }) as Prisma.ParticipantWhereInput,
+          ),
+          ...termClauses,
+        ],
+      });
+    }
   }
 
   const findArgs: Parameters<typeof prisma.participant.findMany>[0] = {
@@ -222,7 +253,10 @@ export async function GET(request: NextRequest) {
       page: unlimited ? 1 : page,
       limit: unlimited ? total : limit,
       total,
-      totalPages: unlimited || !limit ? 1 : Math.ceil(total / limit),
+      totalPages:
+        unlimited || !limit
+          ? 1
+          : Math.max(1, Math.ceil(total / limit)),
     },
     stats: {
       totalParticipants: totalAll,

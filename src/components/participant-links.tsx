@@ -1,5 +1,7 @@
 "use client";
 
+import { displayParticipantListRow } from "@/lib/participant-display";
+
 type Invitee = { email?: string; phone?: string; name?: string };
 
 function escapeHtml(s: string): string {
@@ -22,15 +24,10 @@ function openEmailsPopup(invitees: Invitee[]) {
 }
 
 function openTablePopup(invitees: Invitee[]) {
-  const rows = invitees.map((p) => ({
-    email: (p.email ?? "").trim(),
-    phone: (p.phone ?? "").trim(),
-    name: (p.name ?? "").trim(),
-  }));
+  const rows = invitees.map((p) => displayParticipantListRow(p));
   const tableRows = rows
     .map((r) => {
-      const nameCell = r.name ? escapeHtml(r.name) : "—";
-      return `<tr><td>${escapeHtml(r.email)}</td><td>${escapeHtml(r.phone)}</td><td>${nameCell}</td></tr>`;
+      return `<tr><td>${escapeHtml(r.email)}</td><td>${escapeHtml(r.phone)}</td><td>${escapeHtml(r.name)}</td></tr>`;
     })
     .join("");
   const win = window.open("", "_blank", "width=720,height=400,scrollbars=yes");

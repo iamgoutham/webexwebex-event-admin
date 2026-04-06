@@ -261,13 +261,8 @@ export default function UploadPanel({
             className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
           />
         </label>
-        <p className="text-sm italic text-[#6b4e3d]">
-          I <strong>{hostName || "[Host name]"}</strong>{" "}
-          <strong>{hostEmail || "[Host email]"}</strong> attest the following
-          information is observed by me in the following file I am uploading.
-        </p>
         <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
-          1) No of participants assigned to me
+          1) Number of participants that joined my chanting session
           <input
             type="number"
             min={0}
@@ -278,7 +273,7 @@ export default function UploadPanel({
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
-          2) No of participants attended for the whole duration with video on
+          2) Number of participants who had their video ON and chanted for the full session
           <input
             type="number"
             min={0}
@@ -288,8 +283,13 @@ export default function UploadPanel({
             className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
           />
         </label>
+        <p className="text-sm italic text-[#6b4e3d]">
+          I <strong>{hostName || "[Host name]"}</strong>{" "}
+          <strong>{hostEmail || "[Host email]"}</strong> attest the following
+          information is observed by me in the following file I am uploading.
+        </p>
         <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
-          Signature
+          Signature (type in your full name)
           <input
             type="text"
             value={signature}
