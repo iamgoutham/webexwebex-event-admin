@@ -1,12 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type BroadcastTarget =
   | "HOSTS_ONLY"
   | "PARTICIPANTS_ONLY"
   | "ALL"
-  | "TEST_GROUP";
+  | "TEST_GROUP"
+  | "DYNAMIC";
+
+function parseEmailList(raw: string): string[] {
+  const parts = raw
+    .split(/[\n,;]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return [...new Set(parts.filter((e) => emailRe.test(e)))];
+}
 
 type BroadcastState =
   | { status: "idle" }
@@ -32,6 +42,15 @@ export default function BroadcastForm({
   const [includeEmail, setIncludeEmail] = useState(true);
   const [includeInApp, setIncludeInApp] = useState(true);
   const [state, setState] = useState<BroadcastState>({ status: "idle" });
+  const [dynamicModalOpen, setDynamicModalOpen] = useState(false);
+  const [dynamicEmailInput, setDynamicEmailInput] = useState("");
+
+  useEffect(() => {
+    if (target === "DYNAMIC") {
+      setIncludeEmail(true);
+      setIncludeInApp(false);
+    }
+  }, [target]);
 
   const channels: string[] = [];
   if (includeEmail) channels.push("EMAIL");
@@ -44,6 +63,12 @@ export default function BroadcastForm({
     }
     if (channels.length === 0) {
       setState({ status: "error", message: "Select at least one channel" });
+      return;
+    }
+
+    if (target === "DYNAMIC") {
+      setState({ status: "idle" });
+      setDynamicModalOpen(true);
       return;
     }
 
@@ -111,6 +136,58 @@ export default function BroadcastForm({
       }
 
       const data = await res.json();
+      setState({
+        status: "success",
+        message: data.message ?? "Broadcast sent!",
+        broadcastId: data.broadcastId,
+      });
+      setTitle("");
+      setBody("");
+      setImageUrl("");
+    } catch (err) {
+      setState({
+        status: "error",
+        message: err instanceof Error ? err.message : "Send failed",
+      });
+    }
+  };
+
+  const handleDynamicConfirm = async () => {
+    const emails = parseEmailList(dynamicEmailInput);
+    if (emails.length === 0) {
+      setState({
+        status: "error",
+        message: "Enter at least one valid email (comma or newline separated)",
+      });
+      return;
+    }
+
+    setState({ status: "loading" });
+
+    try {
+      const res = await fetch("/api/admin/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          body: body.trim(),
+          imageUrl: imageUrl.trim() || null,
+          target: "DYNAMIC",
+          channels: ["EMAIL"],
+          tenantId: tenantId || null,
+          dynamicEmails: emails,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Send failed" }));
+        setState({ status: "error", message: data.error ?? "Send failed" });
+        return;
+      }
+
+      const data = await res.json();
+      setDynamicModalOpen(false);
+      setDynamicEmailInput("");
       setState({
         status: "success",
         message: data.message ?? "Broadcast sent!",
@@ -204,6 +281,7 @@ export default function BroadcastForm({
             <option value="ALL">Everyone (Hosts + Participants)</option>
             <option value="HOSTS_ONLY">Hosts Only</option>
             <option value="PARTICIPANTS_ONLY">Participants Only</option>
+            <option value="DYNAMIC">Dynamic (custom email list)</option>
             <option value="TEST_GROUP">Test Group (SES_TEST_GROUP_EMAILS)</option>
           </select>
         </div>
@@ -242,21 +320,32 @@ export default function BroadcastForm({
               type="checkbox"
               checked={includeEmail}
               onChange={(e) => setIncludeEmail(e.target.checked)}
-              className="rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d]"
+              disabled={target === "DYNAMIC"}
+              className="rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d] disabled:opacity-40"
             />
             Email
+            {target === "DYNAMIC" ? (
+              <span className="text-xs text-[#8a5b44]">(required)</span>
+            ) : null}
           </label>
           <label className="flex items-center gap-2 text-sm text-[#6b4e3d]">
             <input
               type="checkbox"
               checked={includeInApp}
               onChange={(e) => setIncludeInApp(e.target.checked)}
-              disabled={target === "PARTICIPANTS_ONLY" || target === "TEST_GROUP"}
+              disabled={
+                target === "PARTICIPANTS_ONLY" ||
+                target === "TEST_GROUP" ||
+                target === "DYNAMIC"
+              }
               className="rounded border-[#e5c18e] text-[#d8792d] focus:ring-[#d8792d] disabled:opacity-40"
             />
             In-App{" "}
             {target === "PARTICIPANTS_ONLY" ? (
               <span className="text-xs text-[#8a5b44]">(hosts only)</span>
+            ) : null}
+            {target === "DYNAMIC" ? (
+              <span className="text-xs text-[#8a5b44]">(not available)</span>
             ) : null}
           </label>
         </div>
@@ -285,6 +374,62 @@ export default function BroadcastForm({
           <p className="mt-1 text-xs text-green-600">
             Broadcast ID: {state.broadcastId}
           </p>
+        </div>
+      ) : null}
+
+      {dynamicModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dynamic-broadcast-title"
+        >
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-xl">
+            <h3
+              id="dynamic-broadcast-title"
+              className="text-lg font-semibold text-[#3b1a1f]"
+            >
+              Dynamic group — recipient emails
+            </h3>
+            <p className="mt-2 text-sm text-[#6b4e3d]">
+              Enter one email per line, or separate addresses with commas. Only
+              valid addresses are sent.
+            </p>
+            <textarea
+              value={dynamicEmailInput}
+              onChange={(e) => setDynamicEmailInput(e.target.value)}
+              rows={10}
+              placeholder={"a@example.com\nb@example.com"}
+              className="mt-4 w-full rounded-xl border border-[#e5c18e] bg-white px-4 py-3 font-mono text-sm text-[#3b1a1f] placeholder:text-[#c4a882] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
+            />
+            <p className="mt-2 text-xs text-[#8a5b44]">
+              Parsed: {parseEmailList(dynamicEmailInput).length} valid email
+              {parseEmailList(dynamicEmailInput).length === 1 ? "" : "s"}
+            </p>
+            {state.status === "error" ? (
+              <p className="mt-2 text-xs text-red-700">{state.message}</p>
+            ) : null}
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (state.status === "loading") return;
+                  setDynamicModalOpen(false);
+                }}
+                className="rounded-full border border-[#e5c18e] bg-white px-5 py-2 text-sm font-medium text-[#3b1a1f] hover:bg-[#fff9ef]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDynamicConfirm}
+                disabled={state.status === "loading"}
+                className="rounded-full bg-[#d8792d] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:bg-[#d8792d]/40"
+              >
+                {state.status === "loading" ? "Sending..." : "Send to list"}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </div>

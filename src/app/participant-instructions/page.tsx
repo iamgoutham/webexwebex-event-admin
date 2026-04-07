@@ -25,7 +25,7 @@ export default function ParticipantInstructionsPage() {
           ॐ Chinmaya Gita Samarpanam
         </h1>
         <div className="mt-6 rounded-2xl border border-[#b86b2a] bg-[#fff4df] px-4 py-3 text-center text-sm font-semibold text-[#3b1a1f]">
-          Global Record-Breaking Gita Chanting Event
+          Global Guinness Record-Breaking Gita Chanting Event
         </div>
       </section>
 
@@ -35,18 +35,19 @@ export default function ParticipantInstructionsPage() {
         </h2>
         <div className="mt-4 space-y-2 text-sm text-[#6b4e3d]">
           <p>
-            The participant will receive a Webex invitation{" "}
+            The participant will receive an invitation from{" "}
+            <span className="font-semibold text-[#3b1a1f]">
+              &ldquo;Chinmaya Gita Samarpanam&rdquo;
+            </span>{" "}
+            by email{" "}
             <span className="font-semibold text-[#8a2f2a]">
-              3 weeks prior to the May 9 event
+              prior to the May 9 event
             </span>
             .
           </p>
-          <p>The invite will contain the meeting joining information.</p>
           <p>
-            <span className="font-semibold text-[#8a2f2a]">
-              Use the SAME meeting link
-            </span>{" "}
-            on all three days.
+            The invite will contain the webex meeting joining information and
+            participant instructions.
           </p>
           <p className="mt-3 text-sm text-[#3b1a1f]">
             <strong>Participants:</strong>{" "}
@@ -65,15 +66,15 @@ export default function ParticipantInstructionsPage() {
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
         <h2 className="text-xl font-semibold text-[#3b1a1f]">
-          📅 Required Participation (10:00 AM EST)
+          📅 Required Participation (10:00 AM EST/7.30 PM IST)
         </h2>
         <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
-          <li>April 25 – Trial Meeting</li>
-          <li>May 2 – Trial Meeting</li>
-          <li>May 9 – Official Record-Breaking Event</li>
+          <li>April 25 – Trial Meeting(Mandatory)</li>
+          <li>May 2 – Trial Meeting(Mandatory)</li>
+          <li>May 9 – Official Guinness Record-Breaking Event</li>
         </ul>
         <p className="mt-3 font-semibold text-[#8a2f2a]">
-          All sessions begin at 10:00 AM EST.
+          All sessions begin at 10:00 AM EST/7.30 PM IST.
         </p>
       </section>
 
@@ -83,14 +84,17 @@ export default function ParticipantInstructionsPage() {
         </h2>
         <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
           <li>Join 10 minutes early.</li>
-          <li>Sit in a comfortable position.</li>
-          <li>Center yourself clearly in the screen.</li>
+          <li>Center yourself clearly in the screen with Video ON.</li>
+          <li>
+            Sit in a comfortable position with no external and surrounding
+            distractions.
+          </li>
           <li>Set your display name correctly.</li>
           <li>
             Participants can keep a print copy of the Chapter 15 lyrics and keep
             it handy.
           </li>
-          <li>Ensure your camera is ON.</li>
+          <li>Ensure your Audio is ON and speaker volume lowered.</li>
           <li>
             Sit in a well-lit location. Ensure light is focused on your face with
             no light source behind you. Do not sit with your back to a window —
@@ -109,16 +113,14 @@ export default function ParticipantInstructionsPage() {
             lips.
           </li>
           <li>
+            Stabilize position of device used (phones/mobile device to be in
+            horizontal/landscape mode).
+          </li>
+          <li>
             Adjust your camera so your face is not covered by the name display
             in your self-view window.
           </li>
-          <li>Blur your background or set a background image.</li>
-          <li className="list-none pl-0">
-            <span className="text-[#8a5b44] italic">
-              Organizers are preparing a recommended background image — stay
-              tuned.
-            </span>
-          </li>
+          <li>Blur your background or set no background image.</li>
         </ul>
       </section>
 
@@ -236,12 +238,12 @@ export default function ParticipantInstructionsPage() {
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
         <h2 className="text-xl font-semibold text-[#3b1a1f]">
-          🎥 During Chanting
+          🎥 At the time of Chanting
         </h2>
         <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
           <li>
-            Move the host to the Webex Stage view so you can clearly see the
-            lyrics displayed in the host&apos;s background.
+            Participants must clearly see the lyrics displayed in the
+            host&apos;s background.
             <figure className="mt-3 max-w-md">
               <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-[#e5c18e] bg-[#fff9ef]">
                 <Image
@@ -259,9 +261,7 @@ export default function ParticipantInstructionsPage() {
           </li>
           <li>Wait for the host&apos;s instructions.</li>
           <li>The host will display a background video highlighting the verse.</li>
-          <li>
-            Unmute your mic and lower your machine&apos;s speaker volume to 5.
-          </li>
+          <li>Unmute your audio and lower your speaker volume.</li>
           <li>Follow the visual cue to begin chanting.</li>
           <li>Ensure lip movement is clearly visible.</li>
           <li>
@@ -269,7 +269,66 @@ export default function ParticipantInstructionsPage() {
             not cover your mouth — lip movement must be clearly visible for
             verification.
           </li>
+          <li>
+            During chanting, if you get dropped or go out of the meeting, do
+            not try to join immediately. You can join back for the next
+            recording session.
+          </li>
         </ul>
+
+        <div className="mt-8 border-t border-[#e5c18e]/80 pt-8">
+          <h3 className="text-base font-semibold text-[#3b1a1f]">
+            Start times (start chanting exactly at these times)
+          </h3>
+          <div className="mt-4 overflow-x-auto rounded-xl border border-[#e5c18e] bg-[#fff9ef]">
+            <table className="w-full min-w-[28rem] border-collapse text-left text-sm text-[#6b4e3d]">
+              <thead>
+                <tr className="border-b border-[#e5c18e] bg-[#fff1d6]">
+                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
+                    &nbsp;
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
+                    US EDT
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
+                    US CDT
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
+                    US PDT
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
+                    India
+                  </th>
+                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
+                    GMT
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-[#e5c18e]/70">
+                  <td className="px-3 py-2 font-medium text-[#3b1a1f]">
+                    Chanting #1
+                  </td>
+                  <td className="px-3 py-2">10:15 am</td>
+                  <td className="px-3 py-2">9:15 am</td>
+                  <td className="px-3 py-2">7:15 am</td>
+                  <td className="px-3 py-2">7:45 pm</td>
+                  <td className="px-3 py-2">3:15 pm</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 font-medium text-[#3b1a1f]">
+                    Chanting #2
+                  </td>
+                  <td className="px-3 py-2">10:35 am</td>
+                  <td className="px-3 py-2">9:35 am</td>
+                  <td className="px-3 py-2">7:35 am</td>
+                  <td className="px-3 py-2">8:05 pm</td>
+                  <td className="px-3 py-2">3:35 pm</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
@@ -281,7 +340,7 @@ export default function ParticipantInstructionsPage() {
           <li>Recording will stop after completion.</li>
           <li>
             The chanting and recording will be repeated{" "}
-            <span className="font-semibold text-[#8a2f2a]">3 times</span> to
+            <span className="font-semibold text-[#8a2f2a]">2 times</span> to
             capture the best version.
           </li>
         </ul>

@@ -18,6 +18,8 @@ import { renderEmailHtml } from "@/lib/notifications/channels/email-templates";
 // POST /api/admin/broadcast — Send a broadcast notification
 // ---------------------------------------------------------------------------
 
+const DYNAMIC_EMAIL_MAX = 500;
+
 interface BroadcastBody {
   title: string;
   body: string;
@@ -28,6 +30,8 @@ interface BroadcastBody {
   severity?: string;
   /** Optional image URL (e.g. hosted JPEG) to embed in the email body */
   imageUrl?: string | null;
+  /** When target is DYNAMIC: explicit recipient emails (email channel only) */
+  dynamicEmails?: string[];
 }
 
 export async function POST(request: NextRequest) {
@@ -47,7 +51,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { title, body: bodyText, target, channels, tenantId, templateSlug, imageUrl } = payload;
+  const {
+    title,
+    body: bodyText,
+    target,
+    channels,
+    tenantId,
+    templateSlug,
+    imageUrl,
+    dynamicEmails: rawDynamicEmails,
+  } = payload;
 
   // Resolve image URL: allow full URLs or paths from this app's public directory (e.g. /logo.jpg)
   const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "https://app.example.com";
@@ -83,6 +96,76 @@ export async function POST(request: NextRequest) {
   );
 
   try {
+    if (target === BroadcastTarget.DYNAMIC) {
+      if (!channels.includes(DeliveryChannel.EMAIL)) {
+        return NextResponse.json(
+          { error: "Dynamic broadcasts require the Email channel" },
+          { status: 400 },
+        );
+      }
+      const list = Array.isArray(rawDynamicEmails) ? rawDynamicEmails : [];
+      const normalized = [
+        ...new Set(
+          list
+            .map((e) => String(e).trim().toLowerCase())
+            .filter((e) => e.length > 0),
+        ),
+      ];
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      const emails = normalized.filter((e) => emailRe.test(e));
+      if (emails.length === 0) {
+        return NextResponse.json(
+          { error: "Provide at least one valid email address for Dynamic target" },
+          { status: 400 },
+        );
+      }
+      if (emails.length > DYNAMIC_EMAIL_MAX) {
+        return NextResponse.json(
+          {
+            error: `Too many addresses (max ${DYNAMIC_EMAIL_MAX})`,
+          },
+          { status: 400 },
+        );
+      }
+
+      const broadcast = await prisma.broadcast.create({
+        data: {
+          tenantId: tenantId ?? null,
+          senderId: session.user.id,
+          target: BroadcastTarget.DYNAMIC,
+          title,
+          body: bodyText,
+          channels: [DeliveryChannel.EMAIL] as string[],
+          status: BroadcastStatus.SENDING,
+          totalCount: 0,
+        },
+      });
+
+      const { sendBulkEmail } = await import("@/lib/notifications/channels/email");
+      const results = await sendBulkEmail(emails, title, bodyText, emailHtmlBody);
+      const sentCount = results.filter((r) => r.success).length;
+      const failedCount = results.filter((r) => !r.success).length;
+
+      await prisma.broadcast.update({
+        where: { id: broadcast.id },
+        data: {
+          status: BroadcastStatus.SENT,
+          totalCount: emails.length,
+          sentCount,
+          failedCount,
+          sentAt: new Date(),
+        },
+      });
+
+      return NextResponse.json({
+        message: "Broadcast sent to dynamic email list",
+        broadcastId: broadcast.id,
+        sentCount,
+        failedCount,
+        totalRecipients: emails.length,
+      });
+    }
+
     if (target === BroadcastTarget.HOSTS_ONLY) {
       const broadcast = await prisma.broadcast.create({
         data: {

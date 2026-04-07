@@ -70,14 +70,18 @@ export default function BroadcastHistory() {
                       ? "bg-purple-100 text-purple-700"
                       : b.target === "HOSTS_ONLY"
                         ? "bg-blue-100 text-blue-700"
-                        : "bg-green-100 text-green-700"
+                        : b.target === "DYNAMIC"
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-green-100 text-green-700"
                   }`}
                 >
                   {b.target === "HOSTS_ONLY"
                     ? "Hosts"
                     : b.target === "PARTICIPANTS_ONLY"
                       ? "Participants"
-                      : "All"}
+                      : b.target === "DYNAMIC"
+                        ? "Dynamic"
+                        : "All"}
                 </span>
               </td>
               <td className="px-4 py-3">
