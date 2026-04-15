@@ -53,12 +53,41 @@ function normMeetingNumber(value: unknown): string | null {
 
 function meetingDedupeKey(m: MeetingAssignment): string {
   return [
-    m.link ?? "",
     m.meetingNumber ?? "",
     m.startTime ?? "",
+    m.endTime ?? "",
     m.topic ?? "",
     m.hostEmail ?? "",
   ].join("|");
+}
+
+function meetingCompletenessScore(m: MeetingAssignment): number {
+  return (
+    (m.link ? 8 : 0) +
+    (m.meetingNumber ? 4 : 0) +
+    (m.topic ? 2 : 0) +
+    (m.startTime ? 1 : 0) +
+    (m.endTime ? 1 : 0)
+  );
+}
+
+function dedupeMeetingsPreferLinked(
+  meetings: MeetingAssignment[],
+): MeetingAssignment[] {
+  const byKey = new Map<string, MeetingAssignment>();
+  for (const m of meetings) {
+    const k = meetingDedupeKey(m);
+    const prev = byKey.get(k);
+    if (!prev) {
+      byKey.set(k, m);
+      continue;
+    }
+    // Keep the richer variant when duplicate rows differ by hidden/missing link.
+    if (meetingCompletenessScore(m) > meetingCompletenessScore(prev)) {
+      byKey.set(k, m);
+    }
+  }
+  return [...byKey.values()];
 }
 
 function findSheetMeetingForIdentity(
@@ -144,6 +173,59 @@ async function sheetOnlyHostContext(
   return { hostEmail: null, hostPhone: null };
 }
 
+/**
+ * Host dashboard: same meeting rows as confirm-registration — merges Postgres map
+ * rows with Google Sheet "Meeting Info" JSON so map-supplied {@link HostMapMeetingIdentity.link}
+ * is used when the sheet omits or masks the Webex URL (dashboard previously only applied
+ * sheet `webLink` + a coarse map fallback).
+ */
+export async function getHostDashboardMeetings(
+  postgres: PostgresPrismaClient,
+  hostEmailLower: string,
+): Promise<{
+  assignments: MeetingAssignment[];
+  sheetMeetings: SheetMeeting[];
+  meetingInfoRaw: string | null;
+}> {
+  const meetingInfoRaw = await getMeetingInfoForEmail(hostEmailLower);
+  const sheetMeetings = meetingInfoRaw
+    ? parseMeetingInfoJson(meetingInfoRaw) ?? []
+    : [];
+
+  const hostPhone = await lookupHostPhone(postgres, hostEmailLower);
+  const identities = await fetchHostMapMeetingIdentities(
+    postgres,
+    hostEmailLower,
+  );
+
+  const collected: MeetingAssignment[] = [];
+
+  if (identities.length > 0) {
+    for (const id of identities) {
+      const sheetRow = findSheetMeetingForIdentity(sheetMeetings, id);
+      collected.push(
+        mapAndSheetToAssignment(id, sheetRow, hostEmailLower, hostPhone),
+      );
+    }
+  }
+
+  if (identities.length === 0 && sheetMeetings.length > 0) {
+    for (const sm of sheetMeetings) {
+      collected.push(sheetMeetingToAssignment(sm, hostEmailLower, hostPhone));
+    }
+  }
+
+  const assignments = dedupeMeetingsPreferLinked(collected);
+
+  assignments.sort((a, b) => {
+    const ta = a.startTime ?? "";
+    const tb = b.startTime ?? "";
+    return ta.localeCompare(tb);
+  });
+
+  return { assignments, sheetMeetings, meetingInfoRaw };
+}
+
 async function lookupHostPhone(
   postgres: PostgresPrismaClient,
   hostEmailLower: string,
@@ -194,8 +276,8 @@ async function collectHostEmailsFromParticipantMaps(
       SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
       FROM mission.host_prtcpnt_map_nonindia_nu m
       INNER JOIN mission.webex_hosts_non_india h
-        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
-         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
       WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
     `;
@@ -235,8 +317,8 @@ async function collectHostEmailsFromParticipantMaps(
       SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
       FROM mission.host_prtcpnt_map_crossregion m
       INNER JOIN mission.webex_hosts_non_india h
-        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
-         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
       WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${q}
     `;
@@ -247,8 +329,8 @@ async function collectHostEmailsFromParticipantMaps(
         SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
         FROM mission.host_prtcpnt_map_crossregion m
         INNER JOIN mission.webex_hosts_non_india h
-          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
-           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
+          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
          AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
       `;
@@ -306,8 +388,8 @@ async function collectHostEmailsFromParticipantMaps(
       SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
       FROM vrindavan.host_prtcpnt_map_india m
       INNER JOIN vrindavan.webex_hosts_india h
-        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
-         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
       WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${q}
     `;
@@ -318,8 +400,8 @@ async function collectHostEmailsFromParticipantMaps(
         SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
         FROM vrindavan.host_prtcpnt_map_india m
         INNER JOIN vrindavan.webex_hosts_india h
-          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
-           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
+          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
          AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
       `;
@@ -504,13 +586,7 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     console.error("[confirm-registration] Meeting lookup failed:", err);
   }
 
-  const seen = new Set<string>();
-  let meetings = collected.filter((m) => {
-    const k = meetingDedupeKey(m);
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+  let meetings = dedupeMeetingsPreferLinked(collected);
 
   meetings.sort((a, b) => {
     const ta = a.startTime ?? "";
@@ -563,6 +639,91 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     meetings,
     hostMeetingParticipants,
   };
+}
+
+const onlyDigits = (value: string) => value.replace(/[^0-9]/g, "");
+
+async function collectEmailsByPhone(
+  postgres: PostgresPrismaClient,
+  phoneRaw: string,
+): Promise<string[]> {
+  const digits = onlyDigits(phoneRaw);
+  if (digits.length < 10) return [];
+  const last10 = digits.slice(-10);
+  const out = new Set<string>();
+
+  const add = (rows: { email: string | null }[]) => {
+    for (const r of rows) {
+      const e = r.email?.trim().toLowerCase();
+      if (e) out.add(e);
+    }
+  };
+
+  const phoneMatchesSql = (columnSql: string) => `
+    (
+      regexp_replace(btrim(COALESCE(${columnSql}::text, '')), '[^0-9]', '', 'g') = '${digits}'
+      OR right(regexp_replace(btrim(COALESCE(${columnSql}::text, '')), '[^0-9]', '', 'g'), 10) = '${last10}'
+    )
+  `;
+
+  const run = async (query: string) => {
+    try {
+      const rows = await postgres.$queryRawUnsafe<{ email: string | null }[]>(query);
+      add(rows);
+    } catch {
+      // Optional table variations by environment.
+    }
+  };
+
+  await run(`
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india
+    WHERE ${phoneMatchesSql("host_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM vrindavan.webex_hosts_india
+    WHERE ${phoneMatchesSql("host_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
+    FROM mission.webex_participants_non_india_old
+    WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(ind_prtcpnt_email_id::text)) AS email
+    FROM vrindavan.webex_participants_india_students
+    WHERE ${phoneMatchesSql("ind_prtcpnt_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(email::text)) AS email
+    FROM mission.webex_participants_non_india_old_raw
+    WHERE ${phoneMatchesSql("contact_phone__whatsapp_")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(email_of_student_or_student_s_parent::text)) AS email
+    FROM vrindavan.webex_participants_india_raw_students
+    WHERE ${phoneMatchesSql("whatsapp_number")}
+  `);
+
+  return [...out].sort();
+}
+
+export async function lookupConfirmationByPhone(
+  phoneRaw: string,
+): Promise<ConfirmationLookupResult | null> {
+  const postgres = getPostgresPrisma();
+  if (!postgres) {
+    throw new Error("Downstream database is not configured.");
+  }
+  const emails = await collectEmailsByPhone(postgres, phoneRaw);
+  for (const email of emails) {
+    const result = await lookupConfirmation(email);
+    if (result.valid) {
+      return result;
+    }
+  }
+  return null;
 }
 
 const CONFIRMATION_EMAIL_SUBJECT =

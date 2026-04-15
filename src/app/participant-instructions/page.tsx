@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import ParticipantRequiredAndPreparationSections from "@/components/participant-required-and-prep-sections";
 
 export const metadata: Metadata = {
   title: "Chinmaya Gita Samarpanam – Participant Instructions",
@@ -64,44 +65,7 @@ export default function ParticipantInstructionsPage() {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
-        <h2 className="text-xl font-semibold text-[#3b1a1f]">
-          📅 Required Participation (10:00 AM EST/7.30 PM IST)
-        </h2>
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
-          <li>April 25 – Trial Meeting(Mandatory)</li>
-          <li>May 2 – Trial Meeting(Mandatory)</li>
-          <li>May 9 – Official Guinness Record-Breaking Event</li>
-        </ul>
-        <p className="mt-3 font-semibold text-[#8a2f2a]">
-          All sessions begin at 10:00 AM EST/7.30 PM IST.
-        </p>
-      </section>
-
-      <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
-        <h2 className="text-xl font-semibold text-[#3b1a1f]">
-          🖥️ Pre-Session Preparation
-        </h2>
-        <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
-          <li>Join 10 minutes early.</li>
-          <li>Center yourself clearly in the screen with Video ON.</li>
-          <li>
-            Sit in a comfortable position with no external and surrounding
-            distractions.
-          </li>
-          <li>Set your display name correctly.</li>
-          <li>
-            Participants can keep a print copy of the Chapter 15 lyrics and keep
-            it handy.
-          </li>
-          <li>Ensure your Audio is ON and speaker volume lowered.</li>
-          <li>
-            Sit in a well-lit location. Ensure light is focused on your face with
-            no light source behind you. Do not sit with your back to a window —
-            this will darken your face on camera.
-          </li>
-        </ul>
-      </section>
+      <ParticipantRequiredAndPreparationSections />
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
         <h2 className="text-xl font-semibold text-[#3b1a1f]">
@@ -275,60 +239,6 @@ export default function ParticipantInstructionsPage() {
             recording session.
           </li>
         </ul>
-
-        <div className="mt-8 border-t border-[#e5c18e]/80 pt-8">
-          <h3 className="text-base font-semibold text-[#3b1a1f]">
-            Start times (start chanting exactly at these times)
-          </h3>
-          <div className="mt-4 overflow-x-auto rounded-xl border border-[#e5c18e] bg-[#fff9ef]">
-            <table className="w-full min-w-[28rem] border-collapse text-left text-sm text-[#6b4e3d]">
-              <thead>
-                <tr className="border-b border-[#e5c18e] bg-[#fff1d6]">
-                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
-                    &nbsp;
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
-                    US EDT
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
-                    US CDT
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
-                    US PDT
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
-                    India
-                  </th>
-                  <th className="px-3 py-2 font-semibold text-[#3b1a1f]">
-                    GMT
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-[#e5c18e]/70">
-                  <td className="px-3 py-2 font-medium text-[#3b1a1f]">
-                    Chanting #1
-                  </td>
-                  <td className="px-3 py-2">10:15 am</td>
-                  <td className="px-3 py-2">9:15 am</td>
-                  <td className="px-3 py-2">7:15 am</td>
-                  <td className="px-3 py-2">7:45 pm</td>
-                  <td className="px-3 py-2">3:15 pm</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2 font-medium text-[#3b1a1f]">
-                    Chanting #2
-                  </td>
-                  <td className="px-3 py-2">10:35 am</td>
-                  <td className="px-3 py-2">9:35 am</td>
-                  <td className="px-3 py-2">7:35 am</td>
-                  <td className="px-3 py-2">8:05 pm</td>
-                  <td className="px-3 py-2">3:35 pm</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
       </section>
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">

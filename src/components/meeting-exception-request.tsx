@@ -26,8 +26,8 @@ interface Props {
   onEmailsChange?: (value: string) => void;
 }
 
-// Match meeting titles containing CMS_XXXXX, CMSJ_XXXXX, or CMSI_XXXXX (5 chars)
-const TITLE_PATTERN = /(CMS|CMSJ|CMSI)_.{5}/;
+// Match meeting titles containing CMSG_/CMS_/CMSJ_/CMSI_ + 5-char id
+const TITLE_PATTERN = /(CMSG|CMSJ|CMSI|CMS)_.{5}/;
 
 function extractCmsxId(title: string): string | null {
   const match = title.match(TITLE_PATTERN);
@@ -101,7 +101,8 @@ export default function MeetingExceptionRequest({
     if (!standalone && !cmsxId) {
       setStatus({
         type: "error",
-        message: "Unable to detect CMS/CMSJ/CMSI id in meeting title (e.g. CMS_12345).",
+        message:
+          "Unable to detect CMSG/CMS/CMSJ/CMSI id in meeting title (e.g. CMS_12345).",
       });
       return;
     }

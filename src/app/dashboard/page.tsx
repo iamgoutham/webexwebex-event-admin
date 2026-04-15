@@ -2,7 +2,12 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
 import { getHostIdForEmail, getLicenseSiteForEmail } from "@/lib/license-site";
+import EventDayHostChecklistSection from "@/components/event-day-host-checklist-section";
 import GridSizeForm from "@/components/grid-size-form";
+import HostPreparationSections from "@/components/host-preparation-sections";
+import HostTrainingSection from "@/components/host-training-section";
+import PacerPhoneWorkaroundSection from "@/components/pacer-phone-workaround-section";
+import WebexCohostInstructionsSection from "@/components/webex-cohost-instructions-section";
 
 export default async function DashboardPage() {
   const session = await requireAuth();
@@ -23,6 +28,14 @@ export default async function DashboardPage() {
     where: { id: session.user.id },
     select: { gridRows: true, gridCols: true },
   });
+
+  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
+  const pptxPublicUrl = baseUrl
+    ? `${baseUrl}/webex-host-training.pptx`
+    : null;
+  const presentationEmbedSrc = pptxPublicUrl
+    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(pptxPublicUrl)}`
+    : null;
 
   return (
     <div className="space-y-8 text-[#3b1a1f]">
@@ -93,6 +106,14 @@ export default async function DashboardPage() {
         </Link>
       </section>
 
+      <EventDayHostChecklistSection variant="dashboard" />
+
+      <WebexCohostInstructionsSection variant="dashboard" />
+
+      <PacerPhoneWorkaroundSection variant="dashboard" />
+
+      <HostPreparationSections />
+
       <GridSizeForm
         rows={gridProfile?.gridRows ?? null}
         cols={gridProfile?.gridCols ?? null}
@@ -117,6 +138,8 @@ export default async function DashboardPage() {
             : "Once uploaded successfully, status will update automatically."}
         </p>
       </div>
+
+      <HostTrainingSection presentationEmbedSrc={presentationEmbedSrc} />
     </div>
   );
 }

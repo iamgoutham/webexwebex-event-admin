@@ -9,8 +9,8 @@ import { webexHostShortIdLookupCandidates } from "@/lib/short-id";
  */
 
 const PG_SHORT_ID_BARE_MATCH = Prisma.sql`
-  lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
-  = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
+  lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+  = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
 `;
 
 export type HostMapMeetingIdentity = {

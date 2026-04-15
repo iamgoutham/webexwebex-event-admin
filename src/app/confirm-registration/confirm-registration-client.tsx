@@ -7,7 +7,8 @@ export default function ConfirmRegistrationClient({
 }: {
   siteKey: string;
 }) {
-  const [email, setEmail] = useState("");
+  const [lookupType, setLookupType] = useState<"email" | "phone">("email");
+  const [query, setQuery] = useState("");
   const [status, setStatus] = useState<
     | { type: "idle" }
     | { type: "loading" }
@@ -19,15 +20,48 @@ export default function ConfirmRegistrationClient({
   const [captchaKey, setCaptchaKey] = useState(0);
   const [captchaError, setCaptchaError] = useState<string | null>(null);
 
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const resolveCaptchaToken = async (): Promise<string> => {
+    // Slow networks can delay Turnstile callback propagation even after "success" UI.
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      let candidate = token.trim();
+      if (!candidate) {
+        const turnstile = (window as any).turnstile;
+        if (turnstile?.getResponse) {
+          const response = turnstile.getResponse();
+          if (typeof response === "string" && response.trim()) {
+            candidate = response.trim();
+          }
+        }
+      }
+      if (!candidate) {
+        const hidden = document.querySelector(
+          "input[name='cf-turnstile-response']",
+        ) as HTMLInputElement | null;
+        if (hidden?.value?.trim()) {
+          candidate = hidden.value.trim();
+        }
+      }
+      if (candidate) {
+        setToken(candidate);
+        return candidate;
+      }
+      await sleep(250);
+    }
+    return "";
+  };
+
   const canSubmit = useMemo(() => {
     return (
-      email.trim().length > 3 &&
-      status.type !== "loading"
+      query.trim().length > 3 &&
+      status.type !== "loading" &&
+      token.trim().length > 0
     );
-  }, [email, status.type]);
+  }, [query, status.type, token]);
 
   const resetForm = () => {
-    setEmail("");
+    setQuery("");
     setToken("");
     setStatus({ type: "idle" });
     setCaptchaKey((k) => k + 1);
@@ -37,21 +71,22 @@ export default function ConfirmRegistrationClient({
   const submit = async () => {
     setStatus({ type: "loading" });
     try {
-      // Prefer the latest token directly from Turnstile if available.
-      let captchaToken = token;
-      if (typeof window !== "undefined" && (window as any).turnstile?.getResponse) {
-        const resp = (window as any).turnstile.getResponse();
-        if (typeof resp === "string" && resp.trim()) {
-          captchaToken = resp.trim();
-          setToken(captchaToken);
-        }
+      const captchaToken = await resolveCaptchaToken();
+      if (!captchaToken) {
+        setStatus({
+          type: "error",
+          message:
+            "Verification is still initializing. Please wait a moment and try again.",
+        });
+        return;
       }
 
       const res = await fetch("/api/public/confirm-registration", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          email: email.trim().toLowerCase(),
+          lookupType,
+          query: query.trim(),
           captchaToken,
         }),
       });
@@ -64,9 +99,9 @@ export default function ConfirmRegistrationClient({
         type: "success",
         message:
           data.message ??
-          "If your email is registered, you will receive a confirmation email shortly.",
+          "If your registration is found, details will be sent shortly.",
       });
-      setEmail("");
+      setQuery("");
       setToken("");
       setCaptchaKey((k) => k + 1);
     } catch (err) {
@@ -83,17 +118,16 @@ export default function ConfirmRegistrationClient({
         <h1 className="text-2xl font-semibold">Confirm your registration</h1>
         <div className="mt-2 space-y-3 text-sm text-[#6b4e3d]">
           <p>
-            Enter your registration email address. If it matches a valid
-            participant (or host):
+            Search using your registration email or WhatsApp phone number. If
+            it matches a valid participant (or host):
           </p>
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              If you are a participant we will email you a confirmation of your
-              registration and your host contact details.
+              Email search sends a confirmation email with your meeting and host
+              details.
             </li>
             <li>
-              If you are a host we will email you a confirmation and your
-              participant details.
+              Phone search sends a WhatsApp info message to that number.
             </li>
           </ul>
           <p>Your meeting link if available will also be included.</p>
@@ -110,19 +144,50 @@ export default function ConfirmRegistrationClient({
               onClick={resetForm}
               className="mt-3 rounded-full border border-[#1f6b4a]/40 px-3 py-1.5 text-xs font-semibold text-[#1f6b4a] hover:border-[#1f6b4a]"
             >
-              Send another confirmation email
+              Send another request
             </button>
           </div>
         ) : null}
 
         <label className="block text-sm font-semibold text-[#3b1a1f]">
-          Email address
+          Search by
+        </label>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setLookupType("email")}
+            disabled={status.type === "success"}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              lookupType === "email"
+                ? "bg-[#d8792d] text-white"
+                : "border border-[#e5c18e] bg-white text-[#6b4e3d]"
+            }`}
+          >
+            Email
+          </button>
+          <button
+            type="button"
+            onClick={() => setLookupType("phone")}
+            disabled={status.type === "success"}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              lookupType === "phone"
+                ? "bg-[#d8792d] text-white"
+                : "border border-[#e5c18e] bg-white text-[#6b4e3d]"
+            }`}
+          >
+            WhatsApp phone
+          </button>
+        </div>
+        <label className="mt-4 block text-sm font-semibold text-[#3b1a1f]">
+          {lookupType === "email" ? "Email address" : "WhatsApp phone number"}
         </label>
         <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
+          type={lookupType === "email" ? "email" : "tel"}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={
+            lookupType === "email" ? "you@example.com" : "+1 555 123 4567"
+          }
           disabled={status.type === "success"}
           className="mt-2 w-full rounded-xl border border-[#e5c18e] bg-white px-4 py-3 text-sm text-[#3b1a1f] placeholder:text-[#b08b6b] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
         />
@@ -141,6 +206,7 @@ export default function ConfirmRegistrationClient({
                 data-sitekey={siteKey}
                 data-callback="turnstileCallback"
                 data-error-callback="turnstileErrorCallback"
+                data-expired-callback="turnstileExpiredCallback"
               />
               <script
                 dangerouslySetInnerHTML={{
@@ -150,6 +216,9 @@ export default function ConfirmRegistrationClient({
                     };
                     window.turnstileErrorCallback = function (code) {
                       window.dispatchEvent(new CustomEvent('turnstile-error', { detail: code }));
+                    };
+                    window.turnstileExpiredCallback = function () {
+                      window.dispatchEvent(new CustomEvent('turnstile-token', { detail: '' }));
                     };
                   `,
                 }}
@@ -162,7 +231,12 @@ export default function ConfirmRegistrationClient({
           )}
         </div>
 
-        <TurnstileTokenListener onToken={setToken} />
+        <TurnstileTokenListener
+          onToken={(nextToken) => {
+            setToken(nextToken);
+            if (nextToken) setCaptchaError(null);
+          }}
+        />
         <TurnstileErrorListener onError={setCaptchaError} />
 
         {status.type !== "success" && (
@@ -172,7 +246,11 @@ export default function ConfirmRegistrationClient({
             disabled={!siteKey || !canSubmit || !!captchaError}
             className="mt-4 rounded-full bg-[#d8792d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:bg-[#d8792d]/40"
           >
-            {status.type === "loading" ? "Sending…" : "Email me confirmation"}
+            {status.type === "loading"
+              ? "Sending…"
+              : lookupType === "email"
+                ? "Email me confirmation"
+                : "Send WhatsApp info"}
           </button>
         )}
 
@@ -189,8 +267,8 @@ export default function ConfirmRegistrationClient({
         )}
 
         <p className="mt-4 text-xs text-[#8a5b44]">
-          We only send event-related confirmation details. If your email is not
-          registered, you won&apos;t receive anything.
+          We only send event-related confirmation details. If your email/phone
+          is not registered, you won&apos;t receive anything.
         </p>
       </div>
     </div>
@@ -201,7 +279,7 @@ function TurnstileTokenListener({ onToken }: { onToken: (t: string) => void }) {
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<string>).detail;
-      if (typeof detail === "string") onToken(detail);
+      if (typeof detail === "string") onToken(detail.trim());
     };
     window.addEventListener("turnstile-token", handler as EventListener);
     return () =>

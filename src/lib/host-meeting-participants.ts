@@ -18,7 +18,20 @@ export type HostMapParticipantRef = {
   mapName: string | null;
   /** `prtcpnt_phone_no` / `ind_prtcpnt_phone_no` from the map row */
   mapPhone: string | null;
+  /**
+   * Earliest `rec_create_tstmp` among map rows for this email+name key (ms since epoch).
+   * Used only to order the meetings roster; not shown in the UI.
+   */
+  recCreateTstmpMs: number | null;
 };
+
+function toRecCreateTstmpMs(
+  value: Date | null | undefined,
+): number | null {
+  if (value == null) return null;
+  const t = value instanceof Date ? value.getTime() : NaN;
+  return Number.isFinite(t) ? t : null;
+}
 
 function normalizeParticipantNameKey(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -46,31 +59,44 @@ function addMapRefPair(
   email: string | null | undefined,
   mapNameRaw: string | null | undefined,
   mapPhoneRaw: string | null | undefined,
+  recCreateTstmp: Date | null | undefined,
 ) {
   const e = email?.trim().toLowerCase();
   if (!e) return;
   const mapName = mapNameRaw?.trim() ? mapNameRaw.trim() : null;
   const mapPhone = formatParticipantPhone(mapPhoneRaw);
   const key = `${e}\0${normalizeParticipantNameKey(mapName)}`;
-  if (!bucket.has(key)) {
-    bucket.set(key, { email: e, mapName, mapPhone });
+  const ms = toRecCreateTstmpMs(recCreateTstmp ?? null);
+  const existing = bucket.get(key);
+  if (!existing) {
+    bucket.set(key, { email: e, mapName, mapPhone, recCreateTstmpMs: ms });
+    return;
+  }
+  if (ms != null) {
+    if (
+      existing.recCreateTstmpMs == null ||
+      ms < existing.recCreateTstmpMs
+    ) {
+      existing.recCreateTstmpMs = ms;
+    }
   }
 }
 
 /**
  * Map rows use `host_unq_shortid` (no `host_lic_site`). Values may be stored with or
- * without a `CMS_` / `CMSI_` / `CMSJ_` prefix; we match using {@link webexHostShortIdLookupCandidates}
+ * without a `CMSG_` / `CMS_` / `CMSI_` / `CMSJ_` prefix; we match using {@link webexHostShortIdLookupCandidates}
  * and SQL bare-id comparison.
  */
 const PG_SHORT_ID_BARE_MATCH = Prisma.sql`
-  lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
-  = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMS|CMSI|CMSJ)_', '', 'i'))
+  lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+  = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
 `;
 
 type CrossregionMapRow = {
   email: string | null;
   map_name: string | null;
   map_phone: string | null;
+  rec_create_tstmp: Date | null;
 };
 
 /**
@@ -85,10 +111,11 @@ async function fetchCrossregionMapByShortWhere(
 ): Promise<CrossregionMapRow[]> {
   try {
     return await postgres.$queryRaw<CrossregionMapRow[]>(Prisma.sql`
-      SELECT DISTINCT
+      SELECT
         lower(btrim(m.ind_prtcpnt_email_id::text)) AS email,
         NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS map_name,
-        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '') AS map_phone
+        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '') AS map_phone,
+        MIN(m.rec_create_tstmp) AS rec_create_tstmp
       FROM mission.host_prtcpnt_map_crossregion m
       WHERE (${shortWhere})
         AND m.ind_prtcpnt_email_id IS NOT NULL
@@ -100,13 +127,18 @@ async function fetchCrossregionMapByShortWhere(
             AND lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
             AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         )
+      GROUP BY
+        lower(btrim(m.ind_prtcpnt_email_id::text)),
+        NULLIF(btrim(m.ind_prtcpnt_name::text), ''),
+        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '')
     `);
   } catch {
     return await postgres.$queryRaw<CrossregionMapRow[]>(Prisma.sql`
-      SELECT DISTINCT
+      SELECT
         lower(btrim(m.prtcpnt_email_id::text)) AS email,
         NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
-        NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+        MIN(m.rec_create_tstmp) AS rec_create_tstmp
       FROM mission.host_prtcpnt_map_crossregion m
       WHERE (${shortWhere})
         AND m.prtcpnt_email_id IS NOT NULL
@@ -118,6 +150,10 @@ async function fetchCrossregionMapByShortWhere(
             AND lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
             AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         )
+      GROUP BY
+        lower(btrim(m.prtcpnt_email_id::text)),
+        NULLIF(btrim(m.prtcpnt_name::text), ''),
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '')
     `);
   }
 }
@@ -128,10 +164,11 @@ async function fetchCrossregionMapByHostEmailId(
 ): Promise<CrossregionMapRow[]> {
   try {
     return await postgres.$queryRaw<CrossregionMapRow[]>`
-      SELECT DISTINCT
+      SELECT
         lower(btrim(m.ind_prtcpnt_email_id::text)) AS email,
         NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS map_name,
-        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '') AS map_phone
+        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '') AS map_phone,
+        MIN(m.rec_create_tstmp) AS rec_create_tstmp
       FROM mission.host_prtcpnt_map_crossregion m
       WHERE lower(btrim(m.host_email_id::text)) = ${hostEmailLower}
         AND m.ind_prtcpnt_email_id IS NOT NULL
@@ -142,13 +179,18 @@ async function fetchCrossregionMapByHostEmailId(
           WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
             AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         )
+      GROUP BY
+        lower(btrim(m.ind_prtcpnt_email_id::text)),
+        NULLIF(btrim(m.ind_prtcpnt_name::text), ''),
+        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '')
     `;
   } catch {
     return await postgres.$queryRaw<CrossregionMapRow[]>`
-      SELECT DISTINCT
+      SELECT
         lower(btrim(m.prtcpnt_email_id::text)) AS email,
         NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
-        NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+        MIN(m.rec_create_tstmp) AS rec_create_tstmp
       FROM mission.host_prtcpnt_map_crossregion m
       WHERE lower(btrim(m.host_email_id::text)) = ${hostEmailLower}
         AND m.prtcpnt_email_id IS NOT NULL
@@ -159,6 +201,10 @@ async function fetchCrossregionMapByHostEmailId(
           WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
             AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         )
+      GROUP BY
+        lower(btrim(m.prtcpnt_email_id::text)),
+        NULLIF(btrim(m.prtcpnt_name::text), ''),
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '')
     `;
   }
 }
@@ -227,12 +273,14 @@ export async function collectParticipantRefsForHost(
           email: string | null;
           map_name: string | null;
           map_phone: string | null;
+          rec_create_tstmp: Date | null;
         }[]
       >(Prisma.sql`
-        SELECT DISTINCT
+        SELECT
           lower(btrim(m.prtcpnt_email_id::text)) AS email,
           NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
-          NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone
+          NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+          MIN(m.rec_create_tstmp) AS rec_create_tstmp
         FROM mission.host_prtcpnt_map_nonindia_nu m
         WHERE (${nonIndiaShortWhere})
           AND m.prtcpnt_email_id IS NOT NULL
@@ -244,9 +292,13 @@ export async function collectParticipantRefsForHost(
               AND lower(btrim(h.host_email_id::text)) = ${he}
               AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
           )
+        GROUP BY
+          lower(btrim(m.prtcpnt_email_id::text)),
+          NULLIF(btrim(m.prtcpnt_name::text), ''),
+          NULLIF(btrim(m.prtcpnt_phone_no::text), '')
       `);
       for (const r of rows)
-        addMapRefPair(bucket, r.email, r.map_name, r.map_phone);
+        addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
     } catch (err) {
       console.warn("[host-meeting-participants] mission map by full host id failed:", err);
     }
@@ -258,7 +310,7 @@ export async function collectParticipantRefsForHost(
         he,
       );
       for (const r of crRows)
-        addMapRefPair(bucket, r.email, r.map_name, r.map_phone);
+        addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
     } catch (err) {
       console.warn(
         "[host-meeting-participants] mission host_prtcpnt_map_crossregion by short id failed:",
@@ -284,12 +336,14 @@ export async function collectParticipantRefsForHost(
           email: string | null;
           map_name: string | null;
           map_phone: string | null;
+          rec_create_tstmp: Date | null;
         }[]
       >(Prisma.sql`
-        SELECT DISTINCT
+        SELECT
           lower(btrim(m.ind_prtcpnt_email_id::text)) AS email,
           NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS map_name,
-          NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '') AS map_phone
+          NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '') AS map_phone,
+          MIN(m.rec_create_tstmp) AS rec_create_tstmp
         FROM vrindavan.host_prtcpnt_map_india m
         WHERE (${shortWhere})
           AND m.ind_prtcpnt_email_id IS NOT NULL
@@ -301,9 +355,13 @@ export async function collectParticipantRefsForHost(
               AND lower(btrim(h.host_email_id::text)) = ${he}
               AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
           )
+        GROUP BY
+          lower(btrim(m.ind_prtcpnt_email_id::text)),
+          NULLIF(btrim(m.ind_prtcpnt_name::text), ''),
+          NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '')
       `);
       for (const r of rows)
-        addMapRefPair(bucket, r.email, r.map_name, r.map_phone);
+        addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
     } catch {
       try {
         const rows = await postgres.$queryRaw<
@@ -311,12 +369,14 @@ export async function collectParticipantRefsForHost(
             email: string | null;
             map_name: string | null;
             map_phone: string | null;
+            rec_create_tstmp: Date | null;
           }[]
         >(Prisma.sql`
-          SELECT DISTINCT
+          SELECT
             lower(btrim(m.prtcpnt_email_id::text)) AS email,
             NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
-            NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone
+            NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+            MIN(m.rec_create_tstmp) AS rec_create_tstmp
           FROM vrindavan.host_prtcpnt_map_india m
           WHERE (${shortWhere})
             AND m.prtcpnt_email_id IS NOT NULL
@@ -328,9 +388,13 @@ export async function collectParticipantRefsForHost(
                 AND lower(btrim(h.host_email_id::text)) = ${he}
                 AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
             )
+          GROUP BY
+            lower(btrim(m.prtcpnt_email_id::text)),
+            NULLIF(btrim(m.prtcpnt_name::text), ''),
+            NULLIF(btrim(m.prtcpnt_phone_no::text), '')
         `);
         for (const r of rows)
-          addMapRefPair(bucket, r.email, r.map_name, r.map_phone);
+          addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
       } catch (err) {
         console.warn(
           "[host-meeting-participants] vrindavan map by short id (ind/prtcpnt) failed:",
@@ -346,12 +410,14 @@ export async function collectParticipantRefsForHost(
         email: string | null;
         map_name: string | null;
         map_phone: string | null;
+        rec_create_tstmp: Date | null;
       }[]
     >`
-      SELECT DISTINCT
+      SELECT
         lower(btrim(m.prtcpnt_email_id::text)) AS email,
         NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
-        NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+        MIN(m.rec_create_tstmp) AS rec_create_tstmp
       FROM mission.host_prtcpnt_map_nonindia_nu m
       WHERE lower(btrim(m.host_email_id::text)) = ${he}
         AND m.prtcpnt_email_id IS NOT NULL
@@ -362,9 +428,13 @@ export async function collectParticipantRefsForHost(
           WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
             AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         )
+      GROUP BY
+        lower(btrim(m.prtcpnt_email_id::text)),
+        NULLIF(btrim(m.prtcpnt_name::text), ''),
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '')
     `;
     for (const r of rows)
-      addMapRefPair(bucket, r.email, r.map_name, r.map_phone);
+      addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
   } catch (err) {
     console.warn("[host-meeting-participants] mission host_email_id failed:", err);
   }
@@ -372,7 +442,7 @@ export async function collectParticipantRefsForHost(
   try {
     const crRows = await fetchCrossregionMapByHostEmailId(postgres, he);
     for (const r of crRows)
-      addMapRefPair(bucket, r.email, r.map_name, r.map_phone);
+      addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
   } catch (err) {
     console.warn(
       "[host-meeting-participants] mission host_prtcpnt_map_crossregion host_email_id failed:",
@@ -386,12 +456,14 @@ export async function collectParticipantRefsForHost(
         email: string | null;
         map_name: string | null;
         map_phone: string | null;
+        rec_create_tstmp: Date | null;
       }[]
     >`
-      SELECT DISTINCT
+      SELECT
         lower(btrim(m.ind_prtcpnt_email_id::text)) AS email,
         NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS map_name,
-        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '') AS map_phone
+        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '') AS map_phone,
+        MIN(m.rec_create_tstmp) AS rec_create_tstmp
       FROM vrindavan.host_prtcpnt_map_india m
       WHERE lower(btrim(m.host_email_id::text)) = ${he}
         AND m.ind_prtcpnt_email_id IS NOT NULL
@@ -402,9 +474,13 @@ export async function collectParticipantRefsForHost(
           WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
             AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         )
+      GROUP BY
+        lower(btrim(m.ind_prtcpnt_email_id::text)),
+        NULLIF(btrim(m.ind_prtcpnt_name::text), ''),
+        NULLIF(btrim(m.ind_prtcpnt_phone_no::text), '')
     `;
     for (const r of rows)
-      addMapRefPair(bucket, r.email, r.map_name, r.map_phone);
+      addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
   } catch {
     try {
       const rows = await postgres.$queryRaw<
@@ -412,12 +488,14 @@ export async function collectParticipantRefsForHost(
           email: string | null;
           map_name: string | null;
           map_phone: string | null;
+          rec_create_tstmp: Date | null;
         }[]
       >`
-        SELECT DISTINCT
+        SELECT
           lower(btrim(m.prtcpnt_email_id::text)) AS email,
           NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
-          NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone
+          NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+          MIN(m.rec_create_tstmp) AS rec_create_tstmp
         FROM vrindavan.host_prtcpnt_map_india m
         WHERE lower(btrim(m.host_email_id::text)) = ${he}
           AND m.prtcpnt_email_id IS NOT NULL
@@ -428,9 +506,13 @@ export async function collectParticipantRefsForHost(
             WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
               AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
           )
+        GROUP BY
+          lower(btrim(m.prtcpnt_email_id::text)),
+          NULLIF(btrim(m.prtcpnt_name::text), ''),
+          NULLIF(btrim(m.prtcpnt_phone_no::text), '')
       `;
       for (const r of rows)
-        addMapRefPair(bucket, r.email, r.map_name, r.map_phone);
+        addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
     } catch (err) {
       console.warn(
         "[host-meeting-participants] vrindavan host_email_id (ind/prtcpnt) failed:",
@@ -440,6 +522,9 @@ export async function collectParticipantRefsForHost(
   }
 
   return Array.from(bucket.values()).sort((a, b) => {
+    const ta = a.recCreateTstmpMs ?? Number.MAX_SAFE_INTEGER;
+    const tb = b.recCreateTstmpMs ?? Number.MAX_SAFE_INTEGER;
+    if (ta !== tb) return ta - tb;
     const ce = a.email.localeCompare(b.email);
     if (ce !== 0) return ce;
     return (a.mapName ?? "").localeCompare(b.mapName ?? "");
@@ -615,14 +700,6 @@ export async function enrichHostMeetingParticipants(
       name: mapName,
     });
   }
-
-  out.sort((a, b) => {
-    const cmpE = a.email.localeCompare(b.email);
-    if (cmpE !== 0) return cmpE;
-    const cmpN = (a.name ?? "").localeCompare(b.name ?? "");
-    if (cmpN !== 0) return cmpN;
-    return (a.phone ?? "").localeCompare(b.phone ?? "");
-  });
 
   return out;
 }
