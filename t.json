@@ -1,0 +1,42 @@
+[
+    {
+        "host": "webex-usa.chinmayavrindavan.org",
+        "providerId": "webex-usa",
+        "clientId": "Ca615c3df465ba7127a72e33b03e34000b3681f508a9257650dccbf88545e52d6",
+        "clientSecret": "ab8381f3e02faeab0f2af41dcecd97c18ff6ab6e4b07feae6b6c8d8596e53a04",
+        "siteUrl": "chinmayamission.webex.com",
+        "scopes": "spark:people_read meeting:schedules_read",
+        "tenantSlug": "usa",
+        "displayName": "Webex USA"
+    },
+    {
+        "host": "webex-india.chinmayavrindavan.org",
+        "providerId": "webex-india",
+        "clientId": "Cd6eb0bdfdd221486eeed668bbf45418ab4ae51b5a98766ebfeac48d03e954167",
+        "clientSecret": "652357444ffd402b64a8e85f6792fd517eb747cc3adcbadba26e5bbc124e98cd",
+        "siteUrl": "chinmayavrindavan.webex.com",
+        "scopes": "spark:people_read meeting:schedules_read",
+        "tenantSlug": "india",
+        "displayName": "Webex India"
+    },
+    {
+        "host": "webex-intl.chinmayavrindavan.org",
+        "providerId": "webex-intl",
+        "clientId": "Cd42997dedf373f7a0a73a6f16740c251aa1871bc7f41bcbd55f68d015ad2e199",
+        "clientSecret": "10a798f52c4efc386a851b97a5a20558c350a48943ee592c24469b63f94b8048",
+        "siteUrl": "cmsj.webex.com",
+        "scopes": "spark:people_read meeting:schedules_read",
+        "tenantSlug": "intl",
+        "displayName": "Webex International"
+    },
+    {
+        "host": "geetapariwar.chinmayavrindavan.org",
+        "providerId": "geetapariwar",
+        "clientId": "Ccee74ca177e0a9e509d85dc04fca5a12999c0315ee8dcc5d2dfe6eace877b8fb",
+        "clientSecret": "ac6629dc24ce9b8be48d37e93e4a18092917b985d52cca5637719436669a8f03",
+        "siteUrl": "chinmaya75.webex.com",
+        "scopes": "spark:people_read meeting:schedules_read",
+        "tenantSlug": "gpindia",
+        "displayName": "Geeta Pariwar"
+    }
+]

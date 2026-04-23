@@ -1,0 +1,1905 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/postgres-client"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["mission", "vrindavan"]
+}
+
+model NonIndiaParticipantRaw {
+  id                  Int      @id(map: "webex_participants_non_india_raw_pkey1") @default(autoincrement())
+  entryId             Int?     @map("entry_id")
+  groupSize           Int?     @map("how_many_people_are_you_registering_today_(including_you)?")
+  name                String?
+  email               String?
+  contactPhone        String?  @map("contact_phone_(whatsapp)")
+  addressLine1        String?  @map("address_line_1")
+  addressLine2        String?  @map("address_line_2")
+  city                String?
+  stateProvinceRegion String?  @map("state_/_province_/_region")
+  postalCode          String?  @map("postal_code")
+  country             String?
+  isCmMember          String?  @map("are_you_a_chinmaya_mission_member?")
+  cmCenter            String?  @map("which_chinmaya_mission_center_are_you_associated_with?")
+  cmCenterName        String?  @map("your_chinmaya_mission_center_name")
+  isOtherOrgMember    String?  @map("are_you_a_member_of_any_other_organization?")
+  otherOrg            String?  @map("which_organization_are_you_associated_with?")
+  registrant2Name     String?  @map("registrant_2_name")
+  registrant2Email    String?  @map("registrant_2_email")
+  registrant2Phone    String?  @map("registrant_2_phone")
+  registrant3Name     String?  @map("registrant_3_name")
+  registrant3Email    String?  @map("registrant_3_email")
+  registrant3Phone    String?  @map("registrant_3_phone")
+  registrant3PhoneDup String?  @map("registrant_3_phone.1")
+  registrant4Name     String?  @map("registrant_4_name")
+  registrant4Email    String?  @map("registrant_4_email")
+  registrant4Phone    String?  @map("registrant_4_phone")
+  registrant5Name     String?  @map("registrant_5_name")
+  registrant5Email    String?  @map("registrant_5_email")
+  registrant5Phone    String?  @map("registrant_5_phone")
+  registrant6Name     String?  @map("registrant_6_name")
+  registrant6Email    String?  @map("registrant_6_email")
+  registrant6Phone    String?  @map("registrant_6_phone")
+  registrant7Name     String?  @map("registrant_7_name")
+  registrant7Email    String?  @map("registrant_7_email")
+  registrant7Phone    String?  @map("registrant_7_phone")
+  registrant8Name     String?  @map("registrant_8_name")
+  registrant8Email    String?  @map("registrant_8_email")
+  registrant8Phone    String?  @map("registrant_8_phone")
+  registrant9Name     String?  @map("registrant_9_name")
+  registrant9Email    String?  @map("registrant_9_email")
+  registrant9Phone    String?  @map("registrant_9_phone")
+  donationChoice      String?  @map("choose_the_donation_amount_for_registration_and_additional_dona")
+  additionalDonation  Decimal? @map("additional_registrant(s)_donation") @db.Decimal
+  customDonation      Decimal? @map("custom_additional_donation_amount") @db.Decimal
+  ccProcessingFee     Decimal? @map("credit_card_processing_fee") @db.Decimal
+  total               Decimal? @db.Decimal
+
+  @@index([entryId], map: "idx_wbx_prtcpnts_nonindia_raw")
+  @@map("webex_participants_non_india_raw")
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model NonIndiaParticipantExcept {
+  hostLicSite    String?  @map("host_lic_site") @db.VarChar(4)
+  hostUnqShortid String?  @map("host_unq_shortid") @db.VarChar(18)
+  hostEmailId    String?  @map("host_email_id") @db.VarChar(50)
+  hostName       String?  @map("host_name") @db.VarChar(60)
+  prtcpntEntryId Decimal? @map("prtcpnt_entry_id") @db.Decimal(10, 2)
+  prtcpntEmailId String?  @map("prtcpnt_email_id") @db.VarChar(50)
+  prtcpntName    String?  @map("prtcpnt_name") @db.VarChar(60)
+
+  @@map("webex_participants_non_india_except")
+  @@ignore
+  @@schema("mission")
+}
+
+model HostPrtcpntMapCrossregion {
+  lic_site_code        String?   @db.VarChar(4)
+  hostUnqShortid       String?   @map("host_unq_shortid") @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  hostEmailId          String?   @map("host_email_id") @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     String?   @db.VarChar(20)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webexMtngLink        String?   @map("webex_mtng_link") @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@map("host_prtcpnt_map_crossregion")
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model IndiaParticipantExcept {
+  hostLicSite           String? @map("host_lic_site") @db.VarChar(4)
+  hostUnqShortid        String? @map("host_unq_shortid") @db.VarChar(18)
+  hostEmailId           String? @map("host_email_id") @db.VarChar(50)
+  hostName              String? @map("host_name") @db.VarChar(60)
+  indPrtcpntEntryRespId String? @map("ind_prtcpnt_entry_resp_id") @db.VarChar(20)
+  indPrtcpntEmailId     String? @map("ind_prtcpnt_email_id") @db.VarChar(50)
+  indPrtcpntName        String? @map("ind_prtcpnt_name") @db.VarChar(60)
+
+  @@unique([hostEmailId, indPrtcpntEmailId], map: "uq_india_except_host_prtcpnt")
+  @@map("webex_participants_india_except")
+  @@ignore
+  @@schema("vrindavan")
+}
+
+model IndiaParticipantRaw {
+  id                   Int      @id @default(autoincrement())
+  addedTime            String?  @map("added_time")
+  ipAddress            String?  @map("ip_address")
+  responseId           String?  @map("response_id")
+  nationality          String?
+  nationalitySpecified String?  @map("please_specify_your_nationality")
+  name                 String?
+  email                String?
+  contactPhone         Decimal? @map("contact_phone_(whatsapp)") @db.Decimal
+  country              String?
+  isCmMember           String?  @map("are_you_a_chinmaya_mission_member?")
+  cmCenter             String?  @map("which_chinmaya_mission_center_are_you_associated_with?")
+  isOtherOrgMember     String?  @map("are_you_a_member_of_any_other_organization?")
+  otherOrg             String?  @map("please_enter_organization")
+  currency             String?
+  donationChoice       String?  @map("choose_additional_donation_(yatha_shakti)")
+  customDonation       Decimal? @map("custom_additional_donation_amount") @db.Decimal
+  totalDonationInr     Int?     @map("total_donation_amount_in_inr")
+  paymentAmount        Decimal? @map("payment_amount") @db.Decimal
+  paymentStatus        String?  @map("payment_status")
+  paymentCurrency      String?  @map("payment_currency")
+  paymentMerchant      String?  @map("payment_merchant")
+  panNumber            String?  @map("pan_number")
+  streetAddress        String?  @map("street_address")
+  city                 String?
+  state                String?
+  dropdown             String?
+  pincode              String?
+  eventId              String?  @map("eventid")
+  centreId             String?  @map("centreid")
+
+  @@map("webex_participants_india_raw")
+  @@schema("vrindavan")
+}
+
+model NonIndiaParticipant {
+  prtcpntEntryId        Decimal  @id(map: "pk_webex_prtcpnt_non_india_nu") @map("prtcpnt_entry_id") @db.Decimal(10, 2)
+  prtcpntEntryGrpId     Int      @map("prtcpnt_entry_grp_id")
+  prtcpntName           String?  @map("prtcpnt_name") @db.VarChar(120)
+  prtcpntPhoneNo        String?  @map("prtcpnt_phone_no") @db.VarChar(20)
+  prtcpntEmailId        String?  @map("prtcpnt_email_id") @db.VarChar(50)
+  prtcpntAddrLn         String?  @map("prtcpnt_addr_ln") @db.VarChar(100)
+  prtcpntAddrCity       String?  @map("prtcpnt_addr_city") @db.VarChar(60)
+  prtcpntAddrState      String?  @map("prtcpnt_addr_state") @db.VarChar(60)
+  prtcpntAddrCountry    String?  @map("prtcpnt_addr_country") @db.VarChar(80)
+  prtcpntAddrZipcode    String?  @map("prtcpnt_addr_zipcode") @db.VarChar(40)
+  prtcpntTotalRegFees   Decimal? @map("prtcpnt_total_reg_fees") @db.Decimal(10, 2)
+  chinmayaMemberInd     String?  @map("chinmaya_member_ind") @db.VarChar(1)
+  chinmayaCenterName    String?  @map("chinmaya_center_name") @db.VarChar(80)
+  prtcpntOtherOrgInd    String?  @map("prtcpnt_other_org_ind") @db.VarChar(1)
+  prtcpntOtherOrgName   String?  @map("prtcpnt_other_org_name") @db.VarChar(200)
+  prtcpntIsHostInd      String?  @map("prtcpnt_is_host_ind") @db.VarChar(1)
+  prtcpntHostAllotedInd String   @default("N") @map("prtcpnt_host_alloted_ind") @db.VarChar(1)
+
+  @@map("webex_participants_non_india")
+  @@schema("mission")
+}
+
+model IndiaParticipant {
+  indPrtcpntEntryRespId    String    @id(map: "pk_webex_prtcpnt_india") @map("ind_prtcpnt_entry_resp_id") @db.VarChar(20)
+  indPrtcpntEntryGrpId     String    @map("ind_prtcpnt_entry_grp_id") @db.VarChar(20)
+  indPrtcpntRecCreateTstmp DateTime? @map("ind_prtcpnt_rec_create_tstmp") @db.Timestamp(6)
+  indPrtcpntName           String?   @map("ind_prtcpnt_name") @db.VarChar(60)
+  indPrtcpntPhoneNo        String?   @map("ind_prtcpnt_phone_no") @db.VarChar(20)
+  indPrtcpntEmailId        String?   @map("ind_prtcpnt_email_id") @db.VarChar(50)
+  indPrtcpntAddrLn         String?   @map("ind_prtcpnt_addr_ln") @db.VarChar(255)
+  indPrtcpntAddrCity       String?   @map("ind_prtcpnt_addr_city") @db.VarChar(60)
+  indPrtcpntAddrState      String?   @map("ind_prtcpnt_addr_state") @db.VarChar(50)
+  indPrtcpntAddrCountry    String?   @map("ind_prtcpnt_addr_country") @db.VarChar(30)
+  indPrtcpntAddrZipcode    String?   @map("ind_prtcpnt_addr_zipcode") @db.VarChar(20)
+  indPrtcpntPanNumber      String?   @map("ind_prtcpnt_pan_number") @db.VarChar(20)
+  indPrtcpntTotalRegFees   Decimal?  @map("ind_prtcpnt_total_reg_fees") @db.Decimal(10, 2)
+  indPrtcpntPmntStatus     String?   @map("ind_prtcpnt_pmnt_status") @db.VarChar(1)
+  indChinmayaMemberInd     String?   @map("ind_chinmaya_member_ind") @db.VarChar(1)
+  indChinmayaCenterName    String?   @map("ind_chinmaya_center_name") @db.VarChar(80)
+  indPrtcpntOtherOrgInd    String?   @map("ind_prtcpnt_other_org_ind") @db.VarChar(1)
+  indPrtcpntOtherOrgName   String?   @map("ind_prtcpnt_other_org_name") @db.VarChar(100)
+  indPrtcpntIsHostInd      String?   @map("ind_prtcpnt_is_host_ind") @db.VarChar(1)
+  indPrtcpntHostAllotedInd String    @default("N") @map("ind_prtcpnt_host_alloted_ind") @db.VarChar(1)
+
+  @@map("webex_participants_india")
+  @@schema("vrindavan")
+}
+
+model NonIndiaParticipantExceptRaw {
+  id               Int       @id @default(autoincrement())
+  timestamp        DateTime? @db.Timestamp(6)
+  hostemailid      String?
+  hostsiteid       String?
+  hostid           String?
+  meetingTitle     String?   @map("meeting_title")
+  participantemail String?
+  status           String?
+
+  @@unique([hostemailid, participantemail], map: "uq_except_raw_host_prtcpnt")
+  @@map("webex_participants_non_india_except_raw")
+  @@schema("mission")
+}
+
+model IndiaParticipantExceptRaw {
+  id               Int     @id @default(autoincrement())
+  timestamp        String?
+  hostemailid      String?
+  hostsiteid       String?
+  hostid           String?
+  meetingTitle     String? @map("meeting_title")
+  participantemail String?
+  status           String?
+
+  @@map("webex_participants_india_except_raw")
+  @@schema("vrindavan")
+}
+
+model alloc_batch_log {
+  batch_id     BigInt    @id @default(autoincrement())
+  started_at   DateTime  @default(now()) @db.Timestamp(6)
+  completed_at DateTime? @db.Timestamp(6)
+  status       String    @default("RUNNING")
+  remarks      String?
+
+  @@schema("mission")
+}
+
+model alloc_phase_config {
+  phase_code         String  @id
+  phase_order        Int
+  host_region        String
+  host_type          String
+  participant_source String
+  participant_type   String
+  match_mode         String
+  target_map_schema  String
+  target_map_table   String
+  is_cross_region    Boolean @default(false)
+  special_rule       String?
+
+  @@schema("mission")
+}
+
+model alloc_phase_log {
+  phase_log_id        BigInt    @id @default(autoincrement())
+  batch_id            BigInt
+  phase_code          String
+  phase_key           String?
+  target_map_schema   String?
+  target_map_table    String?
+  started_at          DateTime  @default(now()) @db.Timestamp(6)
+  completed_at        DateTime? @db.Timestamp(6)
+  hosts_loaded        Int?      @default(0)
+  participants_loaded Int?      @default(0)
+  groups_loaded       Int?      @default(0)
+  rows_allocated      Int?      @default(0)
+  status              String    @default("RUNNING")
+  remarks             String?
+
+  @@schema("mission")
+}
+
+model center_alloc_priority {
+  phase_code     String
+  center_name    String   @db.VarChar(100)
+  alloc_priority Int
+  is_active      String   @default("Y") @db.VarChar(1)
+  remarks        String?
+  created_at     DateTime @default(now()) @db.Timestamp(6)
+
+  @@id([phase_code, center_name])
+  @@index([phase_code, alloc_priority, center_name], map: "idx_center_alloc_priority_phase_order")
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model center_alloc_priority_bkup {
+  phase_code     String?
+  center_name    String?   @db.VarChar(100)
+  alloc_priority Int?
+  is_active      String?   @db.VarChar(1)
+  remarks        String?
+  created_at     DateTime? @db.Timestamp(6)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model chinmaya_center_list_us {
+  chnm_cntr_full_name String? @db.VarChar(50)
+  chnm_cntr_name      String? @db.VarChar(18)
+  chnm_cntr_addr_ln   String? @db.VarChar(80)
+  chnm_cntr_city      String? @db.VarChar(30)
+  chnm_cntr_state     String? @db.VarChar(30)
+  chnm_cntr_zipcode   String? @db.VarChar(20)
+  chnm_cntr_country   String? @db.VarChar(30)
+
+  @@unique([chnm_cntr_full_name, chnm_cntr_name], map: "chnm_cntr_list_us_unique")
+  @@index([chnm_cntr_name], map: "idx1_chnm_cntr_lst")
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model country {
+  country_name String? @db.VarChar(50)
+  country_cd   String? @db.VarChar(2)
+
+  @@ignore
+  @@schema("mission")
+}
+
+model cross_region_alloc_audit {
+  audit_id             BigInt   @id @default(autoincrement())
+  batch_id             BigInt
+  phase_code           String
+  source_region        String?
+  target_region        String?
+  host_unq_shortid     String?
+  participant_id       String?
+  participant_group_id String?
+  created_at           DateTime @default(now()) @db.Timestamp(6)
+  remarks              String?
+
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model del_hpmod_tbl {
+  host_unq_shortid String? @db.VarChar(18)
+  host_name        String? @db.VarChar(60)
+  host_email_id    String? @db.VarChar(50)
+  prtcpnt_name     String? @db.VarChar(60)
+  prtcpnt_email_id String? @db.VarChar(50)
+  webex_meeting_id String? @db.VarChar(250)
+  webex_mtng_no    BigInt?
+  mod_flg          String?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model excp_nu {
+  host_lic_site    String?  @db.VarChar(4)
+  host_unq_shortid String?  @db.VarChar(18)
+  host_email_id    String?  @db.VarChar(50)
+  host_name        String?  @db.VarChar(60)
+  prtcpnt_entry_id Decimal? @db.Decimal(10, 2)
+  prtcpnt_email_id String?  @db.VarChar(50)
+  prtcpnt_name     String?  @db.VarChar(60)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model excp_nu2 {
+  host_lic_site    String?  @db.VarChar(4)
+  host_unq_shortid String?  @db.VarChar(18)
+  host_email_id    String?  @db.VarChar(50)
+  host_name        String?  @db.VarChar(60)
+  prtcpnt_entry_id Decimal? @db.Decimal(10, 2)
+  prtcpnt_email_id String?  @db.VarChar(50)
+  prtcpnt_name     String?  @db.VarChar(60)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model mission_gchant_mtng {
+  host_short_id      String?   @db.VarChar(18)
+  organizer_email    String?   @db.VarChar(255)
+  host_name          String?   @db.VarChar(255)
+  topic              String?   @db.VarChar(255)
+  start_time         DateTime? @db.Timestamptz(6)
+  end_time           DateTime? @db.Timestamptz(6)
+  invitees           Json?
+  processed          Boolean?  @default(false)
+  last_error         String?
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+  webex_meeting_id   String?   @db.VarChar(250)
+  webex_mtng_no      BigInt?
+  webex_host_key     String?   @db.VarChar(100)
+  webex_mtng_link    String?
+  webex_autorec_mtng Boolean?
+
+  @@map("gchant_mtng")
+  @@ignore
+  @@schema("mission")
+}
+
+model mission_host_backout_dets {
+  backout_id       Int       @id @default(autoincrement())
+  rec_create_dttme DateTime? @db.Timestamptz(6)
+  host_unq_shortid String?   @db.VarChar(18)
+  host_name        String?   @db.VarChar(60)
+  host_phone_no    String?   @db.VarChar(20)
+  host_email_id    String?   @db.VarChar(50)
+  webex_meeting_id String?   @db.VarChar(250)
+  mtng_no          BigInt?
+  prcsd_flg        String?   @db.VarChar(1)
+  prcsd_dttme      DateTime? @db.Timestamptz(6)
+
+  @@map("host_backout_dets")
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_grid_map {
+  host_email_id       String? @db.VarChar(50)
+  host_name           String? @db.VarChar(60)
+  grid_max_layout_val Int?
+  grid_rows           Int?
+  grid_cols           Int?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_crossregion_0401 {
+  lic_site_code        String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     String?   @db.VarChar(20)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_crossregion_x {
+  lic_site_code        String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     String?   @db.VarChar(20)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@ignore
+  @@schema("mission")
+}
+
+model host_prtcpnt_map_nonindia_nu {
+  lic_site_code        String    @db.VarChar(4)
+  host_unq_shortid     String    @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Decimal   @db.Decimal(10, 2)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @default("N") @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@id([lic_site_code, host_unq_shortid, prtcpnt_entry_id], map: "pk_host_p_map_nu")
+  @@index([host_unq_shortid, webex_meeting_id], map: "idx_host_prtcpnt_map_nonindia_nu")
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_nonindia_nu_0401 {
+  lic_site_code        String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Decimal?  @db.Decimal(10, 2)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_nonindia_nu_del {
+  lic_site_code        String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Decimal?  @db.Decimal(10, 2)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_nonindia_nu_nu {
+  lic_site_code        String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Decimal?  @db.Decimal(10, 2)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_nonindia_nu_x {
+  lic_site_code        String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Decimal?  @db.Decimal(10, 2)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@ignore
+  @@schema("mission")
+}
+
+model host_prtcpnt_map_nonindia_old {
+  lic_site_code        String    @db.VarChar(4)
+  host_unq_shortid     String    @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Int
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String    @default("N") @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@id([lic_site_code, host_unq_shortid, prtcpnt_entry_id], map: "pk_host_p_map_cmms")
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_mtng_mod_nonindia {
+  host_unq_shortid String    @db.VarChar(18)
+  host_name        String?   @db.VarChar(60)
+  host_email_id    String?   @db.VarChar(50)
+  prtcpnt_name     String?   @db.VarChar(60)
+  prtcpnt_email_id String?   @db.VarChar(50)
+  webex_meeting_id String?   @db.VarChar(250)
+  webex_mtng_no    BigInt?
+  mod_flg          String?   @db.VarChar(1)
+  status           String?   @db.VarChar(1)
+  rec_comp_tstmp   DateTime? @db.Timestamp(6)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model hprtcpntmapnonindianu {
+  lic_site_code        String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Decimal?  @db.Decimal(10, 2)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model hprtcpntmtngmodnonindia {
+  host_unq_shortid String?   @db.VarChar(18)
+  host_name        String?   @db.VarChar(60)
+  host_email_id    String?   @db.VarChar(50)
+  prtcpnt_name     String?   @db.VarChar(60)
+  prtcpnt_email_id String?   @db.VarChar(50)
+  webex_meeting_id String?   @db.VarChar(250)
+  webex_mtng_no    BigInt?
+  mod_flg          String?   @db.VarChar(1)
+  status           String?   @db.VarChar(1)
+  rec_comp_tstmp   DateTime? @db.Timestamp(6)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model mission_mtng_host_invitee_dets {
+  region              String?  @db.VarChar(2)
+  country             String?  @db.VarChar(20)
+  center              Int?
+  host_first_name     String?  @db.VarChar(30)
+  host_last_name      String?  @db.VarChar(30)
+  host_email          String?  @db.VarChar(100)
+  host_displayname    String?  @db.VarChar(100)
+  meeting_title       String?  @db.VarChar(100)
+  host_invitee_ser_id Int?
+  invitee_name        String?  @db.VarChar(100)
+  invitee_email       String?  @db.VarChar(150)
+  invitee_ph          String?  @db.VarChar(18)
+  cohost              Boolean?
+
+  @@map("mtng_host_invitee_dets")
+  @@ignore
+  @@schema("mission")
+}
+
+model notification_log {
+  id            Int       @id @default(autoincrement())
+  run_id        String    @db.VarChar(64)
+  email         String?   @db.VarChar(255)
+  phone         String?   @db.VarChar(32)
+  name          String?   @db.VarChar(255)
+  zone          String?   @db.VarChar(64)
+  channel       String    @db.VarChar(8)
+  status        String    @db.VarChar(16)
+  error_message String?
+  sent_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([channel, status], map: "idx_notif_log_channel_status")
+  @@index([email], map: "idx_notif_log_email")
+  @@index([run_id], map: "idx_notif_log_run_id")
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model prt_is_host_list {
+  prtcpnt_email_id String? @db.VarChar(50)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model prtcpnts_excp {
+  prtcpnt_email_id String?
+
+  @@ignore
+  @@schema("mission")
+}
+
+model special_host_email_list {
+  special_rule  String
+  host_email_id String   @db.VarChar(100)
+  is_active     String   @default("Y") @db.VarChar(1)
+  remarks       String?
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+
+  @@id([special_rule, host_email_id])
+  @@index([special_rule, host_email_id], map: "idx_special_host_email_list_rule_email")
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model state_county_us {
+  county_name String? @db.VarChar(50)
+  state_name  String? @db.VarChar(50)
+  state_cd    String? @db.VarChar(2)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model state_zip_map {
+  zip_code String? @db.VarChar(1)
+  state_cd String? @db.VarChar(2)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model stg_host_alloc_detail {
+  batch_id             BigInt
+  phase_code           String
+  phase_key            String?
+  hs_rwno              Int?
+  host_unq_shortid     String?
+  host_name            String?
+  prt_req_cnt          Int?
+  grp_seq              Int?
+  participant_group_id String?
+  grp_cnt              Int?
+  alloc_rule_used      String?
+
+  @@index([batch_id, phase_code, phase_key], map: "idx_stg_alloc_detail_batch_phase")
+  @@index([participant_group_id], map: "idx_stg_alloc_detail_group")
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model stg_host_alloc_summary {
+  batch_id         BigInt
+  phase_code       String
+  phase_key        String?
+  hs_rwno          Int?
+  host_unq_shortid String?
+  host_name        String?
+  prt_req_cnt      Int?
+  alloc_row_cnt    Int?
+  alloc_group_cnt  Int?
+  alloc_rule_used  String?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model stg_hosts {
+  batch_id              BigInt
+  phase_code            String
+  phase_key             String?
+  host_region           String?
+  host_type             String?
+  license_site_code     String?
+  host_unq_shortid      String?
+  host_name             String?
+  host_email_id         String?
+  host_phone_no         String?
+  host_center_name      String?
+  host_addr_state       String?
+  host_addr_country     String?
+  mtng_setup_ind        String?
+  capacity_limit        Int?
+  already_allocated_cnt Int?
+  prt_req_cnt           Int?
+  hs_rwno               Int?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model stg_participant_groups {
+  batch_id             BigInt
+  phase_code           String
+  phase_key            String?
+  grp_seq              Int?
+  participant_group_id String?
+  grp_cnt              Int?
+  first_pr_rwno        Int?
+
+  @@index([batch_id, phase_code, phase_key], map: "idx_stg_participant_groups_batch_phase")
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model stg_participants {
+  batch_id                 BigInt
+  phase_code               String
+  phase_key                String?
+  participant_source       String?
+  participant_type         String?
+  participant_id           String?
+  participant_group_id     String?
+  group_cnt                Int?
+  participant_name         String?
+  participant_email_id     String?
+  participant_phone_no     String?
+  participant_center_name  String?
+  participant_addr_ln      String?
+  participant_addr_state   String?
+  participant_addr_country String?
+  proximity_rank           Int?
+  pr_rwno                  Int?
+
+  @@index([batch_id, phase_code, phase_key], map: "idx_stg_participants_batch_phase")
+  @@index([participant_group_id], map: "idx_stg_participants_group")
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model sud_fly_prtcpnts {
+  prtcpnt_entry_id         Decimal? @db.Decimal(10, 2)
+  prtcpnt_entry_grp_id     Int?
+  prtcpnt_name             String?  @db.VarChar(60)
+  prtcpnt_phone_no         String?  @db.VarChar(20)
+  prtcpnt_email_id         String?  @db.VarChar(50)
+  prtcpnt_addr_ln          String?  @db.VarChar(100)
+  prtcpnt_addr_city        String?  @db.VarChar(30)
+  prtcpnt_addr_state       String?  @db.VarChar(30)
+  prtcpnt_addr_country     String?  @db.VarChar(30)
+  prtcpnt_addr_zipcode     String?  @db.VarChar(40)
+  prtcpnt_total_reg_fees   Decimal? @db.Decimal(10, 2)
+  chinmaya_member_ind      String?  @db.VarChar(1)
+  chinmaya_center_name     String?  @db.VarChar(80)
+  prtcpnt_other_org_ind    String?  @db.VarChar(1)
+  prtcpnt_other_org_name   String?  @db.VarChar(200)
+  prtcpnt_is_host_ind      String?  @db.VarChar(1)
+  prtcpnt_host_alloted_ind String?  @db.VarChar(1)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model tmp_xyz {
+  license_site_code    String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  now                  DateTime? @db.Timestamptz(6)
+  host_nm              String?
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Decimal?  @db.Decimal(10, 2)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(30)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model us_state_proximity {
+  base_state              String
+  base_zip_group          String
+  nearby_state            String
+  proximity_rank          Int
+  border_hops             Int?
+  centroid_distance_miles Decimal @db.Decimal(8, 1)
+
+  @@id([base_state, nearby_state])
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model wbh {
+  license_site_code      String?   @db.VarChar(4)
+  host_unq_shortid       String?   @db.VarChar(18)
+  rec_create_tstmp       DateTime? @db.Timestamp(6)
+  host_first_name        String?   @db.VarChar(30)
+  host_last_name         String?   @db.VarChar(30)
+  host_phone_no          String?   @db.VarChar(20)
+  host_email_id          String?   @db.VarChar(50)
+  host_addr_city         String?   @db.VarChar(30)
+  host_addr_state        String?   @db.VarChar(30)
+  host_addr_country      String?   @db.VarChar(30)
+  host_addr_zipcode      String?   @db.VarChar(20)
+  host_cntr_name         String?   @db.VarChar(18)
+  host_maturity          String?   @db.VarChar(20)
+  chinmaya_head          String?   @db.VarChar(100)
+  chinmaya_head_email_id String?   @db.VarChar(80)
+  host_email_addr        String?   @db.VarChar(50)
+  terms_agreement_ind    String?   @db.VarChar(1)
+  joined_wapp_grp_ind    String?   @db.VarChar(1)
+  provisioned_status_ind String?   @db.VarChar(1)
+  webex_active_ind       String?   @db.VarChar(1)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model wbh_bkup {
+  lic_site_code        String?   @db.VarChar(4)
+  host_unq_shortid     String?   @db.VarChar(18)
+  rec_create_tstmp     DateTime? @db.Timestamp(6)
+  host_name            String?   @db.VarChar(60)
+  host_phone_no        String?   @db.VarChar(20)
+  host_email_id        String?   @db.VarChar(50)
+  host_addr_state      String?   @db.VarChar(30)
+  host_addr_country    String?   @db.VarChar(30)
+  prtcpnt_entry_id     Decimal?  @db.Decimal(10, 2)
+  prtcpnt_name         String?   @db.VarChar(60)
+  prtcpnt_phone_no     String?   @db.VarChar(20)
+  prtcpnt_email_id     String?   @db.VarChar(50)
+  prtcpnt_addr_ln      String?   @db.VarChar(100)
+  prtcpnt_addr_state   String?   @db.VarChar(50)
+  prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link      String?   @db.VarChar(400)
+  mtng_setup_ind       String?   @db.VarChar(1)
+  webex_meeting_id     String?   @db.VarChar(250)
+  webex_mtng_no        BigInt?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model wbx_prt_ni_bkup {
+  prtcpnt_entry_id         Int?
+  prtcpnt_name             String?  @db.VarChar(60)
+  prtcpnt_phone_no         String?  @db.VarChar(20)
+  prtcpnt_email_id         String?  @db.VarChar(50)
+  prtcpnt_addr_ln          String?  @db.VarChar(100)
+  prtcpnt_addr_city        String?  @db.VarChar(30)
+  prtcpnt_addr_state       String?  @db.VarChar(30)
+  prtcpnt_addr_country     String?  @db.VarChar(30)
+  prtcpnt_addr_zipcode     String?  @db.VarChar(20)
+  prtcpnt_total_reg_fees   Decimal? @db.Decimal(10, 2)
+  chinmaya_member_ind      String?  @db.VarChar(1)
+  chinmaya_center_name     String?  @db.VarChar(80)
+  prtcpnt_other_org_ind    String?  @db.VarChar(1)
+  prtcpnt_other_org_name   String?  @db.VarChar(100)
+  prtcpnt_is_host_ind      String?  @db.VarChar(1)
+  prtcpnt_host_alloted_ind String?  @db.VarChar(1)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model web_prt_ni_bkup2 {
+  prtcpnt_entry_id         Int?
+  prtcpnt_name             String?  @db.VarChar(60)
+  prtcpnt_phone_no         String?  @db.VarChar(20)
+  prtcpnt_email_id         String?  @db.VarChar(50)
+  prtcpnt_addr_ln          String?  @db.VarChar(100)
+  prtcpnt_addr_city        String?  @db.VarChar(30)
+  prtcpnt_addr_state       String?  @db.VarChar(30)
+  prtcpnt_addr_country     String?  @db.VarChar(30)
+  prtcpnt_addr_zipcode     String?  @db.VarChar(20)
+  prtcpnt_total_reg_fees   Decimal? @db.Decimal(10, 2)
+  chinmaya_member_ind      String?  @db.VarChar(1)
+  chinmaya_center_name     String?  @db.VarChar(80)
+  prtcpnt_other_org_ind    String?  @db.VarChar(1)
+  prtcpnt_other_org_name   String?  @db.VarChar(100)
+  prtcpnt_is_host_ind      String?  @db.VarChar(1)
+  prtcpnt_host_alloted_ind String?  @db.VarChar(1)
+
+  @@ignore
+  @@schema("mission")
+}
+
+model webex_hosts_non_india {
+  license_site_code      String    @db.VarChar(4)
+  host_unq_shortid       String    @db.VarChar(18)
+  rec_create_tstmp       DateTime? @db.Timestamp(6)
+  host_first_name        String?   @db.VarChar(30)
+  host_last_name         String?   @db.VarChar(30)
+  host_phone_no          String?   @db.VarChar(20)
+  host_email_id          String?   @db.VarChar(50)
+  host_addr_city         String?   @db.VarChar(30)
+  host_addr_state        String?   @db.VarChar(30)
+  host_addr_country      String?   @db.VarChar(30)
+  host_addr_zipcode      String?   @db.VarChar(20)
+  host_cntr_name         String?   @db.VarChar(60)
+  host_maturity          String?   @db.VarChar(20)
+  chinmaya_head          String?   @db.VarChar(100)
+  chinmaya_head_email_id String?   @db.VarChar(80)
+  host_email_addr        String?   @db.VarChar(50)
+  terms_agreement_ind    String?   @db.VarChar(1)
+  joined_wapp_grp_ind    String?   @db.VarChar(1)
+  provisioned_status_ind String?   @db.VarChar(1)
+  webex_active_ind       String?   @db.VarChar(1)
+
+  @@id([license_site_code, host_unq_shortid], map: "pk_webex_hosts_nonindia_nu")
+  @@schema("mission")
+}
+
+model webex_hosts_non_india_old {
+  license_site_code      String    @db.VarChar(4)
+  host_unq_shortid       String    @db.VarChar(18)
+  rec_create_tstmp       DateTime? @db.Timestamp(6)
+  host_first_name        String?   @db.VarChar(30)
+  host_last_name         String?   @db.VarChar(30)
+  host_phone_no          String?   @db.VarChar(20)
+  host_email_id          String?   @db.VarChar(50)
+  host_addr_city         String?   @db.VarChar(30)
+  host_addr_state        String?   @db.VarChar(30)
+  host_addr_country      String?   @db.VarChar(30)
+  host_addr_zipcode      String?   @db.VarChar(20)
+  host_maturity          String?   @db.VarChar(20)
+  chinmaya_head          String?   @db.VarChar(100)
+  chinmaya_head_email_id String?   @db.VarChar(80)
+  host_email_addr        String?   @db.VarChar(50)
+  terms_agreement_ind    String?   @db.VarChar(1)
+  joined_wapp_grp_ind    String?   @db.VarChar(1)
+  provisioned_status_ind String?   @db.VarChar(1)
+  webex_active_ind       String?   @db.VarChar(1)
+
+  @@id([license_site_code, host_unq_shortid], map: "pk_webex_hosts_non_india")
+  @@schema("mission")
+}
+
+model webex_hosts_non_india_raw {
+  id                                                              Int     @id @default(autoincrement())
+  timestamp                                                       String?
+  first_name_                                                     String?
+  last_name_                                                      String?
+  phone_number__whatsapp_                                         String? @map("phone_number_(whatsapp)")
+  email_                                                          String?
+  which_chinmaya_mission_center_do_you_belong_to___               String? @map("which_chinmaya_mission_center_do_you_belong_to_?_")
+  please_let_us_know_if_you_are                                   String?
+  your_city                                                       String?
+  chinmaya_mission_will_assign_a_webex_license_for_your_use_and_p String?
+  your_state_                                                     String? @map("your_state.")
+  your_country                                                    String?
+  name_of_your_chinmaya_mission_center_head___administrator___swa String? @map("name_of_your_chinmaya_mission_center_head_/_administrator_/_swa")
+  email_of_the_person_in_the_previous_question_                   String?
+  email_address                                                   String?
+  your_zip_code                                                   String?
+  joined_webex_whatsapp                                           String?
+  status                                                          String?
+  webex_active                                                    String?
+  shortid                                                         String?
+  license_site                                                    String?
+
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model webex_participants_non_india_excp {
+  host_lic_site    String?   @db.VarChar(4)
+  host_unq_shortid String?   @db.VarChar(18)
+  host_email_id    String?   @db.VarChar(50)
+  host_name        String?   @db.VarChar(60)
+  prtcpnt_entry_id Decimal?  @db.Decimal(10, 2)
+  prtcpnt_email_id String?   @db.VarChar(50)
+  prtcpnt_name     String?   @db.VarChar(60)
+  host_active_ind  String?   @db.VarChar(1)
+  status           String?   @db.VarChar(1)
+  rec_prcsd_dttme  DateTime? @db.Timestamp(6)
+
+  @@unique([host_email_id, prtcpnt_email_id, prtcpnt_entry_id], map: "uq_except_host_prtcpnt")
+  @@index([host_unq_shortid, prtcpnt_entry_id], map: "idx_wbex_prtcpnt_nonindia_excp")
+  @@ignore
+  @@schema("mission")
+}
+
+model webex_participants_non_india_old {
+  prtcpnt_entry_id         Int      @id(map: "pk_webex_prtcpnt_non_india")
+  prtcpnt_name             String?  @db.VarChar(60)
+  prtcpnt_phone_no         String?  @db.VarChar(20)
+  prtcpnt_email_id         String?  @db.VarChar(50)
+  prtcpnt_addr_ln          String?  @db.VarChar(100)
+  prtcpnt_addr_city        String?  @db.VarChar(30)
+  prtcpnt_addr_state       String?  @db.VarChar(30)
+  prtcpnt_addr_country     String?  @db.VarChar(30)
+  prtcpnt_addr_zipcode     String?  @db.VarChar(20)
+  prtcpnt_total_reg_fees   Decimal? @db.Decimal(10, 2)
+  chinmaya_member_ind      String?  @db.VarChar(1)
+  chinmaya_center_name     String?  @db.VarChar(80)
+  prtcpnt_other_org_ind    String?  @db.VarChar(1)
+  prtcpnt_other_org_name   String?  @db.VarChar(100)
+  prtcpnt_is_host_ind      String?  @db.VarChar(1)
+  prtcpnt_host_alloted_ind String   @default("N") @db.VarChar(1)
+
+  @@schema("mission")
+}
+
+model webex_participants_non_india_old_raw {
+  id                                                              Int      @id(map: "webex_participants_non_india_raw_pkey") @default(autoincrement())
+  entry_id                                                        Int?
+  name                                                            String?
+  email                                                           String?
+  contact_phone__whatsapp_                                        String?  @map("contact_phone_(whatsapp)") @db.VarChar
+  address                                                         String?
+  are_you_a_member_of_chinmaya_mission_member_                    String?  @map("are_you_a_member_of_chinmaya_mission_member?")
+  which_chinmaya_mission_center_are_you_associated_with_          String?  @map("which_chinmaya_mission_center_are_you_associated_with?")
+  are_you_a_member_of_any_other_organization_                     String?  @map("are_you_a_member_of_any_other_organization?")
+  which_organization_are_you_associated_with_                     String?  @map("which_organization_are_you_associated_with?")
+  custom_donation_amount                                          Decimal? @db.Decimal
+  choose_the_registration_fees_and_additional_donation__yatha_sha String?  @map("choose_the_registration_fees_and_additional_donation_(yatha_sha")
+  total                                                           Decimal? @db.Decimal
+  your_chinmaya_mission_center_name                               String?
+  address_line_1                                                  String?
+  address_line_2                                                  String?
+  city                                                            String?
+  state                                                           String?
+  postal_code                                                     String?
+  country                                                         String?
+
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model webex_pni_corr {
+  prtcpnt_entry_id         Decimal? @db.Decimal(10, 2)
+  prtcpnt_entry_grp_id     Int?
+  prtcpnt_name             String?  @db.VarChar(60)
+  prtcpnt_phone_no         String?  @db.VarChar(20)
+  prtcpnt_email_id         String?  @db.VarChar(50)
+  prtcpnt_addr_ln          String?  @db.VarChar(100)
+  prtcpnt_addr_city        String?  @db.VarChar(30)
+  prtcpnt_addr_state       String?  @db.VarChar(30)
+  prtcpnt_addr_country     String?  @db.VarChar(30)
+  prtcpnt_addr_zipcode     String?  @db.VarChar(40)
+  prtcpnt_total_reg_fees   Decimal? @db.Decimal(10, 2)
+  chinmaya_member_ind      String?  @db.VarChar(1)
+  chinmaya_center_name     String?  @db.VarChar(80)
+  prtcpnt_other_org_ind    String?  @db.VarChar(1)
+  prtcpnt_other_org_name   String?  @db.VarChar(200)
+  prtcpnt_is_host_ind      String?  @db.VarChar(1)
+  prtcpnt_host_alloted_ind String?  @db.VarChar(1)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model webex_prtcpnts_nonindia_excp_old {
+  prtcpnt_name     String? @db.VarChar(60)
+  prtcpnt_email_id String? @db.VarChar(50)
+  prtcpnt_entry_id Int?
+  host_name        String? @db.VarChar(60)
+  host_lic_site    String? @db.VarChar(4)
+  host_unq_shortid String? @db.VarChar(18)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model webrw_bkup {
+  id               Int?
+  timestamp        DateTime? @db.Timestamp(6)
+  hostemailid      String?
+  hostsiteid       String?
+  hostid           String?
+  meeting_title    String?
+  participantemail String?
+  status           String?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model webx_hst_cntr {
+  shortid            String?
+  chinmaya_cntr_name String?
+  status             String?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model whni_old {
+  license_site_code      String?   @db.VarChar(4)
+  host_unq_shortid       String?   @db.VarChar(18)
+  rec_create_tstmp       DateTime? @db.Timestamp(6)
+  host_first_name        String?   @db.VarChar(30)
+  host_last_name         String?   @db.VarChar(30)
+  host_phone_no          String?   @db.VarChar(20)
+  host_email_id          String?   @db.VarChar(50)
+  host_addr_city         String?   @db.VarChar(30)
+  host_addr_state        String?   @db.VarChar(30)
+  host_addr_country      String?   @db.VarChar(30)
+  host_addr_zipcode      String?   @db.VarChar(20)
+  host_maturity          String?   @db.VarChar(20)
+  chinmaya_head          String?   @db.VarChar(100)
+  chinmaya_head_email_id String?   @db.VarChar(80)
+  host_email_addr        String?   @db.VarChar(50)
+  terms_agreement_ind    String?   @db.VarChar(1)
+  joined_wapp_grp_ind    String?   @db.VarChar(1)
+  provisioned_status_ind String?   @db.VarChar(1)
+  webex_active_ind       String?   @db.VarChar(1)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model whnir_bkup {
+  id                                                              Int?
+  timestamp                                                       String?
+  first_name_                                                     String?
+  last_name_                                                      String?
+  phone_number__whatsapp_                                         String? @map("phone_number_(whatsapp)")
+  email_                                                          String?
+  which_chinmaya_mission_center_do_you_belong_to___               String? @map("which_chinmaya_mission_center_do_you_belong_to_?_")
+  please_let_us_know_if_you_are                                   String?
+  your_city                                                       String?
+  chinmaya_mission_will_assign_a_webex_license_for_your_use_and_p String?
+  your_state_                                                     String? @map("your_state.")
+  your_country                                                    String?
+  name_of_your_chinmaya_mission_center_head___administrator___swa String? @map("name_of_your_chinmaya_mission_center_head_/_administrator_/_swa")
+  email_of_the_person_in_the_previous_question_                   String?
+  email_address                                                   String?
+  your_zip_code                                                   String?
+  joined_webex_whatsapp                                           String?
+  status                                                          String?
+  webex_active                                                    String?
+  shortid                                                         String?
+  license_site                                                    String?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model whnr {
+  id                                                              Int?
+  timestamp                                                       String?
+  first_name_                                                     String?
+  last_name_                                                      String?
+  phone_number__whatsapp_                                         String? @map("phone_number_(whatsapp)")
+  email_                                                          String?
+  which_chinmaya_mission_center_do_you_belong_to___               String? @map("which_chinmaya_mission_center_do_you_belong_to_?_")
+  please_let_us_know_if_you_are                                   String?
+  your_city                                                       String?
+  chinmaya_mission_will_assign_a_webex_license_for_your_use_and_p String?
+  your_state_                                                     String? @map("your_state.")
+  your_country                                                    String?
+  name_of_your_chinmaya_mission_center_head___administrator___swa String? @map("name_of_your_chinmaya_mission_center_head_/_administrator_/_swa")
+  email_of_the_person_in_the_previous_question_                   String?
+  email_address                                                   String?
+  your_zip_code                                                   String?
+  joined_webex_whatsapp                                           String?
+  status                                                          String?
+  webex_active                                                    String?
+  shortid                                                         String?
+  license_site                                                    String?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model wparticipantsnonindiaexceptraw {
+  id               Int?
+  timestamp        DateTime? @db.Timestamp(6)
+  hostemailid      String?
+  hostsiteid       String?
+  hostid           String?
+  meeting_title    String?
+  participantemail String?
+  status           String?
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model wparticipantsnonindiaexcp {
+  host_lic_site    String?   @db.VarChar(4)
+  host_unq_shortid String?   @db.VarChar(18)
+  host_email_id    String?   @db.VarChar(50)
+  host_name        String?   @db.VarChar(60)
+  prtcpnt_entry_id Decimal?  @db.Decimal(10, 2)
+  prtcpnt_email_id String?   @db.VarChar(50)
+  prtcpnt_name     String?   @db.VarChar(60)
+  host_active_ind  String?   @db.VarChar(1)
+  status           String?   @db.VarChar(1)
+  rec_prcsd_dttme  DateTime? @db.Timestamp(6)
+
+  @@ignore
+  @@schema("mission")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model wpni_old {
+  prtcpnt_entry_id         Decimal? @db.Decimal(10, 2)
+  prtcpnt_entry_grp_id     Int?
+  prtcpnt_name             String?  @db.VarChar(60)
+  prtcpnt_phone_no         String?  @db.VarChar(20)
+  prtcpnt_email_id         String?  @db.VarChar(50)
+  prtcpnt_addr_ln          String?  @db.VarChar(100)
+  prtcpnt_addr_city        String?  @db.VarChar(30)
+  prtcpnt_addr_state       String?  @db.VarChar(30)
+  prtcpnt_addr_country     String?  @db.VarChar(30)
+  prtcpnt_addr_zipcode     String?  @db.VarChar(40)
+  prtcpnt_total_reg_fees   Decimal? @db.Decimal(10, 2)
+  chinmaya_member_ind      String?  @db.VarChar(1)
+  chinmaya_center_name     String?  @db.VarChar(80)
+  prtcpnt_other_org_ind    String?  @db.VarChar(1)
+  prtcpnt_other_org_name   String?  @db.VarChar(200)
+  prtcpnt_is_host_ind      String?  @db.VarChar(1)
+  prtcpnt_host_alloted_ind String?  @db.VarChar(1)
+
+  @@ignore
+  @@schema("mission")
+}
+
+model chinmaya_center_region_map {
+  chinmaya_center_name String @id
+  state                String
+  language_region      String
+
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model gchant_hosts {
+  time_enrolled              DateTime? @db.Timestamp(6)
+  full_name                  String?   @db.VarChar(100)
+  email_id                   String?   @db.VarChar(150)
+  phone_no                   String?   @db.VarChar(18)
+  chinmaya_center_name       String?   @db.VarChar(50)
+  host_city                  String?   @db.VarChar(72)
+  host_state                 String?   @db.VarChar(30)
+  host_country               String?   @db.VarChar(18)
+  chinmaya_center_head_name  String?   @db.VarChar(100)
+  chinmaya_center_head_email String?   @db.VarChar(150)
+  lic_assigned               String?   @db.VarChar(1)
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model vrindavan_gchant_mtng {
+  host_short_id      String?   @db.VarChar(18)
+  organizer_email    String?   @db.VarChar(255)
+  host_name          String?   @db.VarChar(255)
+  topic              String?   @db.VarChar(255)
+  start_time         DateTime? @db.Timestamptz(6)
+  end_time           DateTime? @db.Timestamptz(6)
+  invitees           Json?
+  processed          Boolean?  @default(false)
+  last_error         String?
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
+  webex_meeting_id   String?   @db.VarChar(250)
+  webex_mtng_no      BigInt?
+  webex_host_key     String?   @db.VarChar(100)
+  webex_mtng_link    String?
+  webex_autorec_mtng Boolean?
+
+  @@map("gchant_mtng")
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model vrindavan_host_backout_dets {
+  backout_id       Int?
+  rec_create_dttme DateTime? @db.Timestamptz(6)
+  host_unq_shortid String?   @db.VarChar(18)
+  host_name        String?   @db.VarChar(60)
+  host_phone_no    String?   @db.VarChar(20)
+  host_email_id    String?   @db.VarChar(50)
+  webex_meeting_id String?   @db.VarChar(250)
+  mtng_no          BigInt?
+  prcsd_flg        String?   @db.VarChar(1)
+  prcsd_dttme      DateTime? @db.Timestamptz(6)
+
+  @@map("host_backout_dets")
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_india {
+  lic_site_code            String?   @db.VarChar(4)
+  host_unq_shortid         String?   @db.VarChar(18)
+  rec_create_tstmp         DateTime? @db.Timestamp(6)
+  host_name                String?   @db.VarChar(60)
+  host_phone_no            String?   @db.VarChar(20)
+  host_email_id            String?   @db.VarChar(50)
+  host_addr_state          String?   @db.VarChar(30)
+  host_addr_country        String?   @db.VarChar(30)
+  ind_prtcpnt_entry_id     String?   @db.VarChar(20)
+  ind_prtcpnt_name         String?   @db.VarChar(60)
+  ind_prtcpnt_phone_no     String?   @db.VarChar(20)
+  ind_prtcpnt_email_id     String?   @db.VarChar(50)
+  ind_prtcpnt_addr_ln      String?   @db.VarChar(100)
+  ind_prtcpnt_addr_state   String?   @db.VarChar(50)
+  ind_prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link          String?   @db.VarChar(400)
+  mtng_setup_ind           String?   @db.VarChar(1)
+  webex_meeting_id         String?   @db.VarChar(250)
+  webex_mtng_no            BigInt?
+
+  @@index([host_unq_shortid, webex_meeting_id], map: "idx_host_prtcpnt_map_india")
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_india_0401 {
+  lic_site_code            String?   @db.VarChar(4)
+  host_unq_shortid         String?   @db.VarChar(18)
+  rec_create_tstmp         DateTime? @db.Timestamp(6)
+  host_name                String?   @db.VarChar(60)
+  host_phone_no            String?   @db.VarChar(20)
+  host_email_id            String?   @db.VarChar(50)
+  host_addr_state          String?   @db.VarChar(30)
+  host_addr_country        String?   @db.VarChar(30)
+  ind_prtcpnt_entry_id     String?   @db.VarChar(20)
+  ind_prtcpnt_name         String?   @db.VarChar(60)
+  ind_prtcpnt_phone_no     String?   @db.VarChar(20)
+  ind_prtcpnt_email_id     String?   @db.VarChar(50)
+  ind_prtcpnt_addr_ln      String?   @db.VarChar(100)
+  ind_prtcpnt_addr_state   String?   @db.VarChar(50)
+  ind_prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link          String?   @db.VarChar(400)
+  mtng_setup_ind           String?   @db.VarChar(1)
+  webex_meeting_id         String?   @db.VarChar(250)
+  webex_mtng_no            BigInt?
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+model host_prtcpnt_map_india_nu {
+  lic_site_code            String    @db.VarChar(4)
+  host_unq_shortid         String    @db.VarChar(18)
+  rec_create_tstmp         DateTime? @db.Timestamp(6)
+  host_name                String?   @db.VarChar(60)
+  host_phone_no            String?   @db.VarChar(20)
+  host_email_id            String?   @db.VarChar(50)
+  host_addr_state          String?   @db.VarChar(30)
+  host_addr_country        String?   @db.VarChar(30)
+  ind_prtcpnt_entry_id     String    @db.VarChar(20)
+  ind_prtcpnt_name         String?   @db.VarChar(60)
+  ind_prtcpnt_phone_no     String?   @db.VarChar(20)
+  ind_prtcpnt_email_id     String?   @db.VarChar(50)
+  ind_prtcpnt_addr_ln      String?   @db.VarChar(100)
+  ind_prtcpnt_addr_state   String?   @db.VarChar(50)
+  ind_prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link          String?   @db.VarChar(400)
+  mtng_setup_ind           String?   @db.VarChar(1)
+  webex_meeting_id         String?   @db.VarChar(250)
+  webex_mtng_no            BigInt?
+
+  @@id([lic_site_code, host_unq_shortid, ind_prtcpnt_entry_id], map: "pk_hp_india_map")
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_map_india_x {
+  lic_site_code            String?   @db.VarChar(4)
+  host_unq_shortid         String?   @db.VarChar(18)
+  rec_create_tstmp         DateTime? @db.Timestamp(6)
+  host_name                String?   @db.VarChar(60)
+  host_phone_no            String?   @db.VarChar(20)
+  host_email_id            String?   @db.VarChar(50)
+  host_addr_state          String?   @db.VarChar(30)
+  host_addr_country        String?   @db.VarChar(30)
+  ind_prtcpnt_entry_id     String?   @db.VarChar(20)
+  ind_prtcpnt_name         String?   @db.VarChar(60)
+  ind_prtcpnt_phone_no     String?   @db.VarChar(20)
+  ind_prtcpnt_email_id     String?   @db.VarChar(50)
+  ind_prtcpnt_addr_ln      String?   @db.VarChar(100)
+  ind_prtcpnt_addr_state   String?   @db.VarChar(50)
+  ind_prtcpnt_addr_country String?   @db.VarChar(30)
+  webex_mtng_link          String?   @db.VarChar(400)
+  mtng_setup_ind           String?   @db.VarChar(1)
+  webex_meeting_id         String?   @db.VarChar(250)
+  webex_mtng_no            BigInt?
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model host_prtcpnt_mtng_mod_india {
+  host_unq_shortid String    @db.VarChar(18)
+  host_name        String?   @db.VarChar(60)
+  host_email_id    String?   @db.VarChar(50)
+  prtcpnt_name     String?   @db.VarChar(60)
+  prtcpnt_email_id String?   @db.VarChar(50)
+  webex_meeting_id String?   @db.VarChar(250)
+  webex_mtng_no    BigInt?
+  mod_flg          String?   @db.VarChar(1)
+  status           String?   @db.VarChar(1)
+  rec_comp_tstmp   DateTime? @db.Timestamp(6)
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model hst_cnt {
+  count BigInt?
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+model india_pin_group_map {
+  state_or_ut     String @id
+  pin_macro_group String
+
+  @@schema("vrindavan")
+}
+
+model india_pin_macro_group {
+  state_or_ut     String @id
+  pin_macro_group String
+
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model india_state_adjacency {
+  state_or_ut          String?
+  neighbor_state_or_ut String?
+  is_self              String? @db.Char(1)
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+model india_state_proximity {
+  base_state      String
+  nearby_state    String
+  proximity_rank  Int?
+  pin_macro_group String?
+
+  @@id([base_state, nearby_state])
+  @@schema("vrindavan")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model india_state_proximity_final {
+  base_state      String
+  nearby_state    String
+  proximity_rank  Int
+  pin_macro_group String?
+
+  @@id([base_state, nearby_state])
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model india_states_capitals {
+  state_name   String? @db.VarChar(30)
+  capital_name String? @db.VarChar(30)
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model vrindavan_mtng_host_invitee_dets {
+  region              String?  @db.VarChar(2)
+  country             String?  @db.VarChar(20)
+  center              Int?
+  host_first_name     String?  @db.VarChar(30)
+  host_last_name      String?  @db.VarChar(30)
+  host_email          String?  @db.VarChar(100)
+  host_displayname    String?  @db.VarChar(100)
+  meeting_title       String?  @db.VarChar(100)
+  host_invitee_ser_id Int?
+  invitee_name        String?  @db.VarChar(100)
+  invitee_email       String?  @db.VarChar(150)
+  invitee_ph          String?  @db.VarChar(18)
+  cohost              Boolean?
+
+  @@map("mtng_host_invitee_dets")
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model mtng_host_invitee_dets_nu {
+  signup_date          DateTime? @db.Timestamp(6)
+  sr_no                BigInt?
+  invitee_email        String?   @db.VarChar(150)
+  invitee_name         String?   @db.VarChar(100)
+  invitee_phone        String?   @db.VarChar(18)
+  chinmaya_center_name String?   @db.VarChar(100)
+  location             String?   @db.VarChar(100)
+  host_first_name      String?   @db.VarChar(30)
+  host_last_name       String?   @db.VarChar(30)
+  host_displayname     String?   @db.VarChar(100)
+  host_email           String?   @db.VarChar(100)
+  cohost               Boolean?
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model rec_cnt {
+  count BigInt?
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+model webex_hosts_india {
+  license_site_code      String    @db.VarChar(4)
+  host_unq_shortid       String    @db.VarChar(18)
+  rec_create_tstmp       DateTime? @db.Timestamp(6)
+  host_first_name        String?   @db.VarChar(50)
+  host_last_name         String?   @db.VarChar(30)
+  host_phone_no          String?   @db.VarChar(20)
+  host_email_id          String?   @db.VarChar(50)
+  host_addr_city         String?   @db.VarChar(30)
+  host_addr_state        String?   @db.VarChar(30)
+  host_addr_country      String?   @db.VarChar(30)
+  host_addr_zipcode      String?   @db.VarChar(20)
+  host_maturity          String?   @db.VarChar(100)
+  chinmaya_center_name   String?   @db.VarChar(100)
+  terms_agreement_ind    String?   @db.VarChar(1)
+  joined_wapp_grp_ind    String?   @db.VarChar(1)
+  provisioned_status_ind String?   @db.VarChar(1)
+  webex_active_ind       String?   @db.VarChar(1)
+
+  @@id([license_site_code, host_unq_shortid], map: "pk_webex_hosts_india")
+  @@schema("vrindavan")
+}
+
+model webex_hosts_india_raw {
+  id                                                              Int     @id @default(autoincrement())
+  timestamp                                                       String?
+  email_address                                                   String?
+  first_name_                                                     String?
+  last_name_                                                      String?
+  phone_number__whatsapp_                                         String? @map("phone_number_(whatsapp)")
+  joined_whatsapp_group                                           String?
+  which_chinmaya_mission_center___organization_do_you_belong_to__ String? @map("which_chinmaya_mission_center_/_organization_do_you_belong_to_?")
+  please_let_us_know_if_you_are                                   String?
+  your_city                                                       String?
+  your_state_                                                     String? @map("your_state.")
+  pin_code_                                                       String?
+  your_country                                                    String?
+  chinmaya_mission_will_assign_a_webex_license_for_your_use_and_p String?
+  status                                                          String?
+  webex_active                                                    String?
+  shortid                                                         String?
+  license_site                                                    String?
+
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model webex_participants_india_0401 {
+  ind_prtcpnt_entry_resp_id    String?   @db.VarChar(20)
+  ind_prtcpnt_entry_grp_id     String?   @db.VarChar(20)
+  ind_prtcpnt_rec_create_tstmp DateTime? @db.Timestamp(6)
+  ind_prtcpnt_name             String?   @db.VarChar(60)
+  ind_prtcpnt_phone_no         String?   @db.VarChar(20)
+  ind_prtcpnt_email_id         String?   @db.VarChar(50)
+  ind_prtcpnt_addr_ln          String?   @db.VarChar(255)
+  ind_prtcpnt_addr_city        String?   @db.VarChar(60)
+  ind_prtcpnt_addr_state       String?   @db.VarChar(50)
+  ind_prtcpnt_addr_country     String?   @db.VarChar(30)
+  ind_prtcpnt_addr_zipcode     String?   @db.VarChar(20)
+  ind_prtcpnt_pan_number       String?   @db.VarChar(20)
+  ind_prtcpnt_total_reg_fees   Decimal?  @db.Decimal(10, 2)
+  ind_prtcpnt_pmnt_status      String?   @db.VarChar(1)
+  ind_chinmaya_member_ind      String?   @db.VarChar(1)
+  ind_chinmaya_center_name     String?   @db.VarChar(80)
+  ind_prtcpnt_other_org_ind    String?   @db.VarChar(1)
+  ind_prtcpnt_other_org_name   String?   @db.VarChar(100)
+  ind_prtcpnt_is_host_ind      String?   @db.VarChar(1)
+  ind_prtcpnt_host_alloted_ind String?   @db.VarChar(1)
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+model webex_participants_india_multiple_raw {
+  ind_prtcpnt_entry_resp_id    String    @db.VarChar(20)
+  ind_prtcpnt_entry_grp_id     String    @db.VarChar(20)
+  ind_prtcpnt_rec_create_tstmp DateTime? @db.Timestamp(6)
+  ind_prtcpnt_name             String?   @db.VarChar(60)
+  ind_prtcpnt_phone_no         String?   @db.VarChar(20)
+  ind_prtcpnt_email_id         String?   @db.VarChar(50)
+  ind_prtcpnt_addr_ln          String?   @db.VarChar(255)
+  ind_prtcpnt_addr_city        String?   @db.VarChar(60)
+  ind_prtcpnt_addr_state       String?   @db.VarChar(50)
+  ind_prtcpnt_addr_country     String?   @db.VarChar(30)
+  ind_prtcpnt_addr_zipcode     String?   @db.VarChar(20)
+  ind_prtcpnt_pan_number       String?   @db.VarChar(20)
+  ind_prtcpnt_total_reg_fees   Decimal?  @db.Decimal(10, 2)
+  ind_prtcpnt_pmnt_status      String?   @db.VarChar(1)
+  ind_chinmaya_member_ind      String?   @db.VarChar(1)
+  ind_chinmaya_center_name     String?   @db.VarChar(80)
+  ind_prtcpnt_other_org_ind    String?   @db.VarChar(1)
+  ind_prtcpnt_other_org_name   String?   @db.VarChar(100)
+
+  @@id([ind_prtcpnt_entry_resp_id, ind_prtcpnt_entry_grp_id])
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model webex_participants_india_old {
+  ind_prtcpnt_entry_resp_id    String    @db.VarChar(20)
+  ind_prtcpnt_rec_create_tstmp DateTime? @db.Timestamp(6)
+  ind_prtcpnt_name             String?   @db.VarChar(60)
+  ind_prtcpnt_phone_no         String?   @db.VarChar(20)
+  ind_prtcpnt_email_id         String?   @db.VarChar(50)
+  ind_prtcpnt_addr_ln          String?   @db.VarChar(100)
+  ind_prtcpnt_addr_city        String?   @db.VarChar(30)
+  ind_prtcpnt_addr_state       String?   @db.VarChar(50)
+  ind_prtcpnt_addr_country     String?   @db.VarChar(30)
+  ind_prtcpnt_addr_zipcode     String?   @db.VarChar(20)
+  ind_prtcpnt_pan_number       String?   @db.VarChar(20)
+  ind_prtcpnt_total_reg_fees   Decimal?  @db.Decimal(10, 2)
+  ind_prtcpnt_pmnt_status      String?   @db.VarChar(1)
+  ind_chinmaya_member_ind      String?   @db.VarChar(1)
+  ind_chinmaya_center_name     String?   @db.VarChar(80)
+  ind_prtcpnt_other_org_ind    String?   @db.VarChar(1)
+  ind_prtcpnt_other_org_name   String?   @db.VarChar(50)
+
+  @@ignore
+  @@schema("vrindavan")
+}
+
+model webex_participants_india_raw_students {
+  id                                              Int      @id @default(autoincrement())
+  added_time                                      String?
+  ip_address                                      Decimal? @db.Decimal
+  name_of_student                                 String?
+  name_of_student_s_parent                        String?  @map("name_of_student's_parent")
+  email_of_student_or_student_s_parent            String?  @map("email_of_student_or_student’s_parent")
+  name_of_school                                  String?
+  country                                         String?
+  whatsapp_number                                 String?
+  street_address                                  String?
+  city                                            String?
+  state                                           Decimal? @db.Decimal
+  state_1                                         String?  @map("state.1")
+  pincode                                         Decimal? @db.Decimal
+  would_you_like_to_offer_donation_for_the_event_ String?  @map("would_you_like_to_offer_donation_for_the_event?")
+  please_enter_the_amount                         Decimal? @db.Decimal
+  name_of_the_payee                               String?
+  phone_of_the_payee                              Decimal? @db.Decimal
+  email_of_the_payee                              String?
+  pan_details_of_the_payee                        String?
+  address_of_the_payee                            String?
+  terms_and_conditions                            Decimal? @db.Decimal
+  nationality_of_the_payee                        String?
+  payment_amount                                  Decimal? @db.Decimal
+  payment_status                                  String?
+  payment_currency                                String?
+  payment_merchant                                String?
+  name_of_school_1                                String?  @map("name_of_school.1")
+  currently_studying_in__std____section___degree_ String?  @map("currently_studying_in_(std._&_section_/_degree)")
+
+  @@schema("vrindavan")
+}
+
+model webex_participants_india_students {
+  ind_prtcpnt_entry_resp_id    String    @id @db.VarChar
+  ind_prtcpnt_entry_grp_id     String    @db.VarChar
+  ind_prtcpnt_rec_create_tstmp DateTime? @db.Timestamp(6)
+  ind_prtcpnt_name             String?   @db.VarChar
+  ind_prtcpnt_phone_no         String?   @db.VarChar
+  ind_prtcpnt_email_id         String?   @db.VarChar
+  ind_prtcpnt_addr_ln          String?   @db.VarChar
+  ind_prtcpnt_addr_city        String?   @db.VarChar
+  ind_prtcpnt_addr_state       String?   @db.VarChar
+  ind_prtcpnt_addr_country     String?   @db.VarChar
+  ind_prtcpnt_addr_zipcode     String?   @db.VarChar
+  ind_prtcpnt_pan_number       String?   @db.VarChar
+  ind_prtcpnt_total_reg_fees   Decimal?  @db.Decimal
+  ind_prtcpnt_pmnt_status      String?   @db.VarChar
+  ind_chinmaya_member_ind      String?   @db.VarChar
+  ind_chinmaya_center_name     String?   @db.VarChar
+  ind_prtcpnt_other_org_ind    String?   @db.VarChar
+  ind_prtcpnt_other_org_name   String?   @db.VarChar
+  ind_prtcpnt_is_host_ind      String?   @db.VarChar
+  ind_prtcpnt_host_alloted_ind String    @default("N") @db.VarChar
+  ind_cv_center_name           String?   @db.VarChar
+
+  @@schema("vrindavan")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model webex_participants_india_students_0401 {
+  ind_prtcpnt_entry_resp_id    String?   @db.VarChar
+  ind_prtcpnt_entry_grp_id     String?   @db.VarChar
+  ind_prtcpnt_rec_create_tstmp DateTime? @db.Timestamp(6)
+  ind_prtcpnt_name             String?   @db.VarChar
+  ind_prtcpnt_phone_no         String?   @db.VarChar
+  ind_prtcpnt_email_id         String?   @db.VarChar
+  ind_prtcpnt_addr_ln          String?   @db.VarChar
+  ind_prtcpnt_addr_city        String?   @db.VarChar
+  ind_prtcpnt_addr_state       String?   @db.VarChar
+  ind_prtcpnt_addr_country     String?   @db.VarChar
+  ind_prtcpnt_addr_zipcode     String?   @db.VarChar
+  ind_prtcpnt_pan_number       String?   @db.VarChar
+  ind_prtcpnt_total_reg_fees   Decimal?  @db.Decimal
+  ind_prtcpnt_pmnt_status      String?   @db.VarChar
+  ind_chinmaya_member_ind      String?   @db.VarChar
+  ind_chinmaya_center_name     String?   @db.VarChar
+  ind_prtcpnt_other_org_ind    String?   @db.VarChar
+  ind_prtcpnt_other_org_name   String?   @db.VarChar
+  ind_prtcpnt_is_host_ind      String?   @db.VarChar
+  ind_prtcpnt_host_alloted_ind String?   @db.VarChar
+  ind_cv_center_name           String?   @db.VarChar
+
+  @@ignore
+  @@schema("vrindavan")
+}

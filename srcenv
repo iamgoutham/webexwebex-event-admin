@@ -1,0 +1,16 @@
+export NODE_ENV=development
+export DATABASE_URL=mysql://root:Vrind1v2n!@localhost:3306/webex_admin
+
+APP_NAME="Webex Event Platform"
+
+export AWS_REGION=us-east-1
+export S3_BUCKET_NAME=webex-recordings
+
+export WEBEX_CLIENT_ID=Ca615c3df465ba7127a72e33b03e34000b3681f508a9257650dccbf88545e52d6
+export WEBEX_CLIENT_SECRET=ab8381f3e02faeab0f2af41dcecd97c18ff6ab6e4b07feae6b6c8d8596e53a04
+export WEBEX_REDIRECT_URI=https://webexadmin.chinmayavrindavan.org/api/auth/callback/webex
+
+
+export SESSION_SECRET=super-long-random-string
+
+export INITIAL_SUPER_ADMIN_EMAIL=goutham.puppala@gmail.com

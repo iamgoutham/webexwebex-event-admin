@@ -51,8 +51,9 @@ export default function EventDayHostChecklistSection({
               1
             </span>
             <span>
-              Turn off all notifications, log in to the Webex app, and start
-              your meeting.
+              On Host laptop, turn off all notifications, 
+              log in to the Webex app, 
+              and start your meeting.
             </span>
           </li>
           <li className="flex gap-3">
@@ -62,7 +63,7 @@ export default function EventDayHostChecklistSection({
             >
               2
             </span>
-            <span>Identify a co-host from your participants.</span>
+            <span>Prepare the Mobile device (phone)  - Turn ON 'Do Not Disturb', Mute all Notifications, phone screen timeout to 'Never'.</span>
           </li>
           <li className="flex gap-3">
             <span
@@ -71,7 +72,7 @@ export default function EventDayHostChecklistSection({
             >
               3
             </span>
-            <span>Guide the co-host through setup.</span>
+            <span>Join your meeting from your Mobile device as a participant (not signing into webex) and set 'Don’t Connect Audio'. In webex now share the entire screen and display the Pacer Video in horizontal format.</span>
           </li>
           <li className="flex gap-3">
             <span
@@ -80,7 +81,7 @@ export default function EventDayHostChecklistSection({
             >
               4
             </span>
-            <span>Ensure your layout is in grid mode.</span>
+            <span>Change your layout in your laptop to grid mode by clicking double arrow <> .</span>
           </li>
           <li className="flex gap-3">
             <span
@@ -90,8 +91,7 @@ export default function EventDayHostChecklistSection({
               5
             </span>
             <span>
-              Make sure all participant videos are on and faces are visible in
-              the center of the video.
+              Make sure all participant videos are on and faces are visible in the center of the video.
             </span>
           </li>
           <li className="flex gap-3">
@@ -128,7 +128,7 @@ export default function EventDayHostChecklistSection({
             <span>
               Lock the meeting and disable Participant privileges under Meeting
               Options. For chanting #1, lock at 10:10 am EDT / 9:10 am CDT / 7:10
-              am PDT / 7:40 pm IST.
+              am PDT / 7:40 pm India.
             </span>
           </li>
           <li className="flex gap-3">
@@ -151,11 +151,7 @@ export default function EventDayHostChecklistSection({
               10
             </span>
             <span>
-              At chanting start time, click{" "}
-              <span className="font-medium text-[#3b1a1f]">Stop Video</span>, then
-              immediately{" "}
-              <span className="font-medium text-[#3b1a1f]">Start Video</span>, so
-              the pacer video restarts from the beginning.
+              At chanting start time, play the pacer video from the beginning.
             </span>
           </li>
           <li className="flex gap-3">
@@ -190,7 +186,7 @@ export default function EventDayHostChecklistSection({
             </span>
             <span>
               For chanting #2, lock at 10:30 am EDT / 9:30 am CDT / 7:30 am PDT
-              / 8:00 pm IST.
+              / 8:00 pm India.
             </span>
           </li>
           <li className="flex gap-3">
@@ -229,7 +225,7 @@ export default function EventDayHostChecklistSection({
                 webex-usa.chinmayavrindavan.org/dashboard/uploads
               </a>
               . Deadline: 1:00 pm EST / 12:00 pm CST / 10:00 am PST / 10:30 pm
-              IST.
+              India.
             </span>
           </li>
         </ul>

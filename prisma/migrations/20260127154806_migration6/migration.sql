@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `User` ADD COLUMN `gridCols` INTEGER NULL,
+    ADD COLUMN `gridRows` INTEGER NULL;
