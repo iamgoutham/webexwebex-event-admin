@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
+import CopyableMeetingLink from "@/components/copyable-meeting-link";
 import { getHostIdForEmail, getLicenseSiteForEmail } from "@/lib/license-site";
+import { displayWebexHostShortId } from "@/lib/user-short-id";
+import {
+  getHostDashboardMeetings,
+  type MeetingAssignment,
+} from "@/lib/public-confirmation";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import EventDayHostChecklistSection from "@/components/event-day-host-checklist-section";
 import GridSizeForm from "@/components/grid-size-form";
 import HostPreparationSections from "@/components/host-preparation-sections";
@@ -12,13 +19,47 @@ import WebexCohostInstructionsSection from "@/components/webex-cohost-instructio
 export default async function DashboardPage() {
   const session = await requireAuth();
   const hostName = session.user.name ?? session.user.email ?? "Host";
-  const sheetHostId = session.user.email
-    ? await getHostIdForEmail(session.user.email)
-    : null;
-  const hostId = sheetHostId ?? session.user.shortId ?? "Pending";
   const licenseSite = session.user.email
     ? await getLicenseSiteForEmail(session.user.email)
     : null;
+  const sheetHostId = session.user.email
+    ? await getHostIdForEmail(session.user.email)
+    : null;
+  const hostIdRaw = sheetHostId ?? session.user.shortId ?? "Pending";
+  const hostId = displayWebexHostShortId(hostIdRaw, licenseSite);
+
+  /** Same merged rows as `/dashboard/meetings` (`getHostDashboardMeetings`). */
+  let dashboardAssignments: MeetingAssignment[] = [];
+  const postgres = getPostgresPrisma();
+  const emailLower = session.user.email?.trim().toLowerCase();
+  if (postgres && emailLower) {
+    try {
+      const { assignments } = await getHostDashboardMeetings(
+        postgres,
+        emailLower,
+      );
+      dashboardAssignments = assignments;
+    } catch (err) {
+      console.error("[dashboard] weekly meeting lookup failed:", err);
+    }
+  }
+
+  const weeklyMeetings = filterMeetingsThisWeek(dashboardAssignments);
+  /** Prefer Mon–Sun ET window; otherwise show all assignments (parity with Meetings tab). */
+  const meetingsHero =
+    weeklyMeetings.length > 0 ? weeklyMeetings : dashboardAssignments;
+
+  const heroMeetingsHeading =
+    weeklyMeetings.length > 0
+      ? weeklyMeetings.length > 1
+        ? "Meetings this week"
+        : "Meeting this week"
+      : dashboardAssignments.length > 0
+        ? dashboardAssignments.length > 1
+          ? "Your meetings"
+          : "Your meeting"
+        : "";
+
   const latestUpload = await prisma.upload.findFirst({
     where: { userId: session.user.id },
     orderBy: { createdAt: "desc" },
@@ -40,7 +81,13 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8 text-[#3b1a1f]">
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
-        <div className="grid gap-6 md:grid-cols-[2fr_1fr] md:items-start">
+        <div
+          className={
+            meetingsHero.length > 0
+              ? "grid gap-6 md:grid-cols-[2fr_1fr] md:items-start"
+              : "grid gap-6 md:items-start"
+          }
+        >
           <div>
             <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
               After Login
@@ -51,17 +98,52 @@ export default async function DashboardPage() {
               ID: <span className="font-semibold">{hostId}</span>)
             </p>
           </div>
-          <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4 text-sm text-[#6b4e3d]">
-            <p className="text-xs uppercase tracking-[0.2em] text-[#9b6b4f]">
-              License Site
-            </p>
-            <p className="mt-2 text-base font-semibold text-[#3b1a1f]">
-              {licenseSite ?? "Unknown"}
-            </p>
-            <p className="text-xs text-[#8a5b44]">
-              Assigned Webex site for this host
-            </p>
-          </div>
+          {meetingsHero.length > 0 ? (
+            <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-4 text-sm text-[#6b4e3d]">
+              <p className="text-xs uppercase tracking-[0.2em] text-[#9b6b4f]">
+                {heroMeetingsHeading}
+              </p>
+              {weeklyMeetings.length === 0 && dashboardAssignments.length > 0 ? (
+                <p className="mt-2 text-[11px] leading-snug text-[#8a5b44]">
+                  Shown because the weekly window (Mon–Sun ET) didn’t apply—often
+                  the sheet start isn’t ISO-parseable or the meeting isn’t this
+                  week.
+                </p>
+              ) : null}
+              <ul className="mt-3 space-y-4">
+                {meetingsHero.map((m, i) => (
+                  <li
+                    key={`${m.meetingNumber ?? ""}-${m.startTime ?? ""}-${i}`}
+                    className={
+                      i > 0 ? "border-t border-[#e5c18e]/80 pt-4" : undefined
+                    }
+                  >
+                    {m.topic ? (
+                      <p className="font-semibold text-[#3b1a1f]">{m.topic}</p>
+                    ) : null}
+                    <p className="mt-1 text-xs text-[#8a5b44]">
+                      {formatMeetingStartDisplay(m.startTime)}
+                    </p>
+                    {m.meetingNumber ? (
+                      <p className="mt-1 text-xs text-[#6b4e3d]">
+                        Meeting #:{" "}
+                        <span className="font-mono text-[#3b1a1f]">
+                          {m.meetingNumber}
+                        </span>
+                      </p>
+                    ) : null}
+                    {m.link ? <CopyableMeetingLink url={m.link} /> : null}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/dashboard/meetings"
+                className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.15em] text-[#8a2f2a] hover:text-[#3b1a1f]"
+              >
+                Full meeting details →
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -142,4 +224,102 @@ export default async function DashboardPage() {
       <HostTrainingSection presentationEmbedSrc={presentationEmbedSrc} />
     </div>
   );
+}
+
+/** Week boundaries Mon–Sun (calendar days in America/New_York). */
+const ET_ZONE = "America/New_York";
+
+type Ymd = { y: number; m: number; d: number };
+
+const DOW_MON_BASE: Record<string, number> = {
+  Mon: 0,
+  Tue: 1,
+  Wed: 2,
+  Thu: 3,
+  Fri: 4,
+  Sat: 5,
+  Sun: 6,
+};
+
+function formatToPartsET(date: Date): { y: number; m: number; d: number; weekday: string } {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: ET_ZONE,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    weekday: "short",
+  });
+  const parts = fmt.formatToParts(date);
+  const map: Record<string, string> = {};
+  for (const p of parts) {
+    if (p.type !== "literal") map[p.type] = p.value;
+  }
+  return {
+    y: Number(map.year),
+    m: Number(map.month),
+    d: Number(map.day),
+    weekday: map.weekday ?? "",
+  };
+}
+
+function civilAddDays(y: number, m: number, d: number, delta: number): Ymd {
+  const x = new Date(Date.UTC(y, m - 1, d + delta));
+  return { y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, d: x.getUTCDate() };
+}
+
+function mondaySundayBoundsET(now: Date): { mon: Ymd; sun: Ymd } {
+  const { y, m, d, weekday } = formatToPartsET(now);
+  const offset = DOW_MON_BASE[weekday] ?? 0;
+  const mon = civilAddDays(y, m, d, -offset);
+  const sun = civilAddDays(mon.y, mon.m, mon.d, 6);
+  return { mon, sun };
+}
+
+function ymdKey(p: Ymd): string {
+  return `${p.y}-${String(p.m).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`;
+}
+
+function parseMeetingInstant(startTime: string | null): Date | null {
+  if (!startTime?.trim()) return null;
+  const d = new Date(startTime.trim());
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isMeetingThisWeekET(startTime: string | null, now: Date): boolean {
+  const inst = parseMeetingInstant(startTime);
+  if (!inst) return false;
+  const { mon, sun } = mondaySundayBoundsET(now);
+  const meetingDay = formatToPartsET(inst);
+  const key = ymdKey({
+    y: meetingDay.y,
+    m: meetingDay.m,
+    d: meetingDay.d,
+  });
+  return key >= ymdKey(mon) && key <= ymdKey(sun);
+}
+
+function filterMeetingsThisWeek(assignments: MeetingAssignment[]): MeetingAssignment[] {
+  const now = new Date();
+  const filtered = assignments.filter((a) =>
+    isMeetingThisWeekET(a.startTime, now),
+  );
+  filtered.sort((a, b) =>
+    (a.startTime ?? "").localeCompare(b.startTime ?? ""),
+  );
+  return filtered;
+}
+
+function formatMeetingStartDisplay(startTime: string | null): string {
+  if (!startTime?.trim()) return "Time TBD";
+  const d = new Date(startTime.trim());
+  if (Number.isNaN(d.getTime())) return startTime.trim();
+  return d.toLocaleString("en-US", {
+    timeZone: ET_ZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
 }

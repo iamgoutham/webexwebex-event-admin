@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/guards";
-import { ADMIN_ROLES } from "@/lib/rbac";
+import { ADMIN_ROLES, isRoleAllowed } from "@/lib/rbac";
 import GridImportButton from "@/components/grid-import-button";
 import UpdateMeetingSheetButton from "@/components/update-meeting-sheet-button";
 import AdminParticipantsByState from "@/components/admin-participants-by-state";
@@ -31,6 +31,9 @@ export default async function AdminDashboardPage() {
 
   let nonIndiaHostsCount = 0;
   let indiaHostsCount = 0;
+  /** Distinct provisioned active hosts with ≥1 map row that has meeting link/no/id (see SQL). */
+  let nonIndiaHostsWithMeetingAssignedCount = 0;
+  let indiaHostsWithMeetingAssignedCount = 0;
   let nonIndiaParticipantsCount = 0;
   let indiaParticipantsCount = 0;
   let indiaStudentsTableCount = 0;
@@ -79,7 +82,7 @@ type NonIndiaCenterAggRow = {
   let topStudentCenters: CenterRow[] = [];
 let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
 
-  if (postgres && session.user.role === Role.SUPERADMIN) {
+  if (postgres && isRoleAllowed(session.user.role, ADMIN_ROLES)) {
     try {
       const [
         nonIndiaHosts,
@@ -89,18 +92,37 @@ let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
         indiaStudents,
         nonIndiaHostCountries,
         indiaHostCountries,
+        nonIndiaHostsWithMeetingFromMaps,
+        indiaHostsWithMeetingFromMaps,
         nonIndiaPartCountries,
         indiaPartCountries,
         studentCenters,
       ] = await Promise.all([
         postgres.$queryRaw<{ c: bigint }[]>`
-          SELECT COUNT(*)::bigint AS c FROM mission.webex_hosts_non_india
+          SELECT (
+            (SELECT COUNT(*)::bigint
+             FROM mission.webex_hosts_non_india
+             WHERE btrim(COALESCE(provisioned_status_ind::text, '')) = 'Y'
+               AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y')
+            +
+            (SELECT COUNT(*)::bigint
+             FROM mission.webex_hosts_non_india_gp
+             WHERE btrim(COALESCE(provisioned_status_ind::text, '')) = 'Y'
+               AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y')
+          )::bigint AS c
         `,
         postgres.$queryRaw<{ c: bigint }[]>`
-          SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_hosts_india
+          SELECT COUNT(*)::bigint AS c
+          FROM vrindavan.webex_hosts_india
+          WHERE btrim(COALESCE(provisioned_status_ind::text, '')) = 'Y'
+            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
         `,
         postgres.$queryRaw<{ c: bigint }[]>`
-          SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india
+          SELECT (
+            (SELECT COUNT(*)::bigint FROM mission.webex_participants_non_india)
+            +
+            (SELECT COUNT(*)::bigint FROM mission.webex_participants_non_india_gp)
+          )::bigint AS c
         `,
         postgres.$queryRaw<{ c: bigint }[]>`
           SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india
@@ -109,13 +131,92 @@ let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
           SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_students
         `,
         postgres.$queryRaw<{ host_addr_country: string | null }[]>`
-          SELECT host_addr_country FROM mission.webex_hosts_non_india
+          SELECT host_addr_country
+          FROM mission.webex_hosts_non_india
+          WHERE btrim(COALESCE(provisioned_status_ind::text, '')) = 'Y'
+            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
+          UNION ALL
+          SELECT host_addr_country
+          FROM mission.webex_hosts_non_india_gp
+          WHERE btrim(COALESCE(provisioned_status_ind::text, '')) = 'Y'
+            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
         `,
         postgres.$queryRaw<{ host_addr_country: string | null }[]>`
-          SELECT host_addr_country FROM vrindavan.webex_hosts_india
+          SELECT host_addr_country
+          FROM vrindavan.webex_hosts_india
+          WHERE btrim(COALESCE(provisioned_status_ind::text, '')) = 'Y'
+            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
+        `,
+        postgres.$queryRaw<{ c: bigint }[]>`
+          SELECT COUNT(DISTINCT e.host_email)::bigint AS c
+          FROM (
+            SELECT lower(btrim(m.host_email_id::text)) AS host_email
+            FROM mission.host_prtcpnt_map_nonindia_nu m
+            WHERE m.host_email_id IS NOT NULL
+              AND btrim(m.host_email_id::text) <> ''
+              AND (
+                btrim(COALESCE(m.webex_mtng_link::text, '')) <> ''
+                OR m.webex_mtng_no IS NOT NULL
+                OR btrim(COALESCE(m.webex_meeting_id::text, '')) <> ''
+              )
+            UNION
+            SELECT lower(btrim(m.host_email_id::text)) AS host_email
+            FROM mission.host_prtcpnt_map_nonindia_gp m
+            WHERE m.host_email_id IS NOT NULL
+              AND btrim(m.host_email_id::text) <> ''
+              AND (
+                btrim(COALESCE(m.webex_mtng_link::text, '')) <> ''
+                OR m.webex_mtng_no IS NOT NULL
+                OR btrim(COALESCE(m.webex_meeting_id::text, '')) <> ''
+              )
+            UNION
+            SELECT lower(btrim(m.host_email_id::text)) AS host_email
+            FROM mission.host_prtcpnt_map_crossregion m
+            WHERE m.host_email_id IS NOT NULL
+              AND btrim(m.host_email_id::text) <> ''
+              AND (
+                btrim(COALESCE(m.webex_mtng_link::text, '')) <> ''
+                OR m.webex_mtng_no IS NOT NULL
+                OR btrim(COALESCE(m.webex_meeting_id::text, '')) <> ''
+              )
+          ) e
+          WHERE EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india h
+            WHERE lower(btrim(h.host_email_id::text)) = e.host_email
+              AND btrim(COALESCE(h.provisioned_status_ind::text, '')) = 'Y'
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_gp h
+            WHERE lower(btrim(h.host_email_id::text)) = e.host_email
+              AND btrim(COALESCE(h.provisioned_status_ind::text, '')) = 'Y'
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+        `,
+        postgres.$queryRaw<{ c: bigint }[]>`
+          SELECT COUNT(DISTINCT e.host_email)::bigint AS c
+          FROM (
+            SELECT lower(btrim(m.host_email_id::text)) AS host_email
+            FROM vrindavan.host_prtcpnt_map_india m
+            WHERE m.host_email_id IS NOT NULL
+              AND btrim(m.host_email_id::text) <> ''
+              AND (
+                btrim(COALESCE(m.webex_mtng_link::text, '')) <> ''
+                OR m.webex_mtng_no IS NOT NULL
+                OR btrim(COALESCE(m.webex_meeting_id::text, '')) <> ''
+              )
+          ) e
+          INNER JOIN vrindavan.webex_hosts_india h
+            ON lower(btrim(h.host_email_id::text)) = e.host_email
+          WHERE btrim(COALESCE(h.provisioned_status_ind::text, '')) = 'Y'
+            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         `,
         postgres.$queryRaw<{ prtcpnt_addr_country: string | null }[]>`
           SELECT prtcpnt_addr_country FROM mission.webex_participants_non_india
+          UNION ALL
+          SELECT prtcpnt_addr_country FROM mission.webex_participants_non_india_gp
         `,
         postgres.$queryRaw<{ ind_prtcpnt_addr_country: string | null }[]>`
           SELECT ind_prtcpnt_addr_country FROM vrindavan.webex_participants_india
@@ -131,6 +232,12 @@ let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
 
       nonIndiaHostsCount = Number(nonIndiaHosts[0]?.c ?? 0);
       indiaHostsCount = Number(indiaHosts[0]?.c ?? 0);
+      nonIndiaHostsWithMeetingAssignedCount = Number(
+        nonIndiaHostsWithMeetingFromMaps[0]?.c ?? 0,
+      );
+      indiaHostsWithMeetingAssignedCount = Number(
+        indiaHostsWithMeetingFromMaps[0]?.c ?? 0,
+      );
       nonIndiaParticipantsCount = Number(nonIndiaParts[0]?.c ?? 0);
       indiaStudentsTableCount = Number(indiaStudents[0]?.c ?? 0);
       indiaParticipantsCount = Number(indiaParts[0]?.c ?? 0) + indiaStudentsTableCount;
@@ -300,6 +407,8 @@ let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
                 ON lower(btrim(p.prtcpnt_email_id::text)) = lower(btrim(h.host_email_id::text))
               WHERE h.host_email_id IS NOT NULL
                 AND btrim(h.host_email_id::text) <> ''
+                AND btrim(COALESCE(h.provisioned_status_ind::text, '')) = 'Y'
+                AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
               GROUP BY lower(btrim(h.host_email_id::text))
             ) hc
             GROUP BY hc.center_key
@@ -521,16 +630,20 @@ let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
         </div>
       ) : null}
 
-      {session.user.role === Role.SUPERADMIN ? (
+      {isRoleAllowed(session.user.role, ADMIN_ROLES) ? (
         <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
           <h2 className="text-lg font-semibold">Participant &amp; host stats (Postgres)</h2>
-          <p className="mt-2 text-sm text-[#6b4e3d]">
-            Counts by India / non-India and basic breakdowns, sourced from downstream Webex
-            databases.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-7">
             <StatCard label="Non-India hosts" value={nonIndiaHostsCount} />
             <StatCard label="India hosts" value={indiaHostsCount} />
+            <StatCard
+              label="Non-India hosts (meeting on map)"
+              value={nonIndiaHostsWithMeetingAssignedCount}
+            />
+            <StatCard
+              label="India hosts (meeting on map)"
+              value={indiaHostsWithMeetingAssignedCount}
+            />
             <StatCard label="Non-India participants" value={nonIndiaParticipantsCount} />
             <StatCard label="India participants (incl. students)" value={indiaParticipantsCount} />
             <StatCard label="Chinmaya Vidyalaya" value={indiaStudentsTableCount} />
@@ -681,10 +794,10 @@ let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
       ) : null}
 
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
-        <h2 className="text-lg font-semibold">Confirm registration email preview</h2>
+        <h2 className="text-lg font-semibold">Confirm registration preview</h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          Enter an email to see the exact subject and body that would be sent by the public “confirm
-          registration” flow. Nothing is sent via SES.
+          Preview the exact email subject/body (email lookup) or WhatsApp template parameters (phone
+          lookup) used by the public confirm-registration flow. Nothing is sent.
         </p>
         <div className="mt-4">
           <ConfirmRegistrationEmailPreview />

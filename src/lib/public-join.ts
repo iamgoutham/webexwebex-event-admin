@@ -9,6 +9,23 @@ export type JoinCandidate = {
   joinLink: string;
 };
 
+export type JoinLookupDebugRow = {
+  source: string;
+  rows: number;
+  samplePhones: string[];
+  sampleNames: string[];
+  error: string | null;
+};
+
+export type JoinLookupDebug = {
+  input: string;
+  digits: string;
+  last10: string;
+  bySource: JoinLookupDebugRow[];
+  totalRawRows: number;
+  totalCandidates: number;
+};
+
 type JoinMapRow = {
   name: string | null;
   link: string | null;
@@ -34,86 +51,48 @@ function addRows(
   for (const row of rows) bucket.push(row);
 }
 
-export async function lookupJoinCandidatesByPhone(
+type JoinMapDebugSqlRow = JoinMapRow & {
+  matched_phone: string | null;
+};
+
+async function runJoinSourceQuery(
   postgres: PostgresPrismaClient,
-  phoneRaw: string,
-): Promise<JoinCandidate[]> {
-  const digits = normalizeDigits(phoneRaw);
-  if (digits.length < 10) return [];
-  const last10 = digits.slice(-10);
-
-  const all: JoinMapRow[] = [];
-
+  source: string,
+  sql: Prisma.Sql,
+): Promise<{ rows: JoinMapDebugSqlRow[]; debug: JoinLookupDebugRow }> {
   try {
-    const rows = await postgres.$queryRaw<JoinMapRow[]>(Prisma.sql`
-      SELECT
-        NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
-        NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
-        m.rec_create_tstmp AS rec_create_tstmp
-      FROM mission.host_prtcpnt_map_nonindia_nu m
-      WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-    `);
-    addRows(all, rows);
-  } catch {
-    // Optional table variations by environment.
+    const rows = await postgres.$queryRaw<JoinMapDebugSqlRow[]>(sql);
+    return {
+      rows,
+      debug: {
+        source,
+        rows: rows.length,
+        samplePhones: rows
+          .map((r) => r.matched_phone?.trim())
+          .filter((v): v is string => Boolean(v))
+          .slice(0, 5),
+        sampleNames: rows
+          .map((r) => r.name?.trim())
+          .filter((v): v is string => Boolean(v))
+          .slice(0, 5),
+        error: null,
+      },
+    };
+  } catch (err) {
+    return {
+      rows: [],
+      debug: {
+        source,
+        rows: 0,
+        samplePhones: [],
+        sampleNames: [],
+        error: err instanceof Error ? err.message : "query failed",
+      },
+    };
   }
+}
 
-  try {
-    const rows = await postgres.$queryRaw<JoinMapRow[]>(Prisma.sql`
-      SELECT
-        NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS name,
-        NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
-        m.rec_create_tstmp AS rec_create_tstmp
-      FROM mission.host_prtcpnt_map_crossregion m
-      WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
-    `);
-    addRows(all, rows);
-  } catch {
-    // Optional table variations by environment.
-  }
-
-  try {
-    const rows = await postgres.$queryRaw<JoinMapRow[]>(Prisma.sql`
-      SELECT
-        NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
-        NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
-        m.rec_create_tstmp AS rec_create_tstmp
-      FROM mission.host_prtcpnt_map_crossregion m
-      WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-    `);
-    addRows(all, rows);
-  } catch {
-    // Optional table variations by environment.
-  }
-
-  try {
-    const rows = await postgres.$queryRaw<JoinMapRow[]>(Prisma.sql`
-      SELECT
-        NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS name,
-        NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
-        m.rec_create_tstmp AS rec_create_tstmp
-      FROM vrindavan.host_prtcpnt_map_india m
-      WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
-    `);
-    addRows(all, rows);
-  } catch {
-    // Optional table variations by environment.
-  }
-
-  try {
-    const rows = await postgres.$queryRaw<JoinMapRow[]>(Prisma.sql`
-      SELECT
-        NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
-        NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
-        m.rec_create_tstmp AS rec_create_tstmp
-      FROM vrindavan.host_prtcpnt_map_india m
-      WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-    `);
-    addRows(all, rows);
-  } catch {
-    // Optional table variations by environment.
-  }
-
+function finalizeCandidates(all: JoinMapRow[]): JoinCandidate[] {
   const deduped = new Map<
     string,
     { name: string; joinLink: string; recCreateTstmpMs: number }
@@ -138,4 +117,141 @@ export async function lookupJoinCandidatesByPhone(
   return [...deduped.values()]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(({ name, joinLink }) => ({ name, joinLink }));
+}
+
+export async function lookupJoinCandidatesByPhoneWithDebug(
+  postgres: PostgresPrismaClient,
+  phoneRaw: string,
+): Promise<{ candidates: JoinCandidate[]; debug: JoinLookupDebug }> {
+  const digits = normalizeDigits(phoneRaw);
+  const last10 = digits.length >= 10 ? digits.slice(-10) : "";
+  const debugRows: JoinLookupDebugRow[] = [];
+  if (digits.length < 10) {
+    return {
+      candidates: [],
+      debug: {
+        input: phoneRaw,
+        digits,
+        last10,
+        bySource: [
+          {
+            source: "input-validation",
+            rows: 0,
+            samplePhones: [],
+            sampleNames: [],
+            error: "phone has fewer than 10 digits after normalization",
+          },
+        ],
+        totalRawRows: 0,
+        totalCandidates: 0,
+      },
+    };
+  }
+
+  const all: JoinMapRow[] = [];
+
+  const sources: Array<{ source: string; sql: Prisma.Sql }> = [
+    {
+      source: "mission.host_prtcpnt_map_nonindia_nu.prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.prtcpnt_phone_no::text AS matched_phone
+        FROM mission.host_prtcpnt_map_nonindia_nu m
+        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "mission.host_prtcpnt_map_nonindia_gp.prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.prtcpnt_phone_no::text AS matched_phone
+        FROM mission.host_prtcpnt_map_nonindia_gp m
+        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "mission.host_prtcpnt_map_crossregion.ind_prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.ind_prtcpnt_phone_no::text AS matched_phone
+        FROM mission.host_prtcpnt_map_crossregion m
+        WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "mission.host_prtcpnt_map_crossregion.prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.prtcpnt_phone_no::text AS matched_phone
+        FROM mission.host_prtcpnt_map_crossregion m
+        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "vrindavan.host_prtcpnt_map_india.ind_prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.ind_prtcpnt_phone_no::text AS matched_phone
+        FROM vrindavan.host_prtcpnt_map_india m
+        WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "vrindavan.host_prtcpnt_map_india.prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.prtcpnt_phone_no::text AS matched_phone
+        FROM vrindavan.host_prtcpnt_map_india m
+        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+  ];
+
+  for (const source of sources) {
+    const result = await runJoinSourceQuery(postgres, source.source, source.sql);
+    debugRows.push(result.debug);
+    addRows(all, result.rows);
+  }
+
+  const candidates = finalizeCandidates(all);
+  return {
+    candidates,
+    debug: {
+      input: phoneRaw,
+      digits,
+      last10,
+      bySource: debugRows,
+      totalRawRows: all.length,
+      totalCandidates: candidates.length,
+    },
+  };
+}
+
+export async function lookupJoinCandidatesByPhone(
+  postgres: PostgresPrismaClient,
+  phoneRaw: string,
+): Promise<JoinCandidate[]> {
+  const { candidates } = await lookupJoinCandidatesByPhoneWithDebug(
+    postgres,
+    phoneRaw,
+  );
+  return candidates;
 }

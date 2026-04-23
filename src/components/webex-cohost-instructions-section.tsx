@@ -5,23 +5,9 @@ const shell = {
     "rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8",
 } as const;
 
-export default function WebexCohostInstructionsSection({
-  variant = "instructions",
-}: {
-  variant?: keyof typeof shell;
-}) {
+function CohostStepsContent() {
   return (
-    <section className={shell[variant]}>
-      <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
-        Event day
-      </span>
-      <h2 className="mt-4 text-xl font-semibold text-[#3b1a1f]">
-        Webex co-host instructions
-      </h2>
-      <p className="mt-2 text-sm leading-relaxed text-[#6b4e3d]">
-        Web conference management: host &amp; co-host guide. Follow these steps
-        in Webex so the host and co-host can run the session smoothly.
-      </p>
+    <>
       <a
         href="/CohostInstructions.pdf"
         target="_blank"
@@ -167,6 +153,59 @@ export default function WebexCohostInstructionsSection({
           </ul>
         </div>
       </div>
+    </>
+  );
+}
+
+function CollapsibleHeaderTeaser() {
+  return (
+    <>
+      <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
+        Event day
+      </span>
+      <h2 className="mt-4 text-xl font-semibold text-[#3b1a1f]">
+        Webex co-host instructions
+      </h2>
+      <p className="mt-2 text-sm leading-relaxed text-[#6b4e3d]">
+        Web conference management: host &amp; co-host guide. Follow these steps
+        in Webex so the host and co-host can run the session smoothly.
+      </p>
+    </>
+  );
+}
+
+export default function WebexCohostInstructionsSection({
+  variant = "instructions",
+}: {
+  variant?: keyof typeof shell;
+}) {
+  if (variant === "dashboard") {
+    return (
+      <details
+        className={`${shell.dashboard} open:[&_.cohost-expand]:hidden open:[&_.cohost-collapse]:inline open:[&_.cohost-toggle]:border-[#7a3b2a]/40 open:[&_.cohost-toggle]:bg-[#f7e2b6]`}
+      >
+        <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <CollapsibleHeaderTeaser />
+            </div>
+            <span className="cohost-toggle shrink-0 rounded-full border border-[#c58d5d]/50 bg-[#fff9ef] px-3 py-1.5 text-xs font-semibold text-[#7a3b2a] transition">
+              <span className="cohost-expand">Show details</span>
+              <span className="cohost-collapse hidden">Hide</span>
+            </span>
+          </div>
+        </summary>
+        <div className="mt-6 border-t border-[#e5c18e]/60 pt-2">
+          <CohostStepsContent />
+        </div>
+      </details>
+    );
+  }
+
+  return (
+    <section className={shell[variant]}>
+      <CollapsibleHeaderTeaser />
+      <CohostStepsContent />
     </section>
   );
 }

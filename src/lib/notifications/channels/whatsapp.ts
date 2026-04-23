@@ -36,6 +36,12 @@ const GRAPH_API_VERSION = "v18.0";
 const whatsAppDebug =
   process.env.WHATSAPP_DEBUG === "true" || process.env.WHATSAPP_DEBUG === "1";
 
+const WATI_BASE_URL = (
+  process.env.WATI_BASE_URL?.trim() || "https://live-mt-server.wati.io"
+).replace(/\/+$/, "");
+const WATI_INSTANCE_ID = process.env.WATI_INSTANCE_ID?.trim();
+const WATI_ACCESS_TOKEN = process.env.WATI_ACCESS_TOKEN?.trim();
+
 /** Cached sender id when using WABA lookup (phone number id from Graph API). */
 let resolvedSenderPhoneNumberId: string | null | undefined;
 
@@ -300,6 +306,77 @@ async function sendWhatsAppTemplate(
   }
 }
 
+type WatiTemplateParameter = {
+  name: string;
+  value: string;
+};
+
+async function sendWatiTemplateMessage(
+  to: string,
+  templateName: string,
+  parameters: WatiTemplateParameter[],
+  broadcastName = "default_broadcast",
+): Promise<ChannelSendResult> {
+  if (!WATI_INSTANCE_ID || !WATI_ACCESS_TOKEN) {
+    return {
+      success: false,
+      error: "WATI not configured (missing WATI_INSTANCE_ID or WATI_ACCESS_TOKEN)",
+    };
+  }
+
+  const cleanPhone = to.replace(/[^0-9]/g, "");
+  const url =
+    `${WATI_BASE_URL}/${encodeURIComponent(WATI_INSTANCE_ID)}` +
+    `/api/v2/sendTemplateMessage?whatsappNumber=${encodeURIComponent(cleanPhone)}`;
+  const payload = {
+    template_name: templateName,
+    broadcast_name: broadcastName,
+    parameters,
+  };
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${WATI_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error("[wati] template send failed", {
+        url,
+        templateName,
+        httpStatus: response.status,
+        responseBody: errorBody,
+      });
+      return {
+        success: false,
+        error: `WATI template ${response.status}: ${errorBody}`,
+      };
+    }
+
+    const data = (await response.json().catch(() => ({}))) as {
+      id?: string;
+      messageId?: string;
+      result?: boolean;
+      info?: string;
+    };
+    return {
+      success: true,
+      externalId: data.id ?? data.messageId,
+      error: data.result === false ? data.info ?? "WATI returned failure" : undefined,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Channel handler registration
 // ---------------------------------------------------------------------------
@@ -316,4 +393,4 @@ if (isWhatsAppConfigured) {
   console.log("[whatsapp] WhatsApp not configured — channel disabled");
 }
 
-export { sendWhatsApp, sendWhatsAppTemplate };
+export { sendWhatsApp, sendWhatsAppTemplate, sendWatiTemplateMessage };

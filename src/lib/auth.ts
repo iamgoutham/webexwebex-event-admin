@@ -80,10 +80,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, account }) {
       if (user) {
+        const loginSiteUrl =
+          (account?.provider
+            ? getTenantConfigByProvider(account.provider)?.siteUrl
+            : null) ??
+          (account?.access_token
+            ? await fetchWebexSiteUrl(account.access_token)
+            : null);
         const shortId = await ensureUserShortId(
           user.id,
           user.email,
           user.shortId,
+          loginSiteUrl,
         );
         token.role = user.role;
         token.tenantId = user.tenantId;
@@ -112,10 +120,13 @@ export const authOptions: NextAuthOptions = {
           },
         });
         if (dbUser) {
+          const tokenSiteUrl =
+            typeof token.siteUrl === "string" ? token.siteUrl : null;
           const shortId = await ensureUserShortId(
             dbUser.id,
             dbUser.email,
             dbUser.shortId,
+            tokenSiteUrl,
           );
           token.sub = dbUser.id;
           token.role = dbUser.role;
@@ -164,7 +175,7 @@ export const authOptions: NextAuthOptions = {
         });
       }
 
-      await ensureUserShortId(user.id, user.email, user.shortId);
+      await ensureUserShortId(user.id, user.email, user.shortId, null);
     },
     async linkAccount({ user, account }) {
       const tenantConfig = getTenantConfigByProvider(account.provider);
@@ -185,7 +196,12 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      await ensureUserShortId(user.id, user.email, user.shortId);
+      await ensureUserShortId(
+        user.id,
+        user.email,
+        user.shortId,
+        tenantConfig?.siteUrl ?? null,
+      );
     },
   },
 };

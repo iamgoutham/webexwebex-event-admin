@@ -17,11 +17,11 @@ export default function EventDayHostChecklistSection({
       <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
         Event day
       </span>
-      <h2 className="mt-4 text-xl font-semibold text-[#3b1a1f]">
-        Event day Host checklist
+      <h2 className="mt-4 text-xl font-bold leading-snug text-[#3b1a1f] sm:text-2xl">
+        Event day Host Checklist (For Pacer Video as Virtual Background)
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-[#6b4e3d]">
-        Chinmaya Gita Samarpanam — Webex host checklist for the day of the
+        Chinmaya Gita Samarpanam — event day host checklist for the day of the
         event (reference date: May 9, 2026). Trial sessions on April 25 and May
         2 use the same format as the final session.
       </p>
@@ -42,10 +42,7 @@ export default function EventDayHostChecklistSection({
       </div>
 
       <div className="mt-8 border-t border-[#e5c18e]/80 pt-8">
-        <h3 className="text-base font-semibold text-[#3b1a1f]">
-          Webex host checklist
-        </h3>
-        <ul className="mt-4 list-none space-y-3 text-sm text-[#6b4e3d]">
+        <ul className="list-none space-y-3 text-sm text-[#6b4e3d]">
           <li className="flex gap-3">
             <span
               className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]"

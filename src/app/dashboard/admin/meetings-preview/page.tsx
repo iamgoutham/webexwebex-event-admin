@@ -245,6 +245,7 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
         mysqlHostRow: Boolean(previewUser),
         sheet1: sheetLookupDebug?.sheet1,
         sheet2: sheetLookupDebug?.sheet2,
+        sheet3: sheetLookupDebug?.sheet3,
         note:
           "Parity with /dashboard/meetings: sheet JSON meetings, Postgres host–participant map merged per meeting (map first), Webex link fallback from map webex_mtng_link, synthetic card when sheet has no meetings but map has participants, pending exception requests for the preview email.",
       };

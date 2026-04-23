@@ -88,8 +88,8 @@ function addMapRefPair(
  * and SQL bare-id comparison.
  */
 const PG_SHORT_ID_BARE_MATCH = Prisma.sql`
-  lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
-  = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+  lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+  = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
 `;
 
 type CrossregionMapRow = {
@@ -120,12 +120,21 @@ async function fetchCrossregionMapByShortWhere(
       WHERE (${shortWhere})
         AND m.ind_prtcpnt_email_id IS NOT NULL
         AND btrim(m.ind_prtcpnt_email_id::text) <> ''
-        AND EXISTS (
-          SELECT 1
-          FROM mission.webex_hosts_non_india h
-          WHERE ${PG_SHORT_ID_BARE_MATCH}
-            AND lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
-            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india h
+            WHERE ${PG_SHORT_ID_BARE_MATCH}
+              AND lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_gp h
+            WHERE ${PG_SHORT_ID_BARE_MATCH}
+              AND lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
         )
       GROUP BY
         lower(btrim(m.ind_prtcpnt_email_id::text)),
@@ -143,12 +152,21 @@ async function fetchCrossregionMapByShortWhere(
       WHERE (${shortWhere})
         AND m.prtcpnt_email_id IS NOT NULL
         AND btrim(m.prtcpnt_email_id::text) <> ''
-        AND EXISTS (
-          SELECT 1
-          FROM mission.webex_hosts_non_india h
-          WHERE ${PG_SHORT_ID_BARE_MATCH}
-            AND lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
-            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india h
+            WHERE ${PG_SHORT_ID_BARE_MATCH}
+              AND lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_gp h
+            WHERE ${PG_SHORT_ID_BARE_MATCH}
+              AND lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
         )
       GROUP BY
         lower(btrim(m.prtcpnt_email_id::text)),
@@ -173,11 +191,19 @@ async function fetchCrossregionMapByHostEmailId(
       WHERE lower(btrim(m.host_email_id::text)) = ${hostEmailLower}
         AND m.ind_prtcpnt_email_id IS NOT NULL
         AND btrim(m.ind_prtcpnt_email_id::text) <> ''
-        AND EXISTS (
-          SELECT 1
-          FROM mission.webex_hosts_non_india h
-          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
-            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india h
+            WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_gp h
+            WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
         )
       GROUP BY
         lower(btrim(m.ind_prtcpnt_email_id::text)),
@@ -195,11 +221,19 @@ async function fetchCrossregionMapByHostEmailId(
       WHERE lower(btrim(m.host_email_id::text)) = ${hostEmailLower}
         AND m.prtcpnt_email_id IS NOT NULL
         AND btrim(m.prtcpnt_email_id::text) <> ''
-        AND EXISTS (
-          SELECT 1
-          FROM mission.webex_hosts_non_india h
-          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
-            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india h
+            WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_gp h
+            WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
         )
       GROUP BY
         lower(btrim(m.prtcpnt_email_id::text)),
@@ -213,14 +247,32 @@ async function fetchActiveNonIndiaHostShortIds(
   postgres: PostgresPrismaClient,
   hostEmailLower: string,
 ): Promise<string[]> {
-  const rows = await postgres.$queryRaw<{ sid: string }[]>`
-    SELECT DISTINCT btrim(h.host_unq_shortid::text) AS sid
-    FROM mission.webex_hosts_non_india h
-    WHERE lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
-      AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
-      AND btrim(COALESCE(h.host_unq_shortid::text, '')) <> ''
-  `;
-  return rows.map((r) => r.sid);
+  const [rowsNu, rowsGp] = await Promise.all([
+    postgres.$queryRaw<{ sid: string }[]>`
+      SELECT DISTINCT btrim(h.host_unq_shortid::text) AS sid
+      FROM mission.webex_hosts_non_india h
+      WHERE lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
+        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        AND btrim(COALESCE(h.host_unq_shortid::text, '')) <> ''
+    `,
+    postgres.$queryRaw<{ sid: string }[]>`
+      SELECT DISTINCT btrim(h.host_unq_shortid::text) AS sid
+      FROM mission.webex_hosts_non_india_gp h
+      WHERE lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
+        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        AND btrim(COALESCE(h.host_unq_shortid::text, '')) <> ''
+    `,
+  ]);
+  const out = new Set<string>();
+  for (const r of rowsNu) {
+    const s = r.sid?.trim();
+    if (s) out.add(s);
+  }
+  for (const r of rowsGp) {
+    const s = r.sid?.trim();
+    if (s) out.add(s);
+  }
+  return [...out];
 }
 
 async function fetchActiveIndiaHostShortIds(
@@ -301,6 +353,45 @@ export async function collectParticipantRefsForHost(
         addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
     } catch (err) {
       console.warn("[host-meeting-participants] mission map by full host id failed:", err);
+    }
+
+    try {
+      const rows = await postgres.$queryRaw<
+        {
+          email: string | null;
+          map_name: string | null;
+          map_phone: string | null;
+          rec_create_tstmp: Date | null;
+        }[]
+      >(Prisma.sql`
+        SELECT
+          lower(btrim(m.prtcpnt_email_id::text)) AS email,
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
+          NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+          MIN(m.rec_create_tstmp) AS rec_create_tstmp
+        FROM mission.host_prtcpnt_map_nonindia_gp m
+        WHERE (${nonIndiaShortWhere})
+          AND m.prtcpnt_email_id IS NOT NULL
+          AND btrim(m.prtcpnt_email_id::text) <> ''
+          AND EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_gp h
+            WHERE ${PG_SHORT_ID_BARE_MATCH}
+              AND lower(btrim(h.host_email_id::text)) = ${he}
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+        GROUP BY
+          lower(btrim(m.prtcpnt_email_id::text)),
+          NULLIF(btrim(m.prtcpnt_name::text), ''),
+          NULLIF(btrim(m.prtcpnt_phone_no::text), '')
+      `);
+      for (const r of rows)
+        addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
+    } catch (err) {
+      console.warn(
+        "[host-meeting-participants] mission host_prtcpnt_map_nonindia_gp by short id failed:",
+        err,
+      );
     }
 
     try {
@@ -440,6 +531,44 @@ export async function collectParticipantRefsForHost(
   }
 
   try {
+    const rows = await postgres.$queryRaw<
+      {
+        email: string | null;
+        map_name: string | null;
+        map_phone: string | null;
+        rec_create_tstmp: Date | null;
+      }[]
+    >`
+      SELECT
+        lower(btrim(m.prtcpnt_email_id::text)) AS email,
+        NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+        MIN(m.rec_create_tstmp) AS rec_create_tstmp
+      FROM mission.host_prtcpnt_map_nonindia_gp m
+      WHERE lower(btrim(m.host_email_id::text)) = ${he}
+        AND m.prtcpnt_email_id IS NOT NULL
+        AND btrim(m.prtcpnt_email_id::text) <> ''
+        AND EXISTS (
+          SELECT 1
+          FROM mission.webex_hosts_non_india_gp h
+          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        )
+      GROUP BY
+        lower(btrim(m.prtcpnt_email_id::text)),
+        NULLIF(btrim(m.prtcpnt_name::text), ''),
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '')
+    `;
+    for (const r of rows)
+      addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
+  } catch (err) {
+    console.warn(
+      "[host-meeting-participants] mission host_prtcpnt_map_nonindia_gp host_email_id failed:",
+      err,
+    );
+  }
+
+  try {
     const crRows = await fetchCrossregionMapByHostEmailId(postgres, he);
     for (const r of crRows)
       addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
@@ -571,6 +700,38 @@ async function loadNonIndiaByEmail(
     if (!e) continue;
     if (!m.has(e)) m.set(e, []);
     m.get(e)!.push(r);
+  }
+  try {
+    const gpRows = await postgres.$queryRaw<
+      {
+        prtcpnt_email_id: string | null;
+        prtcpnt_name: string | null;
+        prtcpnt_phone_no: string | null;
+      }[]
+    >`
+      SELECT
+        lower(btrim(prtcpnt_email_id::text)) AS prtcpnt_email_id,
+        prtcpnt_name::text AS prtcpnt_name,
+        prtcpnt_phone_no::text AS prtcpnt_phone_no
+      FROM mission.webex_participants_non_india_gp
+      WHERE lower(btrim(prtcpnt_email_id::text)) IN (${Prisma.join(emails)})
+        AND (
+          btrim(COALESCE(prtcpnt_host_alloted_ind::text, '')) = 'N'
+          OR btrim(COALESCE(prtcpnt_is_host_ind::text, '')) = 'Y'
+        )
+    `;
+    for (const r of gpRows) {
+      const e = r.prtcpnt_email_id?.trim().toLowerCase();
+      if (!e) continue;
+      if (!m.has(e)) m.set(e, []);
+      m.get(e)!.push({
+        prtcpntEmailId: e,
+        prtcpntName: r.prtcpnt_name,
+        prtcpntPhoneNo: r.prtcpnt_phone_no,
+      });
+    }
+  } catch {
+    // Optional table by environment.
   }
   return m;
 }
@@ -791,15 +952,45 @@ export async function fetchParticipantNamesForHostMeetingPair(
 
     try {
       const rows = await postgres.$queryRaw<{ name: string | null }[]>`
+        SELECT DISTINCT NULLIF(btrim(m.prtcpnt_name::text), '') AS name
+        FROM mission.host_prtcpnt_map_nonindia_gp m
+        WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${p}
+          AND lower(btrim(m.host_email_id::text)) = ${h}
+          AND EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_gp hh
+            WHERE lower(btrim(hh.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(hh.webex_active_ind::text, '')) = 'Y'
+          )
+          AND ${meetSql}
+      `;
+      add(rows);
+    } catch (err) {
+      console.warn(
+        "[host-meeting-participants] names nonindia_gp for meeting pair:",
+        err,
+      );
+    }
+
+    try {
+      const rows = await postgres.$queryRaw<{ name: string | null }[]>`
         SELECT DISTINCT NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS name
         FROM mission.host_prtcpnt_map_crossregion m
         WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${p}
           AND lower(btrim(m.host_email_id::text)) = ${h}
-          AND EXISTS (
-            SELECT 1
-            FROM mission.webex_hosts_non_india hh
-            WHERE lower(btrim(hh.host_email_id::text)) = lower(btrim(m.host_email_id::text))
-              AND btrim(COALESCE(hh.webex_active_ind::text, '')) = 'Y'
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM mission.webex_hosts_non_india hh
+              WHERE lower(btrim(hh.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+                AND btrim(COALESCE(hh.webex_active_ind::text, '')) = 'Y'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM mission.webex_hosts_non_india_gp hh
+              WHERE lower(btrim(hh.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+                AND btrim(COALESCE(hh.webex_active_ind::text, '')) = 'Y'
+            )
           )
           AND ${meetSql}
       `;
@@ -811,11 +1002,19 @@ export async function fetchParticipantNamesForHostMeetingPair(
           FROM mission.host_prtcpnt_map_crossregion m
           WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${p}
             AND lower(btrim(m.host_email_id::text)) = ${h}
-            AND EXISTS (
-              SELECT 1
-              FROM mission.webex_hosts_non_india hh
-              WHERE lower(btrim(hh.host_email_id::text)) = lower(btrim(m.host_email_id::text))
-                AND btrim(COALESCE(hh.webex_active_ind::text, '')) = 'Y'
+            AND (
+              EXISTS (
+                SELECT 1
+                FROM mission.webex_hosts_non_india hh
+                WHERE lower(btrim(hh.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+                  AND btrim(COALESCE(hh.webex_active_ind::text, '')) = 'Y'
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM mission.webex_hosts_non_india_gp hh
+                WHERE lower(btrim(hh.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+                  AND btrim(COALESCE(hh.webex_active_ind::text, '')) = 'Y'
+              )
             )
             AND ${meetSql}
         `;

@@ -1,12 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-export default function ConfirmRegistrationClient({
-  siteKey,
-}: {
-  siteKey: string;
-}) {
+export default function ConfirmRegistrationClient() {
   const [lookupType, setLookupType] = useState<"email" | "phone">("email");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<
@@ -16,78 +12,24 @@ export default function ConfirmRegistrationClient({
     | { type: "error"; message: string }
   >({ type: "idle" });
 
-  const [token, setToken] = useState("");
-  const [captchaKey, setCaptchaKey] = useState(0);
-  const [captchaError, setCaptchaError] = useState<string | null>(null);
-
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-  const resolveCaptchaToken = async (): Promise<string> => {
-    // Slow networks can delay Turnstile callback propagation even after "success" UI.
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      let candidate = token.trim();
-      if (!candidate) {
-        const turnstile = (window as any).turnstile;
-        if (turnstile?.getResponse) {
-          const response = turnstile.getResponse();
-          if (typeof response === "string" && response.trim()) {
-            candidate = response.trim();
-          }
-        }
-      }
-      if (!candidate) {
-        const hidden = document.querySelector(
-          "input[name='cf-turnstile-response']",
-        ) as HTMLInputElement | null;
-        if (hidden?.value?.trim()) {
-          candidate = hidden.value.trim();
-        }
-      }
-      if (candidate) {
-        setToken(candidate);
-        return candidate;
-      }
-      await sleep(250);
-    }
-    return "";
-  };
-
   const canSubmit = useMemo(() => {
-    return (
-      query.trim().length > 3 &&
-      status.type !== "loading" &&
-      token.trim().length > 0
-    );
-  }, [query, status.type, token]);
+    return query.trim().length > 3 && status.type !== "loading";
+  }, [query, status.type]);
 
   const resetForm = () => {
     setQuery("");
-    setToken("");
     setStatus({ type: "idle" });
-    setCaptchaKey((k) => k + 1);
-    setCaptchaError(null);
   };
 
   const submit = async () => {
     setStatus({ type: "loading" });
     try {
-      const captchaToken = await resolveCaptchaToken();
-      if (!captchaToken) {
-        setStatus({
-          type: "error",
-          message:
-            "Verification is still initializing. Please wait a moment and try again.",
-        });
-        return;
-      }
-
       const res = await fetch("/api/public/confirm-registration", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           lookupType,
           query: query.trim(),
-          captchaToken,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -102,8 +44,6 @@ export default function ConfirmRegistrationClient({
           "If your registration is found, details will be sent shortly.",
       });
       setQuery("");
-      setToken("");
-      setCaptchaKey((k) => k + 1);
     } catch (err) {
       setStatus({
         type: "error",
@@ -126,9 +66,7 @@ export default function ConfirmRegistrationClient({
               Email search sends a confirmation email with your meeting and host
               details.
             </li>
-            <li>
-              Phone search sends a WhatsApp info message to that number.
-            </li>
+            <li>Phone search sends a WhatsApp info message to that number.</li>
           </ul>
           <p>Your meeting link if available will also be included.</p>
         </div>
@@ -192,62 +130,15 @@ export default function ConfirmRegistrationClient({
           className="mt-2 w-full rounded-xl border border-[#e5c18e] bg-white px-4 py-3 text-sm text-[#3b1a1f] placeholder:text-[#b08b6b] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
         />
 
-        <div className="mt-4">
-          {siteKey ? (
-            <>
-              <script
-                src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-                async
-                defer
-              />
-              <div
-                key={captchaKey}
-                className="cf-turnstile"
-                data-sitekey={siteKey}
-                data-callback="turnstileCallback"
-                data-error-callback="turnstileErrorCallback"
-                data-expired-callback="turnstileExpiredCallback"
-              />
-              <script
-                dangerouslySetInnerHTML={{
-                  __html: `
-                    window.turnstileCallback = function (t) {
-                      window.dispatchEvent(new CustomEvent('turnstile-token', { detail: t }));
-                    };
-                    window.turnstileErrorCallback = function (code) {
-                      window.dispatchEvent(new CustomEvent('turnstile-error', { detail: code }));
-                    };
-                    window.turnstileExpiredCallback = function () {
-                      window.dispatchEvent(new CustomEvent('turnstile-token', { detail: '' }));
-                    };
-                  `,
-                }}
-              />
-            </>
-          ) : (
-            <p className="text-xs text-red-700">
-              Captcha is not configured. Please try again later.
-            </p>
-          )}
-        </div>
-
-        <TurnstileTokenListener
-          onToken={(nextToken) => {
-            setToken(nextToken);
-            if (nextToken) setCaptchaError(null);
-          }}
-        />
-        <TurnstileErrorListener onError={setCaptchaError} />
-
         {status.type !== "success" && (
           <button
             type="button"
             onClick={submit}
-            disabled={!siteKey || !canSubmit || !!captchaError}
+            disabled={!canSubmit}
             className="mt-4 rounded-full bg-[#d8792d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:bg-[#d8792d]/40"
           >
             {status.type === "loading"
-              ? "Sending…"
+              ? "Sending..."
               : lookupType === "email"
                 ? "Email me confirmation"
                 : "Send WhatsApp info"}
@@ -258,14 +149,6 @@ export default function ConfirmRegistrationClient({
           <p className="mt-3 text-sm text-red-700">{status.message}</p>
         ) : null}
 
-        {captchaError && (
-          <p className="mt-2 text-xs text-red-700">
-            The verification test could not be completed (error {captchaError}).
-            Please reload the page and try again. If this keeps happening, try a
-            different browser or network.
-          </p>
-        )}
-
         <p className="mt-4 text-xs text-[#8a5b44]">
           We only send event-related confirmation details. If your email/phone
           is not registered, you won&apos;t receive anything.
@@ -273,33 +156,4 @@ export default function ConfirmRegistrationClient({
       </div>
     </div>
   );
-}
-
-function TurnstileTokenListener({ onToken }: { onToken: (t: string) => void }) {
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail;
-      if (typeof detail === "string") onToken(detail.trim());
-    };
-    window.addEventListener("turnstile-token", handler as EventListener);
-    return () =>
-      window.removeEventListener("turnstile-token", handler as EventListener);
-  }, [onToken]);
-
-  return null;
-}
-
-function TurnstileErrorListener({ onError }: { onError: (code: string | null) => void }) {
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail;
-      if (typeof detail === "string") onError(detail);
-      else onError("unknown");
-    };
-    window.addEventListener("turnstile-error", handler as EventListener);
-    return () =>
-      window.removeEventListener("turnstile-error", handler as EventListener);
-  }, [onError]);
-
-  return null;
 }

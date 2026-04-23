@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth } from "@/lib/api-guards";
 import { SUPERADMIN_ONLY } from "@/lib/rbac";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
+import { syncMissionHostGridMap } from "@/lib/host-grid-map-sync";
 
 const GRID_SHEET_ID: string = (() => {
   const id = process.env.GOOGLE_GRID_SHEET_ID;
@@ -169,6 +171,10 @@ export async function POST() {
   let skippedInvalid = 0;
   let skippedNotFound = 0;
   let skippedUnauthorized = 0;
+  let postgresSynced = 0;
+  let postgresSyncFailed = 0;
+
+  const postgres = getPostgresPrisma();
 
   for (const row of rows.slice(1)) {
     const email = row[emailIndex]?.trim().toLowerCase();
@@ -206,6 +212,16 @@ export async function POST() {
       skippedNotFound += 1;
     } else {
       updated += result.count;
+      if (postgres) {
+        const ok = await syncMissionHostGridMap(
+          postgres,
+          email,
+          gridRows,
+          gridCols,
+        );
+        if (ok) postgresSynced += 1;
+        else postgresSyncFailed += 1;
+      }
     }
   }
 
@@ -217,6 +233,9 @@ export async function POST() {
       skippedInvalid,
       skippedNotFound,
       skippedUnauthorized,
+      postgresSynced,
+      postgresSyncFailed,
+      postgresConfigured: Boolean(postgres),
     },
   });
 }

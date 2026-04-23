@@ -279,8 +279,34 @@ export const getMeetingInfoForEmail = async (email: string) => {
     valueColumn: "Meeting Info",
     email: normalizedEmail,
   });
+  if (fromSheetTwo) {
+    return fromSheetTwo;
+  }
 
-  return fromSheetTwo;
+  const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
+  if (!sheetThreeId) {
+    return null;
+  }
+
+  const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
+  const fromSheetThreeEmail = await lookupSheetValue({
+    sheetId: sheetThreeId,
+    gid: sheetThreeGid,
+    emailColumn: "Email",
+    valueColumn: "Meeting Info",
+    email: normalizedEmail,
+  });
+  if (fromSheetThreeEmail) {
+    return fromSheetThreeEmail;
+  }
+
+  return lookupSheetValue({
+    sheetId: sheetThreeId,
+    gid: sheetThreeGid,
+    emailColumn: "Email Address",
+    valueColumn: "Meeting Info",
+    email: normalizedEmail,
+  });
 };
 
 const maskEmail = (e: string) =>
@@ -315,6 +341,19 @@ export type MeetingInfoLookupDebug = {
     sampleEmailsMasked: string[];
     mismatchHint?: string;
   };
+  /** Present when `GOOGLE_LICENSE_SHEET_3_ID` is set; otherwise `null`. */
+  sheet3: {
+    sheetId: string;
+    gid: string | undefined;
+    emailColumn: string;
+    valueColumn: string;
+    rowCount: number;
+    found: boolean;
+    emailColumnIndex: number;
+    valueColumnIndex: number;
+    sampleEmailsMasked: string[];
+    mismatchHint?: string;
+  } | null;
 };
 
 export const getMeetingInfoLookupDebug = async (
@@ -405,16 +444,32 @@ export const getMeetingInfoLookupDebug = async (
     };
   };
 
-  const [sheet1, sheet2] = await Promise.all([
+  const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
+  const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
+
+  const [sheet1, sheet2, sheet3DebugPair] = await Promise.all([
     toSheetDebug(LICENSE_SHEET_1_ID, sheetOneGid, "Email"),
     toSheetDebug(LICENSE_SHEET_2_ID, sheetTwoGid, "Email Address"),
+    sheetThreeId
+      ? Promise.all([
+          toSheetDebug(sheetThreeId, sheetThreeGid, "Email"),
+          toSheetDebug(sheetThreeId, sheetThreeGid, "Email Address"),
+        ])
+      : Promise.resolve(null as [MeetingInfoLookupDebug["sheet1"], MeetingInfoLookupDebug["sheet1"]] | null),
   ]);
+
+  let sheet3: MeetingInfoLookupDebug["sheet3"] = null;
+  if (sheetThreeId && sheet3DebugPair) {
+    const [dEmail, dAddr] = sheet3DebugPair;
+    sheet3 = dEmail.found ? dEmail : dAddr.found ? dAddr : dEmail;
+  }
 
   return {
     emailUsed: email.trim(),
     emailNormalized: normalizeValue(normalizedEmail),
     sheet1,
     sheet2,
+    sheet3,
   };
 };
 
@@ -445,8 +500,34 @@ export const getHostIdForEmail = async (email: string) => {
     valueColumn: "SHORTID",
     email: normalizedEmail,
   });
+  if (fromSheetTwo) {
+    return fromSheetTwo;
+  }
 
-  return fromSheetTwo;
+  const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
+  if (!sheetThreeId) {
+    return null;
+  }
+
+  const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
+  const fromSheetThreeEmail = await lookupSheetValue({
+    sheetId: sheetThreeId,
+    gid: sheetThreeGid,
+    emailColumn: "Email",
+    valueColumn: "SHORTID",
+    email: normalizedEmail,
+  });
+  if (fromSheetThreeEmail) {
+    return fromSheetThreeEmail;
+  }
+
+  return lookupSheetValue({
+    sheetId: sheetThreeId,
+    gid: sheetThreeGid,
+    emailColumn: "Email Address",
+    valueColumn: "SHORTID",
+    email: normalizedEmail,
+  });
 };
 
 export const getHostIdMapForEmails = async (emails: string[]) => {
@@ -460,10 +541,15 @@ export const getHostIdMapForEmails = async (emails: string[]) => {
 
   const sheetOneGid = process.env.GOOGLE_LICENSE_SHEET_1_GID;
   const sheetTwoGid = process.env.GOOGLE_LICENSE_SHEET_2_GID;
+  const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
+  const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
 
-  const [sheetOneCsv, sheetTwoCsv] = await Promise.all([
+  const [sheetOneCsv, sheetTwoCsv, sheetThreeCsv] = await Promise.all([
     fetchSheetCsv(LICENSE_SHEET_1_ID, sheetOneGid),
     fetchSheetCsv(LICENSE_SHEET_2_ID, sheetTwoGid),
+    sheetThreeId
+      ? fetchSheetCsv(sheetThreeId, sheetThreeGid)
+      : Promise.resolve(null),
   ]);
 
   const map = new Map<string, string>();
@@ -487,6 +573,23 @@ export const getHostIdMapForEmails = async (emails: string[]) => {
     for (const email of emailSet) {
       if (!map.has(email)) {
         const value = sheetTwoMap.get(email);
+        if (value) {
+          map.set(email, value);
+        }
+      }
+    }
+  }
+
+  if (sheetThreeCsv) {
+    const byEmail = buildHostIdMap(sheetThreeCsv, "Email", "SHORTID");
+    const byEmailAddress = buildHostIdMap(
+      sheetThreeCsv,
+      "Email Address",
+      "SHORTID",
+    );
+    for (const email of emailSet) {
+      if (!map.has(email)) {
+        const value = byEmail.get(email) ?? byEmailAddress.get(email);
         if (value) {
           map.set(email, value);
         }

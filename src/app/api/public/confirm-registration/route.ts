@@ -5,42 +5,50 @@ import {
   lookupConfirmationByPhone,
   sendConfirmationEmail,
 } from "@/lib/public-confirmation";
-import { sendWhatsAppTemplate } from "@/lib/notifications/channels/whatsapp";
+import { sendWatiTemplateMessage } from "@/lib/notifications/channels/whatsapp";
 
 const schema = z.object({
   lookupType: z.enum(["email", "phone"]),
   query: z.string().min(3),
-  captchaToken: z.string().min(1),
 });
 
 const normalizePhoneDigits = (value: string) => value.replace(/[^0-9]/g, "");
-const textParam = (value: string) => ({ type: "text", text: value });
 
-async function verifyTurnstile(token: string, ip: string | null) {
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) {
-    throw new Error("TURNSTILE_SECRET_KEY is not configured.");
+function formatUpcomingSaturdayLabel(phoneDigits: string): string {
+  const now = new Date();
+  const nextSaturday = new Date(now);
+  const daysUntilSaturday = ((6 - now.getDay() + 7) % 7) || 7;
+  nextSaturday.setDate(now.getDate() + daysUntilSaturday);
+
+  if (phoneDigits.startsWith("1")) {
+    const month = nextSaturday.toLocaleString("en-US", {
+      month: "long",
+      timeZone: "America/New_York",
+    });
+    const day = nextSaturday.toLocaleString("en-US", {
+      day: "numeric",
+      timeZone: "America/New_York",
+    });
+    const year = nextSaturday.toLocaleString("en-US", {
+      year: "numeric",
+      timeZone: "America/New_York",
+    });
+    return `${month} ${day} ${year} 10AM EST`;
   }
 
-  const form = new URLSearchParams();
-  form.set("secret", secret);
-  form.set("response", token);
-  if (ip) form.set("remoteip", ip);
-
-  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
+  const month = nextSaturday.toLocaleString("en-US", {
+    month: "long",
+    timeZone: "Asia/Kolkata",
   });
-
-  const data = (await res.json().catch(() => null)) as
-    | { success: boolean; "error-codes"?: string[] }
-    | null;
-
-  if (!data?.success) {
-    const codes = data?.["error-codes"]?.join(", ") ?? "unknown";
-    throw new Error(`Captcha verification failed (${codes}).`);
-  }
+  const day = nextSaturday.toLocaleString("en-US", {
+    day: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+  const year = nextSaturday.toLocaleString("en-US", {
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+  return `${month} ${day} ${year} 7.30PM IST`;
 }
 
 // POST /api/public/confirm-registration
@@ -49,20 +57,6 @@ export async function POST(request: NextRequest) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
-  }
-
-  const ip =
-    request.headers.get("cf-connecting-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    null;
-
-  try {
-    await verifyTurnstile(parsed.data.captchaToken, ip);
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Captcha failed" },
-      { status: 400 },
-    );
   }
 
   if (parsed.data.lookupType === "email") {
@@ -105,30 +99,41 @@ export async function POST(request: NextRequest) {
     phoneLookup.meetings.find((m) => m.link?.trim()) ?? phoneLookup.meetings[0];
   const participantName =
     phoneLookup.displayName?.split(";")[0]?.trim() || "Participant";
+  const greetingFirstName =
+    phoneLookup.displayName?.trim().split(/\s+/)[0]?.trim() || participantName;
   const registeredEmail = phoneLookup.email;
   const meetingNumber = primaryMeeting?.meetingNumber?.trim() || "TBD";
   const meetingLink = primaryMeeting?.link?.trim() || "Not available";
   const hostEmail = primaryMeeting?.hostEmail?.trim() || "Not available";
   const hostPhone = primaryMeeting?.hostPhone?.trim() || "Not available";
+  const meetingStartSheet = primaryMeeting?.startTime?.trim() || "";
+  const meetingStartSaturday = formatUpcomingSaturdayLabel(phoneDigits);
 
-  const whatsappSend = await sendWhatsAppTemplate(
-    phoneDigits,
-    "participant_meeting_info",
-    "en_US",
-    [
-      {
-        type: "body",
-        parameters: [
-          textParam(participantName),
-          textParam(registeredEmail),
-          textParam(meetingNumber),
-          textParam(meetingLink),
-          textParam(hostEmail),
-          textParam(hostPhone),
-        ],
-      },
-    ],
-  );
+  const whatsappSend = phoneLookup.isHost
+    ? await sendWatiTemplateMessage(phoneDigits, "host_meeting_info", [
+        { name: "1", value: greetingFirstName },
+        { name: "2", value: registeredEmail },
+        { name: "3", value: meetingNumber },
+        { name: "4", value: meetingLink },
+        { name: "5", value: hostEmail },
+        {
+          name: "6",
+          value: meetingStartSheet || meetingStartSaturday,
+        },
+        {
+          name: "7",
+          value: String((phoneLookup.hostMeetingParticipants ?? []).length),
+        },
+      ])
+    : await sendWatiTemplateMessage(phoneDigits, "participant_meeting_info", [
+        { name: "1", value: participantName },
+        { name: "2", value: registeredEmail },
+        { name: "3", value: meetingNumber },
+        { name: "4", value: meetingLink },
+        { name: "5", value: hostEmail },
+        { name: "6", value: hostPhone },
+        { name: "7", value: meetingStartSaturday },
+      ]);
   if (!whatsappSend.success) {
     return NextResponse.json(
       {

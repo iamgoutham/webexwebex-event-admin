@@ -230,10 +230,17 @@ async function lookupHostPhone(
   postgres: PostgresPrismaClient,
   hostEmailLower: string,
 ): Promise<string | null> {
-  const [r1, r2] = await Promise.all([
+  const [r1, r2, r3] = await Promise.all([
     postgres.$queryRaw<{ phone: string | null }[]>`
       SELECT host_phone_no::text AS phone
       FROM mission.webex_hosts_non_india
+      WHERE lower(btrim(host_email_id::text)) = ${hostEmailLower}
+        AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ phone: string | null }[]>`
+      SELECT host_phone_no::text AS phone
+      FROM mission.webex_hosts_non_india_gp
       WHERE lower(btrim(host_email_id::text)) = ${hostEmailLower}
         AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
       LIMIT 1
@@ -246,14 +253,15 @@ async function lookupHostPhone(
       LIMIT 1
     `,
   ]);
-  const p = r1[0]?.phone?.trim() || r2[0]?.phone?.trim();
+  const p =
+    r1[0]?.phone?.trim() || r2[0]?.phone?.trim() || r3[0]?.phone?.trim();
   return p || null;
 }
 
 /**
  * Host emails tied to a participant via downstream map tables
- * (`mission.host_prtcpnt_map_nonindia_nu`, `mission.host_prtcpnt_map_crossregion`,
- * `vrindavan.host_prtcpnt_map_india`).
+ * (`mission.host_prtcpnt_map_nonindia_nu`, `mission.host_prtcpnt_map_nonindia_gp`,
+ * `mission.host_prtcpnt_map_crossregion`, `vrindavan.host_prtcpnt_map_india`).
  * Column names follow existing mission/vrindavan conventions; alternate queries run if joins differ.
  */
 async function collectHostEmailsFromParticipantMaps(
@@ -276,8 +284,8 @@ async function collectHostEmailsFromParticipantMaps(
       SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
       FROM mission.host_prtcpnt_map_nonindia_nu m
       INNER JOIN mission.webex_hosts_non_india h
-        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
-         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
       WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
     `;
@@ -311,14 +319,62 @@ async function collectHostEmailsFromParticipantMaps(
     );
   }
 
+  try {
+    const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+      SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
+      FROM mission.host_prtcpnt_map_nonindia_gp m
+      INNER JOIN mission.webex_hosts_non_india_gp h
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+       AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+      WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+    `;
+    add(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] mission host_prtcpnt_map_nonindia_gp join failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+      SELECT DISTINCT lower(btrim(m.host_email_id::text)) AS host_email
+      FROM mission.host_prtcpnt_map_nonindia_gp m
+      WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+        AND m.host_email_id IS NOT NULL
+        AND btrim(m.host_email_id::text) <> ''
+        AND EXISTS (
+          SELECT 1
+          FROM mission.webex_hosts_non_india_gp h
+          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        )
+    `;
+    add(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] mission host_prtcpnt_map_nonindia_gp host_email_id failed:",
+      err,
+    );
+  }
+
   // mission.host_prtcpnt_map_crossregion → mission.webex_hosts_non_india (student / ind_* or prtcpnt_* columns)
   try {
     const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
       SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
       FROM mission.host_prtcpnt_map_crossregion m
       INNER JOIN mission.webex_hosts_non_india h
-        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
-         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+       AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+      WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${q}
+      UNION
+      SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
+      FROM mission.host_prtcpnt_map_crossregion m
+      INNER JOIN mission.webex_hosts_non_india_gp h
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
       WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${q}
     `;
@@ -329,8 +385,16 @@ async function collectHostEmailsFromParticipantMaps(
         SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
         FROM mission.host_prtcpnt_map_crossregion m
         INNER JOIN mission.webex_hosts_non_india h
-          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
-           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+        UNION
+        SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
+        FROM mission.host_prtcpnt_map_crossregion m
+        INNER JOIN mission.webex_hosts_non_india_gp h
+          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
          AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
       `;
@@ -350,11 +414,19 @@ async function collectHostEmailsFromParticipantMaps(
       WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${q}
         AND m.host_email_id IS NOT NULL
         AND btrim(m.host_email_id::text) <> ''
-        AND EXISTS (
-          SELECT 1
-          FROM mission.webex_hosts_non_india h
-          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
-            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india h
+            WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_gp h
+            WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
         )
     `;
     add(rows);
@@ -366,11 +438,19 @@ async function collectHostEmailsFromParticipantMaps(
         WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
           AND m.host_email_id IS NOT NULL
           AND btrim(m.host_email_id::text) <> ''
-          AND EXISTS (
-            SELECT 1
-            FROM mission.webex_hosts_non_india h
-            WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
-              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM mission.webex_hosts_non_india h
+              WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+                AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM mission.webex_hosts_non_india_gp h
+              WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+                AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+            )
           )
       `;
       add(rows);
@@ -388,8 +468,8 @@ async function collectHostEmailsFromParticipantMaps(
       SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
       FROM vrindavan.host_prtcpnt_map_india m
       INNER JOIN vrindavan.webex_hosts_india h
-        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
-         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
       WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${q}
     `;
@@ -400,8 +480,8 @@ async function collectHostEmailsFromParticipantMaps(
         SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
         FROM vrindavan.host_prtcpnt_map_india m
         INNER JOIN vrindavan.webex_hosts_india h
-          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
-           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSI|CMSJ|CMS)_', '', 'i'))
+          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
          AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
       `;
@@ -464,40 +544,79 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
   }
 
   // Presence checks across curated participants + hosts + india students.
-  const [hostNonIndia, hostIndia, nonIndiaRows, indiaRows, indiaStudentRows] =
-    await Promise.all([
-      postgres.$queryRaw<{ host_first_name: string | null; host_last_name: string | null }[]>`
-        SELECT host_first_name, host_last_name
-        FROM mission.webex_hosts_non_india
-        WHERE lower(btrim(host_email_id::text)) = ${email}
-          AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
-        LIMIT 1
-      `,
-      postgres.$queryRaw<{ host_first_name: string | null; host_last_name: string | null; chinmaya_center_name: string | null }[]>`
-        SELECT host_first_name, host_last_name, chinmaya_center_name
-        FROM vrindavan.webex_hosts_india
-        WHERE lower(btrim(host_email_id::text)) = ${email}
-          AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
-        LIMIT 1
-      `,
-      postgres.nonIndiaParticipant.findMany({
-        where: { prtcpntEmailId: email },
-        select: { prtcpntName: true },
-      }),
-      postgres.indiaParticipant.findMany({
-        where: { indPrtcpntEmailId: email },
-        select: { indPrtcpntName: true },
-      }),
-      postgres.$queryRaw<{ ind_prtcpnt_name: string | null }[]>`
-        SELECT ind_prtcpnt_name
-        FROM vrindavan.webex_participants_india_students
-        WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${email}
-      `,
-    ]);
+  const [
+    hostNonIndia,
+    hostNonIndiaGp,
+    hostIndia,
+    nonIndiaRows,
+    nonIndiaGpRows,
+    indiaRows,
+    indiaStudentRows,
+  ] = await Promise.all([
+    postgres.$queryRaw<{ host_first_name: string | null; host_last_name: string | null }[]>`
+      SELECT host_first_name, host_last_name
+      FROM mission.webex_hosts_non_india
+      WHERE lower(btrim(host_email_id::text)) = ${email}
+        AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
+      LIMIT 1
+    `,
+    (async (): Promise<
+      { host_first_name: string | null; host_last_name: string | null }[]
+    > => {
+      try {
+        return await postgres.$queryRaw<
+          { host_first_name: string | null; host_last_name: string | null }[]
+        >`
+          SELECT host_first_name, host_last_name
+          FROM mission.webex_hosts_non_india_gp
+          WHERE lower(btrim(host_email_id::text)) = ${email}
+            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
+          LIMIT 1
+        `;
+      } catch {
+        return [];
+      }
+    })(),
+    postgres.$queryRaw<{ host_first_name: string | null; host_last_name: string | null; chinmaya_center_name: string | null }[]>`
+      SELECT host_first_name, host_last_name, chinmaya_center_name
+      FROM vrindavan.webex_hosts_india
+      WHERE lower(btrim(host_email_id::text)) = ${email}
+        AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
+      LIMIT 1
+    `,
+    postgres.nonIndiaParticipant.findMany({
+      where: { prtcpntEmailId: email },
+      select: { prtcpntName: true },
+    }),
+    (async (): Promise<{ prtcpnt_name: string | null }[]> => {
+      try {
+        return await postgres.$queryRaw<{ prtcpnt_name: string | null }[]>`
+          SELECT prtcpnt_name::text AS prtcpnt_name
+          FROM mission.webex_participants_non_india_gp
+          WHERE lower(btrim(prtcpnt_email_id::text)) = ${email}
+        `;
+      } catch {
+        return [];
+      }
+    })(),
+    postgres.indiaParticipant.findMany({
+      where: { indPrtcpntEmailId: email },
+      select: { indPrtcpntName: true },
+    }),
+    postgres.$queryRaw<{ ind_prtcpnt_name: string | null }[]>`
+      SELECT ind_prtcpnt_name
+      FROM vrindavan.webex_participants_india_students
+      WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${email}
+    `,
+  ]);
 
-  const isHost = hostNonIndia.length > 0 || hostIndia.length > 0;
+  const isHost =
+    hostNonIndia.length > 0 ||
+    hostNonIndiaGp.length > 0 ||
+    hostIndia.length > 0;
   const isParticipant = Boolean(
     nonIndiaRows.length > 0 ||
+      nonIndiaGpRows.length > 0 ||
       indiaRows.length > 0 ||
       indiaStudentRows.length > 0,
   );
@@ -505,6 +624,10 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
   const participantNameParts: string[] = [];
   for (const r of nonIndiaRows) {
     const n = r.prtcpntName?.trim();
+    if (n) participantNameParts.push(n);
+  }
+  for (const r of nonIndiaGpRows) {
+    const n = r.prtcpnt_name?.trim();
     if (n) participantNameParts.push(n);
   }
   for (const r of indiaRows) {
@@ -516,9 +639,10 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     if (n) participantNameParts.push(n);
   }
 
+  const hostRowNonIndia = hostNonIndia[0] ?? hostNonIndiaGp[0];
   const hostNameFallback =
-    hostNonIndia[0]?.host_first_name || hostNonIndia[0]?.host_last_name
-      ? `${hostNonIndia[0]?.host_first_name ?? ""} ${hostNonIndia[0]?.host_last_name ?? ""}`.trim()
+    hostRowNonIndia?.host_first_name || hostRowNonIndia?.host_last_name
+      ? `${hostRowNonIndia?.host_first_name ?? ""} ${hostRowNonIndia?.host_last_name ?? ""}`.trim()
       : hostIndia[0]?.host_first_name || hostIndia[0]?.host_last_name
         ? `${hostIndia[0]?.host_first_name ?? ""} ${hostIndia[0]?.host_last_name ?? ""}`.trim()
         : null;
@@ -682,12 +806,22 @@ async function collectEmailsByPhone(
   `);
   await run(`
     SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india_gp
+    WHERE ${phoneMatchesSql("host_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
     FROM vrindavan.webex_hosts_india
     WHERE ${phoneMatchesSql("host_phone_no")}
   `);
   await run(`
     SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
     FROM mission.webex_participants_non_india_old
+    WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
+    FROM mission.webex_participants_non_india_gp
     WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
   `);
   await run(`
