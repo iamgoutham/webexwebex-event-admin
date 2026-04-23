@@ -84,7 +84,7 @@ export default async function DashboardPage() {
         <div
           className={
             meetingsHero.length > 0
-              ? "grid gap-6 md:grid-cols-[2fr_1fr] md:items-start"
+              ? "grid gap-6 md:grid-cols-2 md:items-start"
               : "grid gap-6 md:items-start"
           }
         >
@@ -103,13 +103,6 @@ export default async function DashboardPage() {
               <p className="text-xs uppercase tracking-[0.2em] text-[#9b6b4f]">
                 {heroMeetingsHeading}
               </p>
-              {weeklyMeetings.length === 0 && dashboardAssignments.length > 0 ? (
-                <p className="mt-2 text-[11px] leading-snug text-[#8a5b44]">
-                  Shown because the weekly window (Mon–Sun ET) didn’t apply—often
-                  the sheet start isn’t ISO-parseable or the meeting isn’t this
-                  week.
-                </p>
-              ) : null}
               <ul className="mt-3 space-y-4">
                 {meetingsHero.map((m, i) => (
                   <li
