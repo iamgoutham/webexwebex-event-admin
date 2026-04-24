@@ -2,19 +2,27 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
 import CopyableMeetingLink from "@/components/copyable-meeting-link";
+import ParticipantLinks from "@/components/participant-links";
 import { getHostIdForEmail, getLicenseSiteForEmail } from "@/lib/license-site";
 import { displayWebexHostShortId } from "@/lib/user-short-id";
 import {
   getHostDashboardMeetings,
   type MeetingAssignment,
 } from "@/lib/public-confirmation";
+import {
+  mergeInviteesMapFirst,
+  parseInvitees,
+  type InviteeContact,
+} from "@/lib/meeting-invitees-from-sheet";
+import { loadHostMeetingParticipants } from "@/lib/host-meeting-participants";
+import { sheetMeetingForAssignment } from "@/lib/sheet-meeting-for-assignment";
+import type { SheetMeeting } from "@/lib/meeting-sheet-types";
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
-import EventDayHostChecklistSection from "@/components/event-day-host-checklist-section";
+import EventDayHostChecklistSection, {
+  EventDaySharedIntroCard,
+} from "@/components/event-day-host-checklist-section";
 import GridSizeForm from "@/components/grid-size-form";
 import HostPreparationSections from "@/components/host-preparation-sections";
-import HostTrainingSection from "@/components/host-training-section";
-import PacerPhoneWorkaroundSection from "@/components/pacer-phone-workaround-section";
-import WebexCohostInstructionsSection from "@/components/webex-cohost-instructions-section";
 
 export default async function DashboardPage() {
   const session = await requireAuth();
@@ -30,17 +38,29 @@ export default async function DashboardPage() {
 
   /** Same merged rows as `/dashboard/meetings` (`getHostDashboardMeetings`). */
   let dashboardAssignments: MeetingAssignment[] = [];
+  let sheetMeetingsForDashboard: SheetMeeting[] = [];
+  let hostMapInvitees: InviteeContact[] | null = null;
   const postgres = getPostgresPrisma();
   const emailLower = session.user.email?.trim().toLowerCase();
   if (postgres && emailLower) {
     try {
-      const { assignments } = await getHostDashboardMeetings(
-        postgres,
-        emailLower,
-      );
-      dashboardAssignments = assignments;
+      const dash = await getHostDashboardMeetings(postgres, emailLower);
+      dashboardAssignments = dash.assignments;
+      sheetMeetingsForDashboard = dash.sheetMeetings;
     } catch (err) {
       console.error("[dashboard] weekly meeting lookup failed:", err);
+    }
+    try {
+      const enriched = await loadHostMeetingParticipants(postgres, emailLower);
+      if (enriched.length > 0) {
+        hostMapInvitees = enriched.map((p) => ({
+          email: p.email,
+          phone: p.phone?.trim() || undefined,
+          name: p.name?.trim() || undefined,
+        }));
+      }
+    } catch {
+      // Sheet JSON invitees only when map load fails (same as meetings page)
     }
   }
 
@@ -70,14 +90,6 @@ export default async function DashboardPage() {
     select: { gridRows: true, gridCols: true },
   });
 
-  const baseUrl = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? "";
-  const pptxPublicUrl = baseUrl
-    ? `${baseUrl}/webex-host-training.pptx`
-    : null;
-  const presentationEmbedSrc = pptxPublicUrl
-    ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(pptxPublicUrl)}`
-    : null;
-
   return (
     <div className="space-y-8 text-[#3b1a1f]">
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
@@ -104,30 +116,50 @@ export default async function DashboardPage() {
                 {heroMeetingsHeading}
               </p>
               <ul className="mt-3 space-y-4">
-                {meetingsHero.map((m, i) => (
-                  <li
-                    key={`${m.meetingNumber ?? ""}-${m.startTime ?? ""}-${i}`}
-                    className={
-                      i > 0 ? "border-t border-[#e5c18e]/80 pt-4" : undefined
-                    }
-                  >
-                    {m.topic ? (
-                      <p className="font-semibold text-[#3b1a1f]">{m.topic}</p>
-                    ) : null}
-                    <p className="mt-1 text-xs text-[#8a5b44]">
-                      {formatMeetingStartDisplay(m.startTime)}
-                    </p>
-                    {m.meetingNumber ? (
-                      <p className="mt-1 text-xs text-[#6b4e3d]">
-                        Meeting #:{" "}
-                        <span className="font-mono text-[#3b1a1f]">
-                          {m.meetingNumber}
-                        </span>
+                {meetingsHero.map((m, i) => {
+                  const sheetRow = sheetMeetingForAssignment(
+                    m,
+                    sheetMeetingsForDashboard,
+                  );
+                  const inviteesFromSheet = Array.isArray(sheetRow?.invitees)
+                    ? parseInvitees(sheetRow.invitees)
+                    : [];
+                  const invitees = mergeInviteesMapFirst(
+                    hostMapInvitees,
+                    inviteesFromSheet,
+                  );
+                  return (
+                    <li
+                      key={`${m.meetingNumber ?? ""}-${m.startTime ?? ""}-${i}`}
+                      className={
+                        i > 0 ? "border-t border-[#e5c18e]/80 pt-4" : undefined
+                      }
+                    >
+                      {m.topic ? (
+                        <p className="font-semibold text-[#3b1a1f]">{m.topic}</p>
+                      ) : null}
+                      <p className="mt-1 text-xs text-[#8a5b44]">
+                        {formatMeetingStartDisplay(m.startTime)}
                       </p>
-                    ) : null}
-                    {m.link ? <CopyableMeetingLink url={m.link} /> : null}
-                  </li>
-                ))}
+                      {m.meetingNumber ? (
+                        <p className="mt-1 text-xs text-[#6b4e3d]">
+                          Meeting #:{" "}
+                          <span className="font-mono text-[#3b1a1f]">
+                            {m.meetingNumber}
+                          </span>
+                        </p>
+                      ) : null}
+                      {m.link ? <CopyableMeetingLink url={m.link} /> : null}
+                      {invitees && invitees.length > 0 ? (
+                        <ParticipantLinks
+                          invitees={invitees}
+                          emailsButtonLabel="Emails"
+                          detailsButtonLabel="Participant Details"
+                        />
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
               <Link
                 href="/dashboard/meetings"
@@ -181,11 +213,15 @@ export default async function DashboardPage() {
         </Link>
       </section>
 
-      <EventDayHostChecklistSection variant="dashboard" />
+      <EventDaySharedIntroCard variant="dashboard" />
 
-      <WebexCohostInstructionsSection variant="dashboard" />
+      <EventDayHostChecklistSection variant="dashboard" mode="mobile" />
 
-      <PacerPhoneWorkaroundSection variant="dashboard" />
+      <EventDayHostChecklistSection
+        variant="dashboard"
+        mode="virtual"
+        showSharedIntro={false}
+      />
 
       <HostPreparationSections />
 
@@ -213,8 +249,6 @@ export default async function DashboardPage() {
             : "Once uploaded successfully, status will update automatically."}
         </p>
       </div>
-
-      <HostTrainingSection presentationEmbedSrc={presentationEmbedSrc} />
     </div>
   );
 }

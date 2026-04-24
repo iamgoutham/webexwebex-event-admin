@@ -38,14 +38,6 @@ export default async function Home() {
                 variant="brand"
                 providerId={providerId}
               />
-              <a
-                href="https://tinyurl.com/WebexCheatSheet"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
-              >
-                View Host Cheat Sheet
-              </a>
               <Link
                 href="/dashboard"
                 className="rounded-full border border-[#7a3b2a]/60 px-4 py-2 text-sm font-medium text-[#3b1a1f] transition hover:border-[#7a3b2a]"
@@ -126,12 +118,22 @@ export default async function Home() {
             </p>
             <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-[#6b4e3d]">
               <li>
-                <Link
-                  href="/faq"
+                <a
+                  href="https://docs.google.com/document/d/1tD2dKN9SU7WnVPoYG7lCRAW8iWdCEhpi9_GvTGySBF0/edit?tab=t.0"
+                  target="_blank"
+                  rel="noreferrer"
                   className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
                 >
-                  Troubleshooting FAQ
-                </Link>
+                  Host Setup Instructions
+                </a>
+              </li>
+              <li>
+                <a
+                  href="/hostsetuptutorial.mp4"
+                  className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                >
+                  Host Setup Tutorial Video
+                </a>
               </li>
               <li>
                 <Link
@@ -142,21 +144,11 @@ export default async function Home() {
                 </Link>
               </li>
               <li>
-                <a
-                  href="https://tinyurl.com/WebexCheatSheet"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
-                >
-                  Webex host cheat sheet
-                </a>
-              </li>
-              <li>
                 <Link
-                  href="/dashboard#host-training"
+                  href="/faq"
                   className="font-semibold text-[#7a3b2a] underline hover:text-[#5a2b1a]"
                 >
-                  Webex host training (slideshow)
+                  Troubleshooting FAQ
                 </Link>
               </li>
             </ul>

@@ -40,8 +40,12 @@ function openTablePopup(invitees: Invitee[]) {
 
 export default function ParticipantLinks({
   invitees,
+  emailsButtonLabel = "Emails (comma-separated)",
+  detailsButtonLabel = "Participant Details",
 }: {
   invitees: Invitee[];
+  emailsButtonLabel?: string;
+  detailsButtonLabel?: string;
 }) {
   if (!Array.isArray(invitees) || invitees.length === 0) return null;
 
@@ -56,14 +60,14 @@ export default function ParticipantLinks({
         onClick={() => openEmailsPopup(invitees)}
         className="rounded border border-[#7a3b2a]/50 px-2 py-1 font-medium text-[#3b1a1f] transition hover:border-[#7a3b2a] hover:underline"
       >
-        Emails (comma-separated)
+        {emailsButtonLabel}
       </button>
       <button
         type="button"
         onClick={() => openTablePopup(invitees)}
         className="rounded border border-[#7a3b2a]/50 px-2 py-1 font-bold text-[#3b1a1f] transition hover:border-[#7a3b2a] hover:underline"
       >
-        Participant Details
+        {detailsButtonLabel}
       </button>
     </div>
   );

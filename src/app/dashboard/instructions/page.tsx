@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { requireAuth } from "@/lib/guards";
-import EventDayHostChecklistSection from "@/components/event-day-host-checklist-section";
-import WebexCohostInstructionsSection from "@/components/webex-cohost-instructions-section";
+import EventDayHostChecklistSection, {
+  EventDaySharedIntroCard,
+} from "@/components/event-day-host-checklist-section";
 
 export default async function InstructionsPage() {
   await requireAuth();
@@ -29,9 +30,11 @@ export default async function InstructionsPage() {
         </div>
       </div>
 
-      <EventDayHostChecklistSection />
+      <EventDaySharedIntroCard />
 
-      <WebexCohostInstructionsSection />
+      <EventDayHostChecklistSection mode="mobile" />
+
+      <EventDayHostChecklistSection mode="virtual" showSharedIntro={false} />
     </div>
   );
 }

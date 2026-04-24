@@ -6,6 +6,7 @@ import {
   parseMeetingInfoJson,
   type InviteeContact,
 } from "@/lib/meeting-invitees-from-sheet";
+import { sheetMeetingForAssignment } from "@/lib/sheet-meeting-for-assignment";
 import { extractWebexJoinUrlFromText } from "@/lib/meeting-web-link";
 import {
   effectiveHostMeetingWebLink,
@@ -95,32 +96,6 @@ function MeetingInfoContent({ text }: { text: string }) {
       )}
     </span>
   );
-}
-
-function normMeetingNumberCell(v: unknown): string | null {
-  if (v == null) return null;
-  const s = String(v).trim().replace(/\.0+$/, "");
-  return s || null;
-}
-
-/** Match sheet JSON row to a merged assignment (invitees / state). */
-function sheetMeetingForAssignment(
-  a: MeetingAssignment,
-  sheetMeetings: SheetMeeting[],
-): SheetMeeting | null {
-  if (a.meetingNumber) {
-    for (const sm of sheetMeetings) {
-      const sn = normMeetingNumberCell(sm.meetingNumber);
-      if (sn && sn === a.meetingNumber) return sm;
-    }
-  }
-  const t = a.topic?.trim().toLowerCase();
-  if (t) {
-    for (const sm of sheetMeetings) {
-      if (sm.title?.trim().toLowerCase() === t) return sm;
-    }
-  }
-  return null;
 }
 
 type PageProps = {

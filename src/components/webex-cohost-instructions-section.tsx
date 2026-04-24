@@ -164,7 +164,7 @@ function CollapsibleHeaderTeaser() {
         Event day
       </span>
       <h2 className="mt-4 text-xl font-semibold text-[#3b1a1f]">
-        Webex co-host instructions
+        Webex co-host instructions(For Pacer video as Virtual Background)
       </h2>
       <p className="mt-2 text-sm leading-relaxed text-[#6b4e3d]">
         Web conference management: host &amp; co-host guide. Follow these steps
@@ -177,8 +177,23 @@ function CollapsibleHeaderTeaser() {
 export default function WebexCohostInstructionsSection({
   variant = "instructions",
 }: {
-  variant?: keyof typeof shell;
+  variant?: keyof typeof shell | "inline";
 }) {
+  if (variant === "inline") {
+    return (
+      <div className="mt-8 border-t border-[#e5c18e]/80 pt-8">
+        <h3 className="text-lg font-bold text-[#3b1a1f] sm:text-xl">
+          Webex co-host instructions(For Pacer video as Virtual Background)
+        </h3>
+        <p className="mt-2 text-sm leading-relaxed text-[#6b4e3d]">
+          Web conference management: host &amp; co-host guide. Follow these
+          steps in Webex so the host and co-host can run the session smoothly.
+        </p>
+        <CohostStepsContent />
+      </div>
+    );
+  }
+
   if (variant === "dashboard") {
     return (
       <details
