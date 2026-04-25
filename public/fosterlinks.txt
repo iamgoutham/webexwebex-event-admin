@@ -1,0 +1,7 @@
+# One meeting link (or any URL) per line. Edits are picked up on the next
+# request—no deploy required. Use # for comments.
+# Same phone number always gets the same line (deterministic), spread across
+# the list by hashing the number.
+
+https://example.com/meeting-1
+https://example.com/meeting-2

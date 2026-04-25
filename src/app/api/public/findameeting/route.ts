@@ -1,0 +1,89 @@
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { loadFosterLinksFromPublic, selectFosterIndex } from "@/lib/findameeting-fosterlinks";
+import { isPhoneInFindMeetingMaps } from "@/lib/findameeting-maps";
+import { logFindameetingRequest } from "@/lib/findameeting-log";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
+
+export const dynamic = "force-dynamic";
+
+const schema = z.object({
+  phone: z.string().min(1),
+});
+
+const normDigits = (s: string) => s.replace(/[^0-9]/g, "");
+
+// POST /api/public/findameeting
+export async function POST(request: NextRequest) {
+  const body = await request.json().catch(() => null);
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    await logFindameetingRequest({
+      phoneEntered: "<invalid payload>",
+      outcome: "invalid_payload",
+    });
+    return NextResponse.json(
+      { error: "Please enter a phone number." },
+      { status: 400 },
+    );
+  }
+
+  const phoneEntered = parsed.data.phone.trim();
+  const digits = normDigits(phoneEntered);
+
+  if (digits.length < 10) {
+    await logFindameetingRequest({ phoneEntered, outcome: "invalid_short_phone" });
+    return NextResponse.json(
+      { error: "Enter a phone number with at least 10 digits (including area / country code)." },
+      { status: 400 },
+    );
+  }
+
+  const postgres = getPostgresPrisma();
+  if (!postgres) {
+    await logFindameetingRequest({ phoneEntered, outcome: "db_unconfigured" });
+    return NextResponse.json(
+      { error: "Downstream database is not configured." },
+      { status: 500 },
+    );
+  }
+
+  const map = await isPhoneInFindMeetingMaps(postgres, phoneEntered);
+  if (!map.ok) {
+    await logFindameetingRequest({
+      phoneEntered,
+      outcome: "map_lookup_error",
+      note: map.error,
+    });
+    return NextResponse.json(
+      { error: "Could not verify your number. Try again later." },
+      { status: 500 },
+    );
+  }
+
+  if (!map.found) {
+    await logFindameetingRequest({ phoneEntered, outcome: "not_in_maps" });
+    return NextResponse.json(
+      { error: "We could not find that number in our registered participant list." },
+      { status: 404 },
+    );
+  }
+
+  const fosterLinks = await loadFosterLinksFromPublic();
+  if (fosterLinks.length === 0) {
+    await logFindameetingRequest({ phoneEntered, outcome: "no_foster_links" });
+    return NextResponse.json(
+      { error: "Meeting links are not configured. Add lines to public/fosterlinks.txt." },
+      { status: 500 },
+    );
+  }
+
+  const index = selectFosterIndex(digits, fosterLinks.length);
+  const link = fosterLinks[index]!;
+  await logFindameetingRequest({
+    phoneEntered,
+    outcome: "success",
+    note: `foster_index=${index}`,
+  });
+  return NextResponse.json({ link });
+}
