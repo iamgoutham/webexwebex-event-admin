@@ -42,8 +42,12 @@ export default function FindameetingClient() {
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
         <h1 className="text-2xl font-semibold">Find a meeting</h1>
         <p className="mt-2 text-sm text-[#6b4e3d]">
-          Enter the WhatsApp number you registered with. If it matches our
-          participant list, you will get a meeting link.
+          Having trouble joining your session?
+        </p>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          If your meeting has not started on time (7:30pm India / 10am ET ),
+          please enter your WhatsApp number below to receive an alternate meeting
+          link for the trial session.
         </p>
       </div>
 

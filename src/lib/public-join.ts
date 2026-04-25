@@ -255,3 +255,43 @@ export async function lookupJoinCandidatesByPhone(
   );
   return candidates;
 }
+
+/**
+ * True if `phoneRaw` matches `host_phone_no` on an active-style host row
+ * (same digit / last-10 rules as participant map join lookup).
+ * Used when a number is not in host–participant maps but may be a host.
+ */
+export async function isPhoneMatchedInWebexHostTables(
+  postgres: PostgresPrismaClient,
+  phoneRaw: string,
+): Promise<boolean> {
+  const digits = normalizeDigits(phoneRaw);
+  const last10 = digits.length >= 10 ? digits.slice(-10) : "";
+  if (digits.length < 10) return false;
+
+  const existsHostPhone = async (sql: Prisma.Sql): Promise<boolean> => {
+    try {
+      const rows = await postgres.$queryRaw<[{ x: boolean }]>(sql);
+      return Boolean(rows[0]?.x);
+    } catch {
+      return false;
+    }
+  };
+
+  const [nonIndia, india] = await Promise.all([
+    existsHostPhone(
+      Prisma.sql`SELECT EXISTS (
+        SELECT 1 FROM mission.webex_hosts_non_india h
+        WHERE ${phoneMatchSql("h.host_phone_no", digits, last10)}
+      ) AS x`,
+    ),
+    existsHostPhone(
+      Prisma.sql`SELECT EXISTS (
+        SELECT 1 FROM vrindavan.webex_hosts_india h
+        WHERE ${phoneMatchSql("h.host_phone_no", digits, last10)}
+      ) AS x`,
+    ),
+  ]);
+
+  return nonIndia || india;
+}

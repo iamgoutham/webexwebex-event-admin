@@ -4,6 +4,7 @@ import { loadFosterLinksFromPublic, selectFosterIndex } from "@/lib/findameeting
 import { logFindameetingRequest } from "@/lib/findameeting-log";
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import {
+  isPhoneMatchedInWebexHostTables,
   lookupJoinCandidatesByPhone,
   type JoinCandidate,
 } from "@/lib/public-join";
@@ -69,10 +70,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (candidates.length === 0) {
+  const matchedParticipant = candidates.length > 0;
+  const matchedHost =
+    !matchedParticipant &&
+    (await isPhoneMatchedInWebexHostTables(postgres, phoneEntered));
+
+  if (!matchedParticipant && !matchedHost) {
     await logFindameetingRequest({ phoneEntered, outcome: "not_in_maps" });
     return NextResponse.json(
-      { error: "We could not find that number in our registered participant list." },
+      {
+        error:
+          "We could not find that number among registered participants or hosts.",
+      },
       { status: 404 },
     );
   }
@@ -91,7 +100,9 @@ export async function POST(request: NextRequest) {
   await logFindameetingRequest({
     phoneEntered,
     outcome: "success",
-    note: `foster_index=${index}`,
+    note: matchedHost
+      ? `foster_index=${index};via=host`
+      : `foster_index=${index}`,
   });
   return NextResponse.json({ link });
 }
