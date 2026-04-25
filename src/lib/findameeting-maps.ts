@@ -33,38 +33,62 @@ export async function isPhoneInFindMeetingMaps(
     return { ok: true, found: false };
   }
 
-  const sql = Prisma.sql`
-    SELECT (
-      EXISTS (
-        SELECT 1
-        FROM mission.host_prtcpnt_map_nonindia_nu m
-        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM mission.host_prtcpnt_map_crossregion m
-        WHERE
-          ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
-          OR ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM vrindavan.host_prtcpnt_map_india m
-        WHERE
-          ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
-          OR ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-      )
-    )::boolean AS found
-  `;
+  // One simple EXISTS per query — same shape as `public-join` (nested OR in one
+  // Prisma.sql was failing at runtime for some drivers / generated SQL).
+  const exists = async (sql: Prisma.Sql): Promise<boolean> => {
+    const rows = await postgres.$queryRaw<[{ x: boolean }]>(sql);
+    return Boolean(rows[0]?.x);
+  };
 
   try {
-    const rows = await postgres.$queryRaw<[{ found: boolean }]>(sql);
-    const found = Boolean(rows[0]?.found);
+    const [
+      nonIndiaNu,
+      crossInd,
+      crossPrt,
+      indiaInd,
+      indiaPrt,
+    ] = await Promise.all([
+      exists(
+        Prisma.sql`SELECT EXISTS (
+          SELECT 1 FROM mission.host_prtcpnt_map_nonindia_nu m
+          WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+        ) AS x`,
+      ),
+      exists(
+        Prisma.sql`SELECT EXISTS (
+          SELECT 1 FROM mission.host_prtcpnt_map_crossregion m
+          WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
+        ) AS x`,
+      ),
+      exists(
+        Prisma.sql`SELECT EXISTS (
+          SELECT 1 FROM mission.host_prtcpnt_map_crossregion m
+          WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+        ) AS x`,
+      ),
+      exists(
+        Prisma.sql`SELECT EXISTS (
+          SELECT 1 FROM vrindavan.host_prtcpnt_map_india m
+          WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
+        ) AS x`,
+      ),
+      exists(
+        Prisma.sql`SELECT EXISTS (
+          SELECT 1 FROM vrindavan.host_prtcpnt_map_india m
+          WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+        ) AS x`,
+      ),
+    ]);
+
+    const found =
+      nonIndiaNu || crossInd || crossPrt || indiaInd || indiaPrt;
     return { ok: true, found };
   } catch (e) {
+    const message = e instanceof Error ? e.message : "map lookup failed";
+    console.error("[findameeting] map lookup failed:", message);
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "map lookup failed",
+      error: message,
     };
   }
 }
