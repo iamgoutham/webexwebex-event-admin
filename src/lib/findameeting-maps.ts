@@ -15,14 +15,40 @@ function phoneMatchSql(
   return Prisma.sql`(${normalized} = ${digits} OR right(${normalized}, 10) = ${last10})`;
 }
 
-/** Crossregion / India map tables ship in two shapes: `ind_*` vs `prtcpnt_*` (see host-meeting-participants). */
-function isMissingColumnOrRelationError(e: unknown): boolean {
-  const msg = e instanceof Error ? e.message : String(e);
-  return (
-    msg.includes("42703") ||
-    msg.includes("42P01") ||
-    /\bdoes not exist\b/i.test(msg)
+/** Which participant phone columns exist on a map table (variants: ind_* vs prtcpnt_*). */
+type MapPhoneColumns = {
+  indPrtcpntPhoneNo: boolean;
+  prtcpntPhoneNo: boolean;
+};
+
+const mapPhoneColumnCache = new Map<string, MapPhoneColumns>();
+
+async function loadMapPhoneColumns(
+  postgres: PostgresPrismaClient,
+  schema: string,
+  table: string,
+): Promise<MapPhoneColumns> {
+  const key = `${schema}.${table}`;
+  const hit = mapPhoneColumnCache.get(key);
+  if (hit) return hit;
+
+  const rows = await postgres.$queryRaw<{ column_name: string }[]>(Prisma.sql`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = ${schema}
+      AND table_name = ${table}
+      AND column_name IN ('ind_prtcpnt_phone_no', 'prtcpnt_phone_no')
+  `);
+
+  const names = new Set(
+    rows.map((r) => r.column_name.toLowerCase()),
   );
+  const cols: MapPhoneColumns = {
+    indPrtcpntPhoneNo: names.has("ind_prtcpnt_phone_no"),
+    prtcpntPhoneNo: names.has("prtcpnt_phone_no"),
+  };
+  mapPhoneColumnCache.set(key, cols);
+  return cols;
 }
 
 /**
@@ -32,6 +58,8 @@ function isMissingColumnOrRelationError(e: unknown): boolean {
  * - vrindavan.host_prtcpnt_map_india
  *
  * Same digit / last-10 matching rules as public join lookup.
+ * Phone EXISTS queries use only columns reported by `information_schema` so
+ * Prisma does not log failed raw SQL for missing `ind_*` / `prtcpnt_*` variants.
  */
 export async function isPhoneInFindMeetingMaps(
   postgres: PostgresPrismaClient,
@@ -48,58 +76,86 @@ export async function isPhoneInFindMeetingMaps(
     return Boolean(rows[0]?.x);
   };
 
-  /** Missing `ind_*` / `prtcpnt_*` columns (schema variant) → treat as no match, not a fatal error. */
-  const existsOrSkip = async (sql: Prisma.Sql): Promise<boolean> => {
-    try {
-      return await existsStrict(sql);
-    } catch (e) {
-      if (isMissingColumnOrRelationError(e)) return false;
-      throw e;
-    }
-  };
-
   try {
-    const [
-      nonIndiaNu,
-      crossInd,
-      crossPrt,
-      indiaInd,
-      indiaPrt,
-    ] = await Promise.all([
-      existsOrSkip(
-        Prisma.sql`SELECT EXISTS (
-          SELECT 1 FROM mission.host_prtcpnt_map_nonindia_nu m
-          WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-        ) AS x`,
+    const [nuCols, crossCols, indiaCols] = await Promise.all([
+      loadMapPhoneColumns(
+        postgres,
+        "mission",
+        "host_prtcpnt_map_nonindia_nu",
       ),
-      existsOrSkip(
-        Prisma.sql`SELECT EXISTS (
-          SELECT 1 FROM mission.host_prtcpnt_map_crossregion m
-          WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
-        ) AS x`,
+      loadMapPhoneColumns(
+        postgres,
+        "mission",
+        "host_prtcpnt_map_crossregion",
       ),
-      existsOrSkip(
-        Prisma.sql`SELECT EXISTS (
-          SELECT 1 FROM mission.host_prtcpnt_map_crossregion m
-          WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-        ) AS x`,
-      ),
-      existsOrSkip(
-        Prisma.sql`SELECT EXISTS (
-          SELECT 1 FROM vrindavan.host_prtcpnt_map_india m
-          WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
-        ) AS x`,
-      ),
-      existsOrSkip(
-        Prisma.sql`SELECT EXISTS (
-          SELECT 1 FROM vrindavan.host_prtcpnt_map_india m
-          WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
-        ) AS x`,
+      loadMapPhoneColumns(
+        postgres,
+        "vrindavan",
+        "host_prtcpnt_map_india",
       ),
     ]);
 
-    const found =
-      nonIndiaNu || crossInd || crossPrt || indiaInd || indiaPrt;
+    const checks: Promise<boolean>[] = [];
+
+    if (nuCols.prtcpntPhoneNo) {
+      checks.push(
+        existsStrict(
+          Prisma.sql`SELECT EXISTS (
+            SELECT 1 FROM mission.host_prtcpnt_map_nonindia_nu m
+            WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+          ) AS x`,
+        ),
+      );
+    }
+
+    if (crossCols.indPrtcpntPhoneNo) {
+      checks.push(
+        existsStrict(
+          Prisma.sql`SELECT EXISTS (
+            SELECT 1 FROM mission.host_prtcpnt_map_crossregion m
+            WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
+          ) AS x`,
+        ),
+      );
+    }
+    if (crossCols.prtcpntPhoneNo) {
+      checks.push(
+        existsStrict(
+          Prisma.sql`SELECT EXISTS (
+            SELECT 1 FROM mission.host_prtcpnt_map_crossregion m
+            WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+          ) AS x`,
+        ),
+      );
+    }
+
+    if (indiaCols.indPrtcpntPhoneNo) {
+      checks.push(
+        existsStrict(
+          Prisma.sql`SELECT EXISTS (
+            SELECT 1 FROM vrindavan.host_prtcpnt_map_india m
+            WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
+          ) AS x`,
+        ),
+      );
+    }
+    if (indiaCols.prtcpntPhoneNo) {
+      checks.push(
+        existsStrict(
+          Prisma.sql`SELECT EXISTS (
+            SELECT 1 FROM vrindavan.host_prtcpnt_map_india m
+            WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+          ) AS x`,
+        ),
+      );
+    }
+
+    if (checks.length === 0) {
+      return { ok: true, found: false };
+    }
+
+    const results = await Promise.all(checks);
+    const found = results.some(Boolean);
     return { ok: true, found };
   } catch (e) {
     const message = e instanceof Error ? e.message : "map lookup failed";
