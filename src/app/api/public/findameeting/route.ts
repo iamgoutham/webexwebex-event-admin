@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { loadFosterLinksFromPublic, selectFosterIndex } from "@/lib/findameeting-fosterlinks";
-import { isPhoneInFindMeetingMaps } from "@/lib/findameeting-maps";
 import { logFindameetingRequest } from "@/lib/findameeting-log";
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
+import {
+  lookupJoinCandidatesByPhone,
+  type JoinCandidate,
+} from "@/lib/public-join";
 
 export const dynamic = "force-dynamic";
 
@@ -48,12 +51,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const map = await isPhoneInFindMeetingMaps(postgres, phoneEntered);
-  if (!map.ok) {
+  // Same map + phone matching + Webex link rules as POST /api/public/join
+  // (`lookupJoinCandidatesByPhone` / `finalizeCandidates`).
+  let candidates: JoinCandidate[];
+  try {
+    candidates = await lookupJoinCandidatesByPhone(postgres, phoneEntered);
+  } catch (e) {
+    const note = e instanceof Error ? e.message : "join lookup failed";
     await logFindameetingRequest({
       phoneEntered,
       outcome: "map_lookup_error",
-      note: map.error,
+      note,
     });
     return NextResponse.json(
       { error: "Could not verify your number. Try again later." },
@@ -61,7 +69,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!map.found) {
+  if (candidates.length === 0) {
     await logFindameetingRequest({ phoneEntered, outcome: "not_in_maps" });
     return NextResponse.json(
       { error: "We could not find that number in our registered participant list." },
