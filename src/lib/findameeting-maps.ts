@@ -15,6 +15,16 @@ function phoneMatchSql(
   return Prisma.sql`(${normalized} = ${digits} OR right(${normalized}, 10) = ${last10})`;
 }
 
+/** Crossregion / India map tables ship in two shapes: `ind_*` vs `prtcpnt_*` (see host-meeting-participants). */
+function isMissingColumnOrRelationError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return (
+    msg.includes("42703") ||
+    msg.includes("42P01") ||
+    /\bdoes not exist\b/i.test(msg)
+  );
+}
+
 /**
  * True if the phone appears in one of the host–participant map tables:
  * - mission.host_prtcpnt_map_nonindia_nu
@@ -33,11 +43,19 @@ export async function isPhoneInFindMeetingMaps(
     return { ok: true, found: false };
   }
 
-  // One simple EXISTS per query — same shape as `public-join` (nested OR in one
-  // Prisma.sql was failing at runtime for some drivers / generated SQL).
-  const exists = async (sql: Prisma.Sql): Promise<boolean> => {
+  const existsStrict = async (sql: Prisma.Sql): Promise<boolean> => {
     const rows = await postgres.$queryRaw<[{ x: boolean }]>(sql);
     return Boolean(rows[0]?.x);
+  };
+
+  /** Missing `ind_*` / `prtcpnt_*` columns (schema variant) → treat as no match, not a fatal error. */
+  const existsOrSkip = async (sql: Prisma.Sql): Promise<boolean> => {
+    try {
+      return await existsStrict(sql);
+    } catch (e) {
+      if (isMissingColumnOrRelationError(e)) return false;
+      throw e;
+    }
   };
 
   try {
@@ -48,31 +66,31 @@ export async function isPhoneInFindMeetingMaps(
       indiaInd,
       indiaPrt,
     ] = await Promise.all([
-      exists(
+      existsOrSkip(
         Prisma.sql`SELECT EXISTS (
           SELECT 1 FROM mission.host_prtcpnt_map_nonindia_nu m
           WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
         ) AS x`,
       ),
-      exists(
+      existsOrSkip(
         Prisma.sql`SELECT EXISTS (
           SELECT 1 FROM mission.host_prtcpnt_map_crossregion m
           WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
         ) AS x`,
       ),
-      exists(
+      existsOrSkip(
         Prisma.sql`SELECT EXISTS (
           SELECT 1 FROM mission.host_prtcpnt_map_crossregion m
           WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
         ) AS x`,
       ),
-      exists(
+      existsOrSkip(
         Prisma.sql`SELECT EXISTS (
           SELECT 1 FROM vrindavan.host_prtcpnt_map_india m
           WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
         ) AS x`,
       ),
-      exists(
+      existsOrSkip(
         Prisma.sql`SELECT EXISTS (
           SELECT 1 FROM vrindavan.host_prtcpnt_map_india m
           WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
