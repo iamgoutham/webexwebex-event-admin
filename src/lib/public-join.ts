@@ -176,6 +176,18 @@ export async function lookupJoinCandidatesByPhoneWithDebug(
       `,
     },
     {
+      source: "mission.host_prtcpnt_map_nonindia_gp_overages.prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.prtcpnt_phone_no::text AS matched_phone
+        FROM mission.host_prtcpnt_map_nonindia_gp_overages m
+        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
       source: "mission.host_prtcpnt_map_crossregion.ind_prtcpnt_phone_no",
       sql: Prisma.sql`
         SELECT
