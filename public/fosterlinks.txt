@@ -1,7 +1,6 @@
 # One meeting link (or any URL) per line. Edits are picked up on the next
 # request—no deploy required. Use # for comments.
-# Same phone number always gets the same line (deterministic), spread across
-# the list by hashing the number.
+# Links are chosen in global round-robin order (see data/findameeting-foster-rr.txt).
 
 https://example.com/meeting-1
 https://example.com/meeting-2

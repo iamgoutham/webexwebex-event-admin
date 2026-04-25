@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { loadFosterLinksFromPublic, selectFosterIndex } from "@/lib/findameeting-fosterlinks";
+import {
+  loadFosterLinksFromPublic,
+  takeNextFosterRoundRobinIndex,
+} from "@/lib/findameeting-fosterlinks";
 import { logFindameetingRequest } from "@/lib/findameeting-log";
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import {
@@ -95,7 +98,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const index = selectFosterIndex(digits, fosterLinks.length);
+  const index = await takeNextFosterRoundRobinIndex(fosterLinks.length);
   const link = fosterLinks[index]!;
   await logFindameetingRequest({
     phoneEntered,
