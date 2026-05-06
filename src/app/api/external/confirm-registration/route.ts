@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
 
   const lookup = await lookupConfirmationByPhone(phoneDigits);
-  if (!lookup?.valid) {
+  if (!lookup) {
     return NextResponse.json({
       valid: false,
       message: "No registered participant/host found for this phone number.",
@@ -78,6 +78,8 @@ export async function POST(request: NextRequest) {
     displayName: lookup.displayName,
     meetings: lookup.meetings,
     hostMeetingParticipants: lookup.hostMeetingParticipants,
+    registrationRegion: lookup.registrationRegion,
+    whatsappDialDigits: lookup.whatsappDialDigits,
   });
 }
 

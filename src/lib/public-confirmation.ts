@@ -34,6 +34,9 @@ export type MeetingAssignment = {
   participantNames?: string[];
 };
 
+/** Mission (non-India) vs Vrindavan (India) registration records — used for WhatsApp country codes. */
+export type RegistrationRegion = "india" | "non_india" | "both";
+
 export type ConfirmationLookupResult = {
   valid: boolean;
   email: string;
@@ -43,6 +46,12 @@ export type ConfirmationLookupResult = {
   meetings: MeetingAssignment[];
   /** Populated when {@link isHost}; emails/phones from participant tables. */
   hostMeetingParticipants: HostMeetingParticipant[];
+  registrationRegion: RegistrationRegion;
+};
+
+export type ConfirmationLookupWithWhatsappDigits = ConfirmationLookupResult & {
+  /** E.164-style digits only (no `+`), for WATI after country-code correction from {@link registrationRegion}. */
+  whatsappDialDigits: string;
 };
 
 function normMeetingNumber(value: unknown): string | null {
@@ -1052,6 +1061,24 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     }
   }
 
+  const hasIndiaPresence =
+    hostIndia.length > 0 ||
+    indiaRows.length > 0 ||
+    indiaOveragesRows.length > 0 ||
+    indiaStudentRows.length > 0;
+  const hasNonIndiaPresence =
+    hostNonIndia.length > 0 ||
+    hostNonIndiaGp.length > 0 ||
+    hostNonIndiaDattap.length > 0 ||
+    nonIndiaRows.length > 0 ||
+    nonIndiaGpRows.length > 0 ||
+    nonIndiaGpOveragesRows.length > 0;
+
+  let registrationRegion: RegistrationRegion;
+  if (hasIndiaPresence && hasNonIndiaPresence) registrationRegion = "both";
+  else if (hasIndiaPresence) registrationRegion = "india";
+  else registrationRegion = "non_india";
+
   return {
     valid: isHost || isParticipant,
     email,
@@ -1060,10 +1087,219 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     displayName,
     meetings,
     hostMeetingParticipants,
+    registrationRegion,
   };
 }
 
 const onlyDigits = (value: string) => value.replace(/[^0-9]/g, "");
+
+/**
+ * Normalize subscriber digits for WATI given mission (NANP +1) vs India (+91) registration.
+ */
+export function applyWhatsappCountryCode(
+  digitsInput: string,
+  country: "1" | "91",
+): string {
+  const d = onlyDigits(digitsInput);
+  if (d.length < 10) return d;
+
+  if (country === "91") {
+    if (d.startsWith("91") && d.length >= 12) {
+      const rest = d.slice(2);
+      return /^[0-9]{10}$/.test(rest)
+        ? `91${rest}`
+        : `91${rest.slice(-10)}`;
+    }
+    const national =
+      d.length >= 11 && d.startsWith("0") ? d.slice(-10) : d.slice(-10);
+    return /^[0-9]{10}$/.test(national) ? `91${national}` : `91${d.slice(-10)}`;
+  }
+
+  if (d.length === 11 && d.startsWith("1")) return d;
+  if (d.length === 10 && !d.startsWith("0")) return `1${d}`;
+  const last10 = d.slice(-10);
+  return `1${last10}`;
+}
+
+async function missionEmailPhoneMatched(
+  postgres: PostgresPrismaClient,
+  emailLower: string,
+  digits: string,
+  last10: string,
+): Promise<boolean> {
+  const probes: Array<Promise<{ c: bigint }[]>> = [
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM mission.webex_hosts_non_india
+      WHERE lower(btrim(host_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM mission.webex_hosts_non_india_gp
+      WHERE lower(btrim(host_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM mission.webex_hosts_non_india_dattap
+      WHERE lower(btrim(host_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india_old
+      WHERE lower(btrim(prtcpnt_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india_gp
+      WHERE lower(btrim(prtcpnt_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india_gp_overages
+      WHERE lower(btrim(prtcpnt_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india_old_raw
+      WHERE lower(btrim(email::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(contact_phone__whatsapp_::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(contact_phone__whatsapp_::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+  ];
+
+  for (const p of probes) {
+    try {
+      const rows = await p;
+      if (Number(rows[0]?.c ?? 0) > 0) return true;
+    } catch {
+      // Optional table variants.
+    }
+  }
+  return false;
+}
+
+async function indiaEmailPhoneMatched(
+  postgres: PostgresPrismaClient,
+  emailLower: string,
+  digits: string,
+  last10: string,
+): Promise<boolean> {
+  const probes: Array<Promise<{ c: bigint }[]>> = [
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_hosts_india
+      WHERE lower(btrim(host_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_overages
+      WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(ind_prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(ind_prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_overages
+      WHERE lower(btrim(prtcpnt_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_students
+      WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(ind_prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(ind_prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+    postgres.$queryRaw<{ c: bigint }[]>`
+      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_raw_students
+      WHERE lower(btrim(email_of_student_or_student_s_parent::text)) = ${emailLower}
+        AND (
+          regexp_replace(btrim(COALESCE(whatsapp_number::text, '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(whatsapp_number::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      LIMIT 1
+    `,
+  ];
+
+  for (const p of probes) {
+    try {
+      const rows = await p;
+      if (Number(rows[0]?.c ?? 0) > 0) return true;
+    } catch {
+      // Optional schema / table variants per environment.
+    }
+  }
+  return false;
+}
+
+async function resolveWhatsappDialDigitsForRegistration(
+  postgres: PostgresPrismaClient,
+  emailLower: string,
+  submittedDigits: string,
+  registrationRegion: RegistrationRegion,
+): Promise<string> {
+  const digits = onlyDigits(submittedDigits);
+  if (digits.length < 10) return digits;
+  const last10 = digits.slice(-10);
+
+  let country: "1" | "91";
+  if (registrationRegion === "india") {
+    country = "91";
+  } else if (registrationRegion === "non_india") {
+    country = "1";
+  } else {
+    const [mission, india] = await Promise.all([
+      missionEmailPhoneMatched(postgres, emailLower, digits, last10),
+      indiaEmailPhoneMatched(postgres, emailLower, digits, last10),
+    ]);
+    if (india && !mission) country = "91";
+    else if (mission && !india) country = "1";
+    else if (india && mission) {
+      country = /^[6-9]/.test(last10) ? "91" : "1";
+    } else {
+      country = /^[6-9]/.test(last10) ? "91" : "1";
+    }
+  }
+
+  return applyWhatsappCountryCode(digits, country);
+}
 
 async function collectEmailsByPhone(
   postgres: PostgresPrismaClient,
@@ -1163,16 +1399,23 @@ async function collectEmailsByPhone(
 
 export async function lookupConfirmationByPhone(
   phoneRaw: string,
-): Promise<ConfirmationLookupResult | null> {
+): Promise<ConfirmationLookupWithWhatsappDigits | null> {
   const postgres = getPostgresPrisma();
   if (!postgres) {
     throw new Error("Downstream database is not configured.");
   }
   const emails = await collectEmailsByPhone(postgres, phoneRaw);
+  const inputDigits = onlyDigits(phoneRaw);
   for (const email of emails) {
     const result = await lookupConfirmation(email);
     if (result.valid) {
-      return result;
+      const whatsappDialDigits = await resolveWhatsappDialDigitsForRegistration(
+        postgres,
+        email,
+        inputDigits,
+        result.registrationRegion,
+      );
+      return { ...result, whatsappDialDigits };
     }
   }
   return null;

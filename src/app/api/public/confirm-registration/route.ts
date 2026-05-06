@@ -107,15 +107,18 @@ export async function POST(request: NextRequest) {
   const hostEmail = primaryMeeting?.hostEmail?.trim() || "Not available";
   const hostPhone = primaryMeeting?.hostPhone?.trim() || "Not available";
   const meetingStartSheet = primaryMeeting?.startTime?.trim() || "";
-  const meetingStartSaturday = formatUpcomingSaturdayLabel(phoneDigits);
+  const meetingStartSaturday = formatUpcomingSaturdayLabel(
+    phoneLookup.whatsappDialDigits,
+  );
 
   const whatsappSend = phoneLookup.isHost
-    ? await sendWatiTemplateMessage(phoneDigits, "host_meeting_info", [
+    ? await sendWatiTemplateMessage(phoneLookup.whatsappDialDigits, "host_meeting_info", [
         { name: "1", value: greetingFirstName },
         { name: "2", value: registeredEmail },
-        { name: "3", value: meetingNumber },
+        { name: "3", value: "May 9th" },
         { name: "4", value: meetingLink },
-        { name: "5", value: hostEmail },
+        { name: "5", value: meetingNumber },
+        { name: "6", value: hostEmail },
         {
           name: "6",
           value: meetingStartSheet || meetingStartSaturday,
@@ -125,14 +128,13 @@ export async function POST(request: NextRequest) {
           value: String((phoneLookup.hostMeetingParticipants ?? []).length),
         },
       ])
-    : await sendWatiTemplateMessage(phoneDigits, "participant_meeting_info", [
+    : await sendWatiTemplateMessage(phoneLookup.whatsappDialDigits, "participant_meeting_info_v5", [
         { name: "1", value: participantName },
         { name: "2", value: registeredEmail },
-        { name: "3", value: meetingNumber },
+        { name: "3", value: "May 9th" },
         { name: "4", value: meetingLink },
-        { name: "5", value: hostEmail },
-        { name: "6", value: hostPhone },
-        { name: "7", value: meetingStartSaturday },
+        { name: "5", value: meetingNumber },
+        { name: "6", value: "May 9th Saturday @ 7am PDT / 10am EDT/ 7:30pm India / 2pm GMT" },
       ]);
   if (!whatsappSend.success) {
     return NextResponse.json(

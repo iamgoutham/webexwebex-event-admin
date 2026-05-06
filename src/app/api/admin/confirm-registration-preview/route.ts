@@ -121,7 +121,9 @@ export async function POST(request: Request) {
     const hostEmail = primaryMeeting?.hostEmail?.trim() || "Not available";
     const hostPhone = primaryMeeting?.hostPhone?.trim() || "Not available";
     const meetingStartSheet = primaryMeeting?.startTime?.trim() || "";
-    const meetingStartSaturday = formatUpcomingSaturdayLabel(phoneDigits);
+    const meetingStartSaturday = formatUpcomingSaturdayLabel(
+      lookup.whatsappDialDigits,
+    );
 
     const templateName = lookup.isHost ? "host_meeting_info" : "participant_meeting_info";
     const templateParams = lookup.isHost
@@ -148,6 +150,7 @@ export async function POST(request: Request) {
       valid: true as const,
       lookupType: "phone" as const,
       query: phoneDigits,
+      whatsappDialDigits: lookup.whatsappDialDigits,
       whatsappPreview: {
         templateName,
         templateParams,
