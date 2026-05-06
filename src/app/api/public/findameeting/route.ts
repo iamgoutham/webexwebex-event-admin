@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  loadFosterLinksFromPublic,
-  takeNextFosterRoundRobinIndex,
-} from "@/lib/findameeting-fosterlinks";
+import { executeFindameetingLookup } from "@/lib/findameeting-lookup";
+import { validateOptionalApiSecret } from "@/lib/public-api-secret";
 import { logFindameetingRequest } from "@/lib/findameeting-log";
-import { getPostgresPrisma } from "@/lib/prisma-postgres";
-import {
-  isPhoneMatchedInWebexHostTables,
-  lookupJoinCandidatesByPhone,
-  type JoinCandidate,
-} from "@/lib/public-join";
+import { applyPublicFindameetingCors } from "@/lib/public-api-cors";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +11,47 @@ const schema = z.object({
   phone: z.string().min(1),
 });
 
-const normDigits = (s: string) => s.replace(/[^0-9]/g, "");
+function json(
+  request: NextRequest,
+  body: unknown,
+  init?: ResponseInit,
+): NextResponse {
+  const res = NextResponse.json(body, init);
+  return applyPublicFindameetingCors(res, request);
+}
 
-// POST /api/public/findameeting
+async function runFindameetingLookup(
+  request: NextRequest,
+  phoneEntered: string,
+): Promise<NextResponse> {
+  const result = await executeFindameetingLookup(phoneEntered);
+  if (result.success) {
+    return json(request, { link: result.link });
+  }
+  return json(request, { error: result.error }, { status: result.status });
+}
+
+// POST /api/public/findameeting  Body: { "phone": "<whatsapp number>" }
+// Requires Authorization: Bearer <FINDAMEETING_API_SECRET> when that env var is set.
 export async function POST(request: NextRequest) {
+  if (
+    !validateOptionalApiSecret(
+      request,
+      process.env.FINDAMEETING_API_SECRET || process.env.EXTERNAL_API_KEY,
+      ["x-findameeting-secret"],
+    )
+  ) {
+    return json(
+      request,
+      {
+        error: "Unauthorized.",
+        hint:
+          "Set Authorization: Bearer <token> or X-Findameeting-Secret matching FINDAMEETING_API_SECRET (or EXTERNAL_API_KEY).",
+      },
+      { status: 401 },
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -29,83 +59,50 @@ export async function POST(request: NextRequest) {
       phoneEntered: "<invalid payload>",
       outcome: "invalid_payload",
     });
-    return NextResponse.json(
-      { error: "Please enter a phone number." },
-      { status: 400 },
-    );
+    return json(request, { error: "Please enter a phone number." }, { status: 400 });
   }
 
   const phoneEntered = parsed.data.phone.trim();
-  const digits = normDigits(phoneEntered);
+  return runFindameetingLookup(request, phoneEntered);
+}
 
-  if (digits.length < 10) {
-    await logFindameetingRequest({ phoneEntered, outcome: "invalid_short_phone" });
-    return NextResponse.json(
-      { error: "Enter a phone number with at least 10 digits (including area / country code)." },
+// GET /api/public/findameeting?phone=<whatsapp number>
+export async function GET(request: NextRequest) {
+  if (
+    !validateOptionalApiSecret(
+      request,
+      process.env.FINDAMEETING_API_SECRET || process.env.EXTERNAL_API_KEY,
+      ["x-findameeting-secret"],
+    )
+  ) {
+    return json(
+      request,
+      {
+        error: "Unauthorized.",
+        hint:
+          "Set Authorization: Bearer <token> or X-Findameeting-Secret matching FINDAMEETING_API_SECRET (or EXTERNAL_API_KEY).",
+      },
+      { status: 401 },
+    );
+  }
+
+  const phoneEntered = request.nextUrl.searchParams.get("phone")?.trim() ?? "";
+  if (!phoneEntered) {
+    return json(
+      request,
+      {
+        error: "Missing phone parameter.",
+        hint: "Pass the WhatsApp number as a query string, e.g. ?phone=%2B15551234567",
+      },
       { status: 400 },
     );
   }
 
-  const postgres = getPostgresPrisma();
-  if (!postgres) {
-    await logFindameetingRequest({ phoneEntered, outcome: "db_unconfigured" });
-    return NextResponse.json(
-      { error: "Downstream database is not configured." },
-      { status: 500 },
-    );
-  }
+  return runFindameetingLookup(request, phoneEntered);
+}
 
-  // Same map + phone matching + Webex link rules as POST /api/public/join
-  // (`lookupJoinCandidatesByPhone` / `finalizeCandidates`).
-  let candidates: JoinCandidate[];
-  try {
-    candidates = await lookupJoinCandidatesByPhone(postgres, phoneEntered);
-  } catch (e) {
-    const note = e instanceof Error ? e.message : "join lookup failed";
-    await logFindameetingRequest({
-      phoneEntered,
-      outcome: "map_lookup_error",
-      note,
-    });
-    return NextResponse.json(
-      { error: "Could not verify your number. Try again later." },
-      { status: 500 },
-    );
-  }
-
-  const matchedParticipant = candidates.length > 0;
-  const matchedHost =
-    !matchedParticipant &&
-    (await isPhoneMatchedInWebexHostTables(postgres, phoneEntered));
-
-  if (!matchedParticipant && !matchedHost) {
-    await logFindameetingRequest({ phoneEntered, outcome: "not_in_maps" });
-    return NextResponse.json(
-      {
-        error:
-          "We could not find that number among registered participants or hosts.",
-      },
-      { status: 404 },
-    );
-  }
-
-  const fosterLinks = await loadFosterLinksFromPublic();
-  if (fosterLinks.length === 0) {
-    await logFindameetingRequest({ phoneEntered, outcome: "no_foster_links" });
-    return NextResponse.json(
-      { error: "Meeting links are not configured. Add lines to public/fosterlinks.txt." },
-      { status: 500 },
-    );
-  }
-
-  const index = await takeNextFosterRoundRobinIndex(fosterLinks.length);
-  const link = fosterLinks[index]!;
-  await logFindameetingRequest({
-    phoneEntered,
-    outcome: "success",
-    note: matchedHost
-      ? `foster_index=${index};via=host`
-      : `foster_index=${index}`,
-  });
-  return NextResponse.json({ link });
+// Browser preflight when using cross-origin fetch with Content-Type: application/json
+export async function OPTIONS(request: NextRequest) {
+  const res = new NextResponse(null, { status: 204 });
+  return applyPublicFindameetingCors(res, request);
 }

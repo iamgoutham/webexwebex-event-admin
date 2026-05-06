@@ -103,6 +103,46 @@ type PageProps = {
   searchParams: Promise<{ email?: string; debug?: string }>;
 };
 
+async function getFallbackMeetingTitleFromGchant(
+  postgres: NonNullable<ReturnType<typeof getPostgresPrisma>>,
+  hostEmailLower: string,
+  mapWebexLinks: string[],
+): Promise<string | null> {
+  try {
+    const rows = await postgres.$queryRaw<
+      { topic: string | null; webex_mtng_link: string | null }[]
+    >`
+      SELECT NULLIF(btrim(topic::text), '') AS topic, NULLIF(btrim(webex_mtng_link::text), '') AS webex_mtng_link
+      FROM mission.gchant_mtng
+      WHERE lower(btrim(organizer_email::text)) = ${hostEmailLower}
+      UNION ALL
+      SELECT NULLIF(btrim(topic::text), '') AS topic, NULLIF(btrim(webex_mtng_link::text), '') AS webex_mtng_link
+      FROM mission.gchant_mtng_gp
+      WHERE lower(btrim(organizer_email::text)) = ${hostEmailLower}
+      UNION ALL
+      SELECT NULLIF(btrim(topic::text), '') AS topic, NULLIF(btrim(webex_mtng_link::text), '') AS webex_mtng_link
+      FROM vrindavan.gchant_mtng
+      WHERE lower(btrim(organizer_email::text)) = ${hostEmailLower}
+    `;
+
+    const topicRows = rows.filter((r) => (r.topic?.trim() ?? "").length > 0);
+    if (topicRows.length === 0) return null;
+
+    if (mapWebexLinks.length > 0) {
+      const linkSet = new Set(mapWebexLinks.map((l) => l.trim().toLowerCase()));
+      const linkMatch = topicRows.find((r) => {
+        const dbLink = r.webex_mtng_link?.trim().toLowerCase();
+        return dbLink ? linkSet.has(dbLink) : false;
+      });
+      if (linkMatch?.topic?.trim()) return linkMatch.topic.trim();
+    }
+
+    return topicRows[0]?.topic?.trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Why `parseMeetingInfoJson` returned null (for admin debug panel). */
 function explainParseFailure(raw: string): string {
   const t = raw.trim();
@@ -141,6 +181,7 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
     ReturnType<typeof getMeetingInfoLookupDebug>
   > | null = null;
   let debugSnapshot: Record<string, unknown> | null = null;
+  let mapFallbackMeetingTitle: string | null = null;
 
   if (email) {
     meetingInfoRaw = await getMeetingInfoForEmail(email);
@@ -205,6 +246,12 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
         // map link column optional per environment
       }
 
+      mapFallbackMeetingTitle = await getFallbackMeetingTitleFromGchant(
+        postgres,
+        normalizedEmail,
+        mapWebexLinks,
+      );
+
       if (
         (!meetingsFromJson || meetingsFromJson.length === 0) &&
         hostMapInvitees &&
@@ -212,7 +259,9 @@ export default async function MeetingsPreviewPage({ searchParams }: PageProps) {
       ) {
         meetingsFromJson = [
           {
-            title: "Participants (from host–participant map)",
+            title:
+              mapFallbackMeetingTitle ??
+              "Participants (from host–participant map)",
             webLink:
               effectiveHostMeetingWebLink(
                 extractWebexJoinUrlFromText(meetingInfoRaw),

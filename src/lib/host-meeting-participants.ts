@@ -247,7 +247,7 @@ async function fetchActiveNonIndiaHostShortIds(
   postgres: PostgresPrismaClient,
   hostEmailLower: string,
 ): Promise<string[]> {
-  const [rowsNu, rowsGp] = await Promise.all([
+  const [rowsNu, rowsGp, rowsDattap] = await Promise.all([
     postgres.$queryRaw<{ sid: string }[]>`
       SELECT DISTINCT btrim(h.host_unq_shortid::text) AS sid
       FROM mission.webex_hosts_non_india h
@@ -262,6 +262,13 @@ async function fetchActiveNonIndiaHostShortIds(
         AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
         AND btrim(COALESCE(h.host_unq_shortid::text, '')) <> ''
     `,
+    postgres.$queryRaw<{ sid: string }[]>`
+      SELECT DISTINCT btrim(h.host_unq_shortid::text) AS sid
+      FROM mission.webex_hosts_non_india_dattap h
+      WHERE lower(btrim(h.host_email_id::text)) = ${hostEmailLower}
+        AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        AND btrim(COALESCE(h.host_unq_shortid::text, '')) <> ''
+    `,
   ]);
   const out = new Set<string>();
   for (const r of rowsNu) {
@@ -269,6 +276,10 @@ async function fetchActiveNonIndiaHostShortIds(
     if (s) out.add(s);
   }
   for (const r of rowsGp) {
+    const s = r.sid?.trim();
+    if (s) out.add(s);
+  }
+  for (const r of rowsDattap) {
     const s = r.sid?.trim();
     if (s) out.add(s);
   }
@@ -390,6 +401,45 @@ export async function collectParticipantRefsForHost(
     } catch (err) {
       console.warn(
         "[host-meeting-participants] mission host_prtcpnt_map_nonindia_gp by short id failed:",
+        err,
+      );
+    }
+
+    try {
+      const rows = await postgres.$queryRaw<
+        {
+          email: string | null;
+          map_name: string | null;
+          map_phone: string | null;
+          rec_create_tstmp: Date | null;
+        }[]
+      >(Prisma.sql`
+        SELECT
+          lower(btrim(m.prtcpnt_email_id::text)) AS email,
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
+          NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+          MIN(m.rec_create_tstmp) AS rec_create_tstmp
+        FROM mission.host_prtcpnt_map_nonindia_dattap m
+        WHERE (${nonIndiaShortWhere})
+          AND m.prtcpnt_email_id IS NOT NULL
+          AND btrim(m.prtcpnt_email_id::text) <> ''
+          AND EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_dattap h
+            WHERE ${PG_SHORT_ID_BARE_MATCH}
+              AND lower(btrim(h.host_email_id::text)) = ${he}
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+        GROUP BY
+          lower(btrim(m.prtcpnt_email_id::text)),
+          NULLIF(btrim(m.prtcpnt_name::text), ''),
+          NULLIF(btrim(m.prtcpnt_phone_no::text), '')
+      `);
+      for (const r of rows)
+        addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
+    } catch (err) {
+      console.warn(
+        "[host-meeting-participants] mission host_prtcpnt_map_nonindia_dattap by short id failed:",
         err,
       );
     }
@@ -564,6 +614,44 @@ export async function collectParticipantRefsForHost(
   } catch (err) {
     console.warn(
       "[host-meeting-participants] mission host_prtcpnt_map_nonindia_gp host_email_id failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<
+      {
+        email: string | null;
+        map_name: string | null;
+        map_phone: string | null;
+        rec_create_tstmp: Date | null;
+      }[]
+    >`
+      SELECT
+        lower(btrim(m.prtcpnt_email_id::text)) AS email,
+        NULLIF(btrim(m.prtcpnt_name::text), '') AS map_name,
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '') AS map_phone,
+        MIN(m.rec_create_tstmp) AS rec_create_tstmp
+      FROM mission.host_prtcpnt_map_nonindia_dattap m
+      WHERE lower(btrim(m.host_email_id::text)) = ${he}
+        AND m.prtcpnt_email_id IS NOT NULL
+        AND btrim(m.prtcpnt_email_id::text) <> ''
+        AND EXISTS (
+          SELECT 1
+          FROM mission.webex_hosts_non_india_dattap h
+          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        )
+      GROUP BY
+        lower(btrim(m.prtcpnt_email_id::text)),
+        NULLIF(btrim(m.prtcpnt_name::text), ''),
+        NULLIF(btrim(m.prtcpnt_phone_no::text), '')
+    `;
+    for (const r of rows)
+      addMapRefPair(bucket, r.email, r.map_name, r.map_phone, r.rec_create_tstmp);
+  } catch (err) {
+    console.warn(
+      "[host-meeting-participants] mission host_prtcpnt_map_nonindia_dattap host_email_id failed:",
       err,
     );
   }
@@ -968,6 +1056,28 @@ export async function fetchParticipantNamesForHostMeetingPair(
     } catch (err) {
       console.warn(
         "[host-meeting-participants] names nonindia_gp for meeting pair:",
+        err,
+      );
+    }
+
+    try {
+      const rows = await postgres.$queryRaw<{ name: string | null }[]>`
+        SELECT DISTINCT NULLIF(btrim(m.prtcpnt_name::text), '') AS name
+        FROM mission.host_prtcpnt_map_nonindia_dattap m
+        WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${p}
+          AND lower(btrim(m.host_email_id::text)) = ${h}
+          AND EXISTS (
+            SELECT 1
+            FROM mission.webex_hosts_non_india_dattap hh
+            WHERE lower(btrim(hh.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(hh.webex_active_ind::text, '')) = 'Y'
+          )
+          AND ${meetSql}
+      `;
+      add(rows);
+    } catch (err) {
+      console.warn(
+        "[host-meeting-participants] names nonindia_dattap for meeting pair:",
         err,
       );
     }

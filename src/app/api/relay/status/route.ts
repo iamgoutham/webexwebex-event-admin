@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth, jsonError } from "@/lib/api-guards";
+import { isRelayAndNotificationsSseDisabled } from "@/lib/relay-sse-disable";
 
 // ---------------------------------------------------------------------------
 // GET /api/relay/status?broadcastId=xxx — Admin view of relay acknowledgments
@@ -14,6 +15,10 @@ export async function GET(request: NextRequest) {
   ]);
   if (response) return response;
   if (!session) return jsonError("Unauthorized", 401);
+
+  if (isRelayAndNotificationsSseDisabled()) {
+    return jsonError("Message relay is disabled.", 403);
+  }
 
   const { searchParams } = new URL(request.url);
   const broadcastId = searchParams.get("broadcastId");

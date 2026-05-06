@@ -46,12 +46,18 @@ export default async function Home() {
               </Link>
             </div>
           </div>
-          <div className="flex shrink-0 md:ml-4">
+          <div className="flex w-full shrink-0 flex-col items-center gap-4 md:ml-4 md:w-auto md:items-end">
             <CountdownTimer
               targetDate={new Date("2026-05-09T00:00:00Z")}
               label="Event Countdown"
               sublabel="Global Gita Chanting Day — May 9th, 2026"
             />
+            <Link
+              href="/help"
+              className="inline-flex w-full max-w-[min(100%,20rem)] items-center justify-center rounded-full bg-[#8a2f2a] px-5 py-2.5 text-sm font-semibold text-[#fff9ef] shadow-md transition hover:bg-[#722825] md:w-auto md:min-w-[11rem]"
+            >
+              CGS Helpdesk
+            </Link>
           </div>
         </div>
       </section>
@@ -167,6 +173,18 @@ export default async function Home() {
         <h2 className="text-xl font-semibold">Helpful Links</h2>
         <div className="mt-4 grid gap-6 text-sm text-[#6b4e3d] sm:grid-cols-2 lg:grid-cols-3">
           <ul className="space-y-2">
+            <li>
+              <Link
+                href="/help"
+                className="font-semibold text-[#3b1a1f] hover:text-[#8a2f2a]"
+              >
+                CGS SELF-HELPDESK (participant quick links)
+              </Link>
+              <p className="mt-1 text-xs font-normal text-[#8a5b44]">
+                Meeting link lookup, livestream, late host, and event-day
+                instructions.
+              </p>
+            </li>
             <li>
               <a
                 href="https://tinyurl.com/GitaChantingReg"

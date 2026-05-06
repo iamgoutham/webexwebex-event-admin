@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Role } from "@prisma/client";
 import AuthButtons from "@/components/auth-buttons";
 import NotificationBell from "@/components/notifications/notification-bell";
+import { isRelayAndNotificationsSseDisabled } from "@/lib/relay-sse-disable";
 import { getServerAuthSession } from "@/lib/session";
 import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
 
@@ -11,6 +12,7 @@ export default async function SiteHeader() {
   const user = session?.user;
   const tenantConfig = await getTenantConfigFromHeaders();
   const providerId = tenantConfig?.providerId ?? "webex";
+  const relaySseDisabled = isRelayAndNotificationsSseDisabled();
 
   return (
     <header className="border-b border-[#5c2a2d]/60 bg-[#3b1a1f] text-[#fbe9c6]">
@@ -59,7 +61,7 @@ export default async function SiteHeader() {
                 Broadcast
               </Link>
             ) : null}
-            {user ? (
+            {user && !relaySseDisabled ? (
               <Link href="/dashboard/relay" className="hover:text-[#fbe9c6]">
                 Relay
               </Link>
@@ -75,7 +77,9 @@ export default async function SiteHeader() {
           </nav>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          {user ? <NotificationBell /> : null}
+          {user ? (
+            <NotificationBell sseDisabled={relaySseDisabled} />
+          ) : null}
           {user ? (
             <div className="text-left text-xs text-[#fbe9c6]/60 sm:text-right">
               <div className="font-medium text-[#fbe9c6]">

@@ -1,4 +1,5 @@
 import ChantingStartTimesTable from "@/components/chanting-start-times-table";
+import InlineExternalLinkWithCopy from "@/components/inline-external-link-with-copy";
 import WebexCohostInstructionsSection from "@/components/webex-cohost-instructions-section";
 
 const shell = {
@@ -8,7 +9,7 @@ const shell = {
     "rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8",
 } as const;
 
-type Mode = "both" | "virtual" | "mobile";
+type Mode = "both" | "virtual" | "mobile" | "youtube";
 
 export function EventDaySharedIntroCard({
   variant = "instructions",
@@ -81,6 +82,29 @@ function MobileChecklistList() {
   );
 }
 
+function YoutubeChecklistList() {
+  return (
+    <ul className="mt-4 list-none space-y-3 text-sm text-[#6b4e3d]">
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>1</span><span>Turn off all notifications in the laptop, log in to the Webex app, and start your meeting.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>2</span><span>Post the CGS provided{" "}<InlineExternalLinkWithCopy href="https://cmqr.in/youtubelive">Youtube Live stream link</InlineExternalLinkWithCopy>{" "}for Pacer Video in your Webex meeting chat window.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>3</span><span>Guide the participants to open chat in Webex meeting and click on it to open the Live stream to follow when chanting starts streaming.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>4</span><span>Change your layout on the laptop to grid mode.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>5</span><span>Make sure all participant videos are ON and faces are visible in the center of the video.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>6</span><span>Check that every participant shows their full name on screen; if not, ask them to update their display name.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>7</span><span>Ask everyone to unmute audio and lower speaker volume to avoid distraction.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>8</span><span>Lock the meeting and disable Participant privileges under Meeting Options. For chanting #1, lock at 10:10 am EDT / 9:10 am CDT / 7:10 am PDT / 7:40 pm IST.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>9</span><span>Open the OBS app (setup ready), start recording just before chanting start time, then minimize OBS.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>10</span><span>At chanting start time, host chant along the pacer video via the Youtube live stream in their secondary device for self reference.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>11</span><span>After chanting, open OBS, stop recording, and minimize OBS.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>12</span><span>Unlock the meeting after chanting #1 so anyone who missed it can join.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>13</span><span>For chanting #2, lock at 10:30 am EDT / 9:30 am CDT / 7:30 am PDT / 8:00 pm IST.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>14</span><span>Repeat steps 9-11 for chanting #2.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>15</span><span>Thank participants and end the Webex meeting.</span></li>
+      <li className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#d8792d]/25 text-xs font-bold text-[#7a3b2a]" aria-hidden>16</span><span>Upload the OBS recording to the host portal: <a href="https://webex-usa.chinmayavrindavan.org/dashboard/uploads" target="_blank" rel="noreferrer" className="font-medium text-[#8a2f2a] underline hover:text-[#3b1a1f]">webex-usa.chinmayavrindavan.org/dashboard/uploads</a>. Deadline: 1:00 pm EST / 12:00 pm CST / 10:00 am PST / 10:30 pm IST.</span></li>
+    </ul>
+  );
+}
+
 function MobileSection({ standalone = false }: { standalone?: boolean }) {
   return (
     <div className={standalone ? "mt-4" : "mt-8 border-t border-[#e5c18e]/80 pt-8"}>
@@ -106,15 +130,80 @@ function MobileSection({ standalone = false }: { standalone?: boolean }) {
   );
 }
 
+function YoutubeSection({ standalone = false }: { standalone?: boolean }) {
+  return (
+    <div className={standalone ? "mt-4" : "mt-8 border-t border-[#e5c18e]/80 pt-8"}>
+      {standalone ? (
+        <h2 className="text-xl font-bold leading-snug text-[#3b1a1f] sm:text-2xl">
+          Event day Host Checklist (For Pacer video via Youtube Live streaming to participants)
+        </h2>
+      ) : (
+        <h3 className="text-lg font-bold text-[#3b1a1f] sm:text-xl">
+          Event day Host Checklist (For Pacer video via Youtube Live streaming to participants)
+        </h3>
+      )}
+      <a
+        href="https://docs.google.com/document/d/10_b2DxEhbfb0L3Pj7z7FiWILKEyaxOX1fGAG1oOCgPA/edit?tab=t.rtoxfhie2htp"
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-flex text-sm font-medium text-[#8a2f2a] underline hover:text-[#3b1a1f]"
+      >
+        Open Detailed Checklist
+      </a>
+      <YoutubeChecklistList />
+    </div>
+  );
+}
+
 export default function EventDayHostChecklistSection({
   variant = "instructions",
   mode = "both",
   showSharedIntro = true,
+  embeddedTabPanel = false,
 }: {
   variant?: keyof typeof shell;
   mode?: Mode;
   showSharedIntro?: boolean;
+  /** When true: no outer card or “Event day” badge — used inside {@link EventDayHostChecklistTabs}. */
+  embeddedTabPanel?: boolean;
 }) {
+  if (embeddedTabPanel && mode === "mobile") {
+    return (
+      <div className="pt-1">
+        <MobileSection standalone />
+      </div>
+    );
+  }
+
+  if (embeddedTabPanel && mode === "virtual") {
+    return (
+      <div className="pt-1">
+        <h2 className="text-xl font-bold leading-snug text-[#3b1a1f] sm:text-2xl">
+          Event day Host Checklist (For Pacer video as Virtual Background)
+        </h2>
+        <a
+          href="https://docs.google.com/document/d/1ZOUA3kLPYYyEhLCnfjFx7kSTDimldMZBOx9-LNhpp7k/edit?tab=t.rtoxfhie2htp"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex text-sm font-medium text-[#8a2f2a] underline hover:text-[#3b1a1f]"
+        >
+          Open Detailed Checklist
+        </a>
+        <div className="mt-8 border-t border-[#e5c18e]/80 pt-8">
+          <VirtualChecklistList />
+        </div>
+        <WebexCohostInstructionsSection variant="inline" />
+      </div>
+    );
+  }
+  if (embeddedTabPanel && mode === "youtube") {
+    return (
+      <div className="pt-1">
+        <YoutubeSection standalone />
+      </div>
+    );
+  }
+
   return (
     <section className={shell[variant]}>
       <span className="inline-flex rounded-full bg-[#f7e2b6] px-3 py-1 text-xs font-semibold text-[#8a2f2a]">
@@ -163,9 +252,10 @@ export default function EventDayHostChecklistSection({
         </>
       ) : null}
 
-      {mode !== "virtual" ? (
+      {mode !== "virtual" && mode !== "youtube" ? (
         <MobileSection standalone={mode === "mobile"} />
       ) : null}
+      {mode === "youtube" ? <YoutubeSection standalone={mode === "youtube"} /> : null}
     </section>
   );
 }

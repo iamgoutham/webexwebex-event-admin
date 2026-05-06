@@ -188,6 +188,30 @@ export async function lookupJoinCandidatesByPhoneWithDebug(
       `,
     },
     {
+      source: "mission.host_prtcpnt_map_nonindia_nu_overages.prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.prtcpnt_phone_no::text AS matched_phone
+        FROM mission.host_prtcpnt_map_nonindia_nu_overages m
+        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "mission.host_prtcpnt_map_nonindia_dattap.prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.prtcpnt_phone_no::text AS matched_phone
+        FROM mission.host_prtcpnt_map_nonindia_dattap m
+        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
       source: "mission.host_prtcpnt_map_crossregion.ind_prtcpnt_phone_no",
       sql: Prisma.sql`
         SELECT
@@ -232,6 +256,30 @@ export async function lookupJoinCandidatesByPhoneWithDebug(
           m.rec_create_tstmp AS rec_create_tstmp,
           m.prtcpnt_phone_no::text AS matched_phone
         FROM vrindavan.host_prtcpnt_map_india m
+        WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "vrindavan.host_prtctpnt_map_india_overages.ind_prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.ind_prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.ind_prtcpnt_phone_no::text AS matched_phone
+        FROM vrindavan.host_prtctpnt_map_india_overages m
+        WHERE ${phoneMatchSql("m.ind_prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "vrindavan.host_prtctpnt_map_india_overages.prtcpnt_phone_no",
+      sql: Prisma.sql`
+        SELECT
+          NULLIF(btrim(m.prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(m.webex_mtng_link::text), '') AS link,
+          m.rec_create_tstmp AS rec_create_tstmp,
+          m.prtcpnt_phone_no::text AS matched_phone
+        FROM vrindavan.host_prtctpnt_map_india_overages m
         WHERE ${phoneMatchSql("m.prtcpnt_phone_no", digits, last10)}
       `,
     },

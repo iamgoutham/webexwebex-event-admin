@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getServerAuthSession } from "@/lib/session";
 import { sseManager } from "@/lib/notifications/sse-manager";
+import { isRelayAndNotificationsSseDisabled } from "@/lib/relay-sse-disable";
 
 // ---------------------------------------------------------------------------
 // GET /api/notifications/stream — SSE endpoint for real-time notifications
@@ -18,6 +19,13 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(_request: NextRequest) {
+  if (isRelayAndNotificationsSseDisabled()) {
+    return new Response("Notification live stream is disabled.", {
+      status: 403,
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   const session = await getServerAuthSession();
   if (!session?.user?.id) {
     return new Response("Unauthorized", { status: 401 });

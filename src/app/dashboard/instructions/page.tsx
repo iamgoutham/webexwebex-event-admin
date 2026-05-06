@@ -1,8 +1,7 @@
 import Image from "next/image";
 import { requireAuth } from "@/lib/guards";
-import EventDayHostChecklistSection, {
-  EventDaySharedIntroCard,
-} from "@/components/event-day-host-checklist-section";
+import { EventDaySharedIntroCard } from "@/components/event-day-host-checklist-section";
+import EventDayHostChecklistTabs from "@/components/event-day-host-checklist-tabs";
 
 export default async function InstructionsPage() {
   await requireAuth();
@@ -32,9 +31,7 @@ export default async function InstructionsPage() {
 
       <EventDaySharedIntroCard />
 
-      <EventDayHostChecklistSection mode="mobile" />
-
-      <EventDayHostChecklistSection mode="virtual" showSharedIntro={false} />
+      <EventDayHostChecklistTabs variant="instructions" />
     </div>
   );
 }

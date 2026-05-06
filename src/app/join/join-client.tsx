@@ -1,17 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-
-type JoinCandidate = {
-  name: string;
-  joinLink: string;
-};
+import {
+  joinLookupAction,
+  type JoinCandidate,
+} from "./actions";
 
 export default function JoinClient() {
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [candidates, setCandidates] = useState<JoinCandidate[]>([]);
   const [selectedName, setSelectedName] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   const canSearch = useMemo(
     () => phone.trim().length >= 7 && status !== "loading",
@@ -24,16 +24,15 @@ export default function JoinClient() {
     if (!canSearch) return;
     setStatus("loading");
     setSelectedName("");
+    setError(null);
     try {
-      const res = await fetch("/api/public/join", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        candidates?: JoinCandidate[];
-      };
-      setCandidates(Array.isArray(data.candidates) ? data.candidates : []);
+      const data = await joinLookupAction(phone.trim());
+      if (data.ok) {
+        setCandidates(data.candidates);
+      } else {
+        setCandidates([]);
+        setError(data.error);
+      }
     } finally {
       setStatus("idle");
     }
@@ -68,6 +67,12 @@ export default function JoinClient() {
         >
           {status === "loading" ? "Searching..." : "Find my link"}
         </button>
+
+        {error ? (
+          <p className="mt-4 text-sm text-[#8b2d2d]" role="alert">
+            {error}
+          </p>
+        ) : null}
 
         {candidates.length > 0 ? (
           <div className="mt-6 rounded-xl border border-[#ead2ae] bg-white p-4">

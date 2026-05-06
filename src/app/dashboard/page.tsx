@@ -18,9 +18,8 @@ import { loadHostMeetingParticipants } from "@/lib/host-meeting-participants";
 import { sheetMeetingForAssignment } from "@/lib/sheet-meeting-for-assignment";
 import type { SheetMeeting } from "@/lib/meeting-sheet-types";
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
-import EventDayHostChecklistSection, {
-  EventDaySharedIntroCard,
-} from "@/components/event-day-host-checklist-section";
+import { EventDaySharedIntroCard } from "@/components/event-day-host-checklist-section";
+import EventDayHostChecklistTabs from "@/components/event-day-host-checklist-tabs";
 import GridSizeForm from "@/components/grid-size-form";
 import HostPreparationSections from "@/components/host-preparation-sections";
 
@@ -215,13 +214,7 @@ export default async function DashboardPage() {
 
       <EventDaySharedIntroCard variant="dashboard" />
 
-      <EventDayHostChecklistSection variant="dashboard" mode="mobile" />
-
-      <EventDayHostChecklistSection
-        variant="dashboard"
-        mode="virtual"
-        showSharedIntro={false}
-      />
+      <EventDayHostChecklistTabs variant="dashboard" />
 
       <HostPreparationSections />
 

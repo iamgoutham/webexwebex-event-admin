@@ -4,9 +4,18 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
 import { s3Bucket, s3Client } from "@/lib/s3";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 
 const PAGE_SIZE = 100;
+
+/** Normalize short-id input the same way upload paths use URL-safe segments. */
+function safeSegment(value: string): string {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9-_]/g, "-")
+    .replace(/--+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 const formatBytes = (value?: number | null) => {
   if (!value) {
@@ -22,7 +31,7 @@ const formatBytes = (value?: number | null) => {
 };
 
 type PageProps = {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; shortId?: string }>;
 };
 
 export default async function UploadsPage({ searchParams }: PageProps) {
@@ -33,12 +42,30 @@ export default async function UploadsPage({ searchParams }: PageProps) {
     parseInt(params?.page ?? "1", 10) || 1,
   );
 
-  const where =
+  const shortIdRaw = params.shortId?.trim() ?? "";
+  const shortSegment =
+    (session.user.role === Role.ADMIN ||
+      session.user.role === Role.SUPERADMIN) &&
+    shortIdRaw.length > 0
+      ? safeSegment(shortIdRaw)
+      : "";
+
+  const baseWhere: Prisma.UploadWhereInput =
     session.user.role === Role.SUPERADMIN
       ? {}
       : session.user.role === Role.ADMIN
         ? { tenantId: session.user.tenantId ?? "__missing__" }
         : { userId: session.user.id };
+
+  const where: Prisma.UploadWhereInput =
+    shortSegment.length > 0
+      ? {
+          AND: [
+            baseWhere,
+            { key: { contains: shortSegment } },
+          ],
+        }
+      : baseWhere;
 
   const total = await prisma.upload.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -53,6 +80,11 @@ export default async function UploadsPage({ searchParams }: PageProps) {
 
   const start = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const end = Math.min(currentPage * PAGE_SIZE, total);
+
+  const pageQueryPrefix =
+    shortSegment.length > 0
+      ? `/dashboard/uploads?shortId=${encodeURIComponent(shortIdRaw)}&`
+      : `/dashboard/uploads?`;
 
   const reportExistsByIndex =
     s3Bucket && uploads.length > 0
@@ -86,13 +118,65 @@ export default async function UploadsPage({ searchParams }: PageProps) {
         defaultHostName={session.user.name ?? undefined}
         defaultHostEmail={session.user.email ?? undefined}
       />
+      {session.user.role === Role.ADMIN ||
+      session.user.role === Role.SUPERADMIN ? (
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-5 shadow-md sm:p-6">
+          <h2 className="text-sm font-semibold text-[#3b1a1f]">
+            Search by host short ID
+          </h2>
+          <p className="mt-1 text-xs text-[#6b4e3d]">
+            Matches uploads whose S3 key path contains this short id (folder or
+            filename prefix).
+          </p>
+          <form
+            className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
+            action="/dashboard/uploads"
+            method="get"
+          >
+            <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-[#6b4e3d]">
+              Short ID
+              <input
+                type="search"
+                name="shortId"
+                defaultValue={shortIdRaw}
+                placeholder="e.g. host short id from license sheet"
+                className="w-full rounded-lg border border-[#e5c18e] bg-white px-3 py-2 text-sm text-[#3b1a1f] placeholder:text-[#a08060] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
+                autoComplete="off"
+              />
+            </label>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                type="submit"
+                className="rounded-lg bg-[#8a2f2a] px-4 py-2 text-sm font-semibold text-[#fff9ef] shadow-sm hover:bg-[#722825]"
+              >
+                Search
+              </button>
+              {shortSegment.length > 0 ? (
+                <Link
+                  href="/dashboard/uploads"
+                  className="rounded-lg border border-[#7a3b2a]/50 px-4 py-2 text-sm font-medium text-[#3b1a1f] hover:bg-[#f7e2b6]/40"
+                >
+                  Clear
+                </Link>
+              ) : null}
+            </div>
+          </form>
+        </div>
+      ) : null}
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md sm:p-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">Recent uploads</h2>
           <p className="text-sm text-[#6b4e3d]">
             {total === 0
-              ? "No uploads"
+              ? shortSegment.length > 0
+                ? "No uploads match this short ID"
+                : "No uploads"
               : `Showing ${start}–${end} of ${total}`}
+            {shortSegment.length > 0 && total > 0 ? (
+              <span className="ml-1 block text-xs text-[#8a5b44] sm:inline">
+                (filtered by short ID)
+              </span>
+            ) : null}
           </p>
         </div>
         <div className="mt-4 overflow-x-auto">
@@ -185,7 +269,7 @@ export default async function UploadsPage({ searchParams }: PageProps) {
                 </span>
               ) : (
                 <Link
-                  href={`/dashboard/uploads?page=${currentPage - 1}`}
+                  href={`${pageQueryPrefix}page=${currentPage - 1}`}
                   className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
                 >
                   Previous
@@ -200,7 +284,7 @@ export default async function UploadsPage({ searchParams }: PageProps) {
                 </span>
               ) : (
                 <Link
-                  href={`/dashboard/uploads?page=${currentPage + 1}`}
+                  href={`${pageQueryPrefix}page=${currentPage + 1}`}
                   className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
                 >
                   Next

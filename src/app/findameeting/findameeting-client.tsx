@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { findMeetingLinkAction } from "./actions";
 
 export default function FindameetingClient() {
   const [phone, setPhone] = useState("");
@@ -19,19 +20,12 @@ export default function FindameetingClient() {
     setError(null);
     setLink(null);
     try {
-      const res = await fetch("/api/public/findameeting", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { link?: string; error?: string };
-      if (res.ok && data.link) {
+      const data = await findMeetingLinkAction(phone.trim());
+      if (data.ok) {
         setLink(data.link);
         return;
       }
-      setError(
-        data.error || "Something went wrong. Please try again.",
-      );
+      setError(data.error || "Something went wrong. Please try again.");
     } finally {
       setStatus("idle");
     }

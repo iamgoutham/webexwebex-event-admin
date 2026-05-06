@@ -17,7 +17,14 @@ interface NotificationItem {
   createdAt: string;
 }
 
-export default function NotificationBell() {
+type NotificationBellProps = {
+  /** When true, skip EventSource to `/api/notifications/stream` (REST only). */
+  sseDisabled?: boolean;
+};
+
+export default function NotificationBell({
+  sseDisabled = false,
+}: NotificationBellProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -51,7 +58,7 @@ export default function NotificationBell() {
   }, []);
 
   const connectSSE = useCallback(() => {
-    if (eventSourceRef.current) return;
+    if (sseDisabled || eventSourceRef.current) return;
 
     const eventSource = new EventSource("/api/notifications/stream");
     eventSourceRef.current = eventSource;
@@ -90,7 +97,7 @@ export default function NotificationBell() {
     eventSource.onerror = () => {
       // EventSource will auto-reconnect
     };
-  }, []);
+  }, [sseDisabled]);
 
   // Badge only on load — one REST call, no SSE
   useEffect(() => {
@@ -189,7 +196,12 @@ export default function NotificationBell() {
           onClick={() => {
             const opening = !isOpen;
             setIsOpen(opening);
-            if (opening && !sseStartedRef.current) {
+            if (!opening) return;
+            if (sseDisabled) {
+              void fetchNotifications();
+              return;
+            }
+            if (!sseStartedRef.current) {
               sseStartedRef.current = true;
               void fetchNotifications();
               connectSSE();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma, BroadcastStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireApiAuth, jsonError } from "@/lib/api-guards";
+import { isRelayAndNotificationsSseDisabled } from "@/lib/relay-sse-disable";
 
 // ---------------------------------------------------------------------------
 // GET /api/relay — Get active relay messages for the current host
@@ -11,6 +12,10 @@ export async function GET() {
   const { session, response } = await requireApiAuth();
   if (response) return response;
   if (!session) return jsonError("Unauthorized", 401);
+
+  if (isRelayAndNotificationsSseDisabled()) {
+    return NextResponse.json({ relayMessages: [], disabled: true });
+  }
 
   // Get recent relay-type broadcasts (RELAY target or broadcasts that have relay content)
   const relayMessages = await prisma.broadcast.findMany({
@@ -69,6 +74,10 @@ export async function POST(request: NextRequest) {
   const { session, response } = await requireApiAuth();
   if (response) return response;
   if (!session) return jsonError("Unauthorized", 401);
+
+  if (isRelayAndNotificationsSseDisabled()) {
+    return jsonError("Message relay is disabled.", 403);
+  }
 
   let body: { broadcastId: string };
   try {

@@ -227,25 +227,52 @@ export const getLicenseSiteForEmail = async (email: string) => {
   }
 
   const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
-  if (!sheetThreeId) {
+  const sheetFourId = process.env.GOOGLE_LICENSE_SHEET_4_ID?.trim();
+
+  if (sheetThreeId) {
+    const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
+    const fromSheetThreeEmail = await lookupSheetValue({
+      sheetId: sheetThreeId,
+      gid: sheetThreeGid,
+      emailColumn: "Email",
+      valueColumn: "License Site",
+      email: normalizedEmail,
+    });
+    if (fromSheetThreeEmail) {
+      return fromSheetThreeEmail;
+    }
+
+    const fromSheetThreeAddress = await lookupSheetValue({
+      sheetId: sheetThreeId,
+      gid: sheetThreeGid,
+      emailColumn: "Email Address",
+      valueColumn: "License Site",
+      email: normalizedEmail,
+    });
+    if (fromSheetThreeAddress) {
+      return fromSheetThreeAddress;
+    }
+  }
+
+  if (!sheetFourId) {
     return null;
   }
 
-  const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
-  const fromSheetThreeEmail = await lookupSheetValue({
-    sheetId: sheetThreeId,
-    gid: sheetThreeGid,
+  const sheetFourGid = process.env.GOOGLE_LICENSE_SHEET_4_GID;
+  const fromSheetFourEmail = await lookupSheetValue({
+    sheetId: sheetFourId,
+    gid: sheetFourGid,
     emailColumn: "Email",
     valueColumn: "License Site",
     email: normalizedEmail,
   });
-  if (fromSheetThreeEmail) {
-    return fromSheetThreeEmail;
+  if (fromSheetFourEmail) {
+    return fromSheetFourEmail;
   }
 
   return lookupSheetValue({
-    sheetId: sheetThreeId,
-    gid: sheetThreeGid,
+    sheetId: sheetFourId,
+    gid: sheetFourGid,
     emailColumn: "Email Address",
     valueColumn: "License Site",
     email: normalizedEmail,
@@ -284,25 +311,52 @@ export const getMeetingInfoForEmail = async (email: string) => {
   }
 
   const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
-  if (!sheetThreeId) {
+  const sheetFourId = process.env.GOOGLE_LICENSE_SHEET_4_ID?.trim();
+
+  if (sheetThreeId) {
+    const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
+    const fromSheetThreeEmail = await lookupSheetValue({
+      sheetId: sheetThreeId,
+      gid: sheetThreeGid,
+      emailColumn: "Email",
+      valueColumn: "Meeting Info",
+      email: normalizedEmail,
+    });
+    if (fromSheetThreeEmail) {
+      return fromSheetThreeEmail;
+    }
+
+    const fromSheetThreeAddress = await lookupSheetValue({
+      sheetId: sheetThreeId,
+      gid: sheetThreeGid,
+      emailColumn: "Email Address",
+      valueColumn: "Meeting Info",
+      email: normalizedEmail,
+    });
+    if (fromSheetThreeAddress) {
+      return fromSheetThreeAddress;
+    }
+  }
+
+  if (!sheetFourId) {
     return null;
   }
 
-  const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
-  const fromSheetThreeEmail = await lookupSheetValue({
-    sheetId: sheetThreeId,
-    gid: sheetThreeGid,
+  const sheetFourGid = process.env.GOOGLE_LICENSE_SHEET_4_GID;
+  const fromSheetFourEmail = await lookupSheetValue({
+    sheetId: sheetFourId,
+    gid: sheetFourGid,
     emailColumn: "Email",
     valueColumn: "Meeting Info",
     email: normalizedEmail,
   });
-  if (fromSheetThreeEmail) {
-    return fromSheetThreeEmail;
+  if (fromSheetFourEmail) {
+    return fromSheetFourEmail;
   }
 
   return lookupSheetValue({
-    sheetId: sheetThreeId,
-    gid: sheetThreeGid,
+    sheetId: sheetFourId,
+    gid: sheetFourGid,
     emailColumn: "Email Address",
     valueColumn: "Meeting Info",
     email: normalizedEmail,
@@ -343,6 +397,19 @@ export type MeetingInfoLookupDebug = {
   };
   /** Present when `GOOGLE_LICENSE_SHEET_3_ID` is set; otherwise `null`. */
   sheet3: {
+    sheetId: string;
+    gid: string | undefined;
+    emailColumn: string;
+    valueColumn: string;
+    rowCount: number;
+    found: boolean;
+    emailColumnIndex: number;
+    valueColumnIndex: number;
+    sampleEmailsMasked: string[];
+    mismatchHint?: string;
+  } | null;
+  /** Present when `GOOGLE_LICENSE_SHEET_4_ID` is set; otherwise `null`. */
+  sheet4: {
     sheetId: string;
     gid: string | undefined;
     emailColumn: string;
@@ -446,14 +513,22 @@ export const getMeetingInfoLookupDebug = async (
 
   const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
   const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
+  const sheetFourId = process.env.GOOGLE_LICENSE_SHEET_4_ID?.trim();
+  const sheetFourGid = process.env.GOOGLE_LICENSE_SHEET_4_GID;
 
-  const [sheet1, sheet2, sheet3DebugPair] = await Promise.all([
+  const [sheet1, sheet2, sheet3DebugPair, sheet4DebugPair] = await Promise.all([
     toSheetDebug(LICENSE_SHEET_1_ID, sheetOneGid, "Email"),
     toSheetDebug(LICENSE_SHEET_2_ID, sheetTwoGid, "Email Address"),
     sheetThreeId
       ? Promise.all([
           toSheetDebug(sheetThreeId, sheetThreeGid, "Email"),
           toSheetDebug(sheetThreeId, sheetThreeGid, "Email Address"),
+        ])
+      : Promise.resolve(null as [MeetingInfoLookupDebug["sheet1"], MeetingInfoLookupDebug["sheet1"]] | null),
+    sheetFourId
+      ? Promise.all([
+          toSheetDebug(sheetFourId, sheetFourGid, "Email"),
+          toSheetDebug(sheetFourId, sheetFourGid, "Email Address"),
         ])
       : Promise.resolve(null as [MeetingInfoLookupDebug["sheet1"], MeetingInfoLookupDebug["sheet1"]] | null),
   ]);
@@ -463,6 +538,11 @@ export const getMeetingInfoLookupDebug = async (
     const [dEmail, dAddr] = sheet3DebugPair;
     sheet3 = dEmail.found ? dEmail : dAddr.found ? dAddr : dEmail;
   }
+  let sheet4: MeetingInfoLookupDebug["sheet4"] = null;
+  if (sheetFourId && sheet4DebugPair) {
+    const [dEmail, dAddr] = sheet4DebugPair;
+    sheet4 = dEmail.found ? dEmail : dAddr.found ? dAddr : dEmail;
+  }
 
   return {
     emailUsed: email.trim(),
@@ -470,6 +550,7 @@ export const getMeetingInfoLookupDebug = async (
     sheet1,
     sheet2,
     sheet3,
+    sheet4,
   };
 };
 
@@ -505,25 +586,52 @@ export const getHostIdForEmail = async (email: string) => {
   }
 
   const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
-  if (!sheetThreeId) {
+  const sheetFourId = process.env.GOOGLE_LICENSE_SHEET_4_ID?.trim();
+
+  if (sheetThreeId) {
+    const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
+    const fromSheetThreeEmail = await lookupSheetValue({
+      sheetId: sheetThreeId,
+      gid: sheetThreeGid,
+      emailColumn: "Email",
+      valueColumn: "SHORTID",
+      email: normalizedEmail,
+    });
+    if (fromSheetThreeEmail) {
+      return fromSheetThreeEmail;
+    }
+
+    const fromSheetThreeAddress = await lookupSheetValue({
+      sheetId: sheetThreeId,
+      gid: sheetThreeGid,
+      emailColumn: "Email Address",
+      valueColumn: "SHORTID",
+      email: normalizedEmail,
+    });
+    if (fromSheetThreeAddress) {
+      return fromSheetThreeAddress;
+    }
+  }
+
+  if (!sheetFourId) {
     return null;
   }
 
-  const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
-  const fromSheetThreeEmail = await lookupSheetValue({
-    sheetId: sheetThreeId,
-    gid: sheetThreeGid,
+  const sheetFourGid = process.env.GOOGLE_LICENSE_SHEET_4_GID;
+  const fromSheetFourEmail = await lookupSheetValue({
+    sheetId: sheetFourId,
+    gid: sheetFourGid,
     emailColumn: "Email",
     valueColumn: "SHORTID",
     email: normalizedEmail,
   });
-  if (fromSheetThreeEmail) {
-    return fromSheetThreeEmail;
+  if (fromSheetFourEmail) {
+    return fromSheetFourEmail;
   }
 
   return lookupSheetValue({
-    sheetId: sheetThreeId,
-    gid: sheetThreeGid,
+    sheetId: sheetFourId,
+    gid: sheetFourGid,
     emailColumn: "Email Address",
     valueColumn: "SHORTID",
     email: normalizedEmail,
@@ -543,12 +651,17 @@ export const getHostIdMapForEmails = async (emails: string[]) => {
   const sheetTwoGid = process.env.GOOGLE_LICENSE_SHEET_2_GID;
   const sheetThreeId = process.env.GOOGLE_LICENSE_SHEET_3_ID?.trim();
   const sheetThreeGid = process.env.GOOGLE_LICENSE_SHEET_3_GID;
+  const sheetFourId = process.env.GOOGLE_LICENSE_SHEET_4_ID?.trim();
+  const sheetFourGid = process.env.GOOGLE_LICENSE_SHEET_4_GID;
 
-  const [sheetOneCsv, sheetTwoCsv, sheetThreeCsv] = await Promise.all([
+  const [sheetOneCsv, sheetTwoCsv, sheetThreeCsv, sheetFourCsv] = await Promise.all([
     fetchSheetCsv(LICENSE_SHEET_1_ID, sheetOneGid),
     fetchSheetCsv(LICENSE_SHEET_2_ID, sheetTwoGid),
     sheetThreeId
       ? fetchSheetCsv(sheetThreeId, sheetThreeGid)
+      : Promise.resolve(null),
+    sheetFourId
+      ? fetchSheetCsv(sheetFourId, sheetFourGid)
       : Promise.resolve(null),
   ]);
 
@@ -584,6 +697,23 @@ export const getHostIdMapForEmails = async (emails: string[]) => {
     const byEmail = buildHostIdMap(sheetThreeCsv, "Email", "SHORTID");
     const byEmailAddress = buildHostIdMap(
       sheetThreeCsv,
+      "Email Address",
+      "SHORTID",
+    );
+    for (const email of emailSet) {
+      if (!map.has(email)) {
+        const value = byEmail.get(email) ?? byEmailAddress.get(email);
+        if (value) {
+          map.set(email, value);
+        }
+      }
+    }
+  }
+
+  if (sheetFourCsv) {
+    const byEmail = buildHostIdMap(sheetFourCsv, "Email", "SHORTID");
+    const byEmailAddress = buildHostIdMap(
+      sheetFourCsv,
       "Email Address",
       "SHORTID",
     );

@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Role } from "@prisma/client";
+import { basename } from "node:path";
+import { readFile } from "node:fs/promises";
+import { Prisma, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/guards";
 import { ADMIN_ROLES, isRoleAllowed } from "@/lib/rbac";
@@ -9,8 +11,51 @@ import AdminParticipantsByState from "@/components/admin-participants-by-state";
 import ConfirmRegistrationEmailPreview from "@/components/confirm-registration-email-preview";
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
 
-export default async function AdminDashboardPage() {
+function safeSegment(value: string): string {
+  return value
+    .trim()
+    .replace(/[^a-zA-Z0-9-_]/g, "-")
+    .replace(/--+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function keyMatchesShortId(key: string, shortIdSegment: string): boolean {
+  const lowerKey = key.toLowerCase();
+  const lowerShort = shortIdSegment.toLowerCase();
+  if (lowerKey.includes(lowerShort)) return true;
+  const file = basename(lowerKey);
+  return file.startsWith(lowerShort);
+}
+
+function stripKnownArtifacts(key: string): string {
+  if (key.endsWith(".attest")) return key.slice(0, -".attest".length);
+  if (key.endsWith(".report")) return key.slice(0, -".report".length);
+  return key;
+}
+
+type S3SearchRow = {
+  s3Key: string;
+  uploadMatch: {
+    id: string;
+    key: string;
+    filename: string | null;
+    createdAt: Date;
+  } | null;
+};
+
+type PageProps = {
+  searchParams: Promise<{ s3ShortId?: string }>;
+};
+
+export default async function AdminDashboardPage({ searchParams }: PageProps) {
   const session = await requireRole(ADMIN_ROLES);
+  const params = await searchParams;
+  const s3ShortIdQueryRaw = params.s3ShortId?.trim() ?? "";
+  const s3ShortIdSegment =
+    (session.user.role === Role.ADMIN || session.user.role === Role.SUPERADMIN) &&
+    s3ShortIdQueryRaw.length > 0
+      ? safeSegment(s3ShortIdQueryRaw)
+      : "";
 
   const tenant = session.user.tenantId
     ? await prisma.tenant.findUnique({
@@ -81,6 +126,9 @@ type NonIndiaCenterAggRow = {
 };
   let topStudentCenters: CenterRow[] = [];
 let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
+  let s3SearchRows: S3SearchRow[] = [];
+  let s3SearchError: string | null = null;
+  let s3TotalMatches = 0;
 
   if (postgres && isRoleAllowed(session.user.role, ADMIN_ROLES)) {
     try {
@@ -609,6 +657,83 @@ let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
     }
   }
 
+  if (s3ShortIdSegment.length > 0) {
+    try {
+      const file = await readFile(
+        `${process.cwd()}/public/s3_keys.txt`,
+        "utf8",
+      );
+      const allKeys = file
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      const matchedKeys = allKeys.filter((key) =>
+        keyMatchesShortId(key, s3ShortIdSegment),
+      );
+      s3TotalMatches = matchedKeys.length;
+
+      const uniqueBaseKeys = Array.from(
+        new Set(matchedKeys.map((key) => stripKnownArtifacts(key))),
+      );
+      const baseFilenames = uniqueBaseKeys
+        .map((k) => basename(k))
+        .filter(Boolean);
+
+      const uploadTenantScope: Prisma.UploadWhereInput =
+        session.user.role === Role.SUPERADMIN
+          ? {}
+          : { tenantId: session.user.tenantId ?? "__missing__" };
+
+      const uploadCandidates =
+        baseFilenames.length > 0
+          ? await prisma.upload.findMany({
+              where: {
+                AND: [
+                  uploadTenantScope,
+                  {
+                    OR: [
+                      ...baseFilenames.map((name) => ({
+                        key: { endsWith: `/${name}` },
+                      })),
+                      ...baseFilenames.map((name) => ({ key: name })),
+                    ],
+                  },
+                ],
+              },
+              select: {
+                id: true,
+                key: true,
+                filename: true,
+                createdAt: true,
+              },
+            })
+          : [];
+
+      const uploadByBaseName = new Map<string, (typeof uploadCandidates)[number]>();
+      for (const u of uploadCandidates) {
+        const b = basename(u.key);
+        const prev = uploadByBaseName.get(b);
+        if (!prev || u.createdAt > prev.createdAt) {
+          uploadByBaseName.set(b, u);
+        }
+      }
+
+      s3SearchRows = matchedKeys
+        .slice(0, 500)
+        .map((s3Key) => {
+          const baseKey = stripKnownArtifacts(s3Key);
+          const uploadMatch = uploadByBaseName.get(basename(baseKey)) ?? null;
+          return { s3Key, uploadMatch };
+        });
+    } catch (err) {
+      s3SearchError =
+        err instanceof Error
+          ? err.message
+          : "Unable to read public/s3_keys.txt";
+    }
+  }
+
   return (
     <div className="space-y-8 text-[#3b1a1f]">
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-8 shadow-lg">
@@ -616,6 +741,138 @@ let nonIndiaCenters: NonIndiaCenterAggRow[] = [];
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Manage tenant-scoped users, roles, and uploads.
         </p>
+      </div>
+
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-md">
+        <h2 className="text-lg font-semibold">Search S3 keys file</h2>
+        <p className="mt-2 text-sm text-[#6b4e3d]">
+          Search <code className="rounded bg-[#f7e2b6] px-1 text-xs">public/s3_keys.txt</code>{" "}
+          for a host short ID in the path or at filename start. If a matching file can be mapped
+          to an Upload row (by base filename), download links are shown.
+        </p>
+        <form
+          action="/dashboard/admin"
+          method="get"
+          className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"
+        >
+          <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-[#6b4e3d]">
+            Short ID
+            <input
+              type="search"
+              name="s3ShortId"
+              defaultValue={s3ShortIdQueryRaw}
+              placeholder="e.g. CMSG_ABC123"
+              className="w-full rounded-lg border border-[#e5c18e] bg-white px-3 py-2 text-sm text-[#3b1a1f] placeholder:text-[#a08060] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
+              autoComplete="off"
+            />
+          </label>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="submit"
+              className="rounded-lg bg-[#8a2f2a] px-4 py-2 text-sm font-semibold text-[#fff9ef] shadow-sm hover:bg-[#722825]"
+            >
+              Search S3
+            </button>
+            {s3ShortIdSegment ? (
+              <Link
+                href="/dashboard/admin"
+                className="rounded-lg border border-[#7a3b2a]/50 px-4 py-2 text-sm font-medium text-[#3b1a1f] hover:bg-[#f7e2b6]/40"
+              >
+                Clear
+              </Link>
+            ) : null}
+          </div>
+        </form>
+
+        {s3ShortIdSegment ? (
+          <div className="mt-4">
+            {s3SearchError ? (
+              <p className="text-sm text-[#8b2d2d]">Search failed: {s3SearchError}</p>
+            ) : (
+              <>
+                <p className="text-sm text-[#6b4e3d]">
+                  Found {s3TotalMatches.toLocaleString()} matching S3 key
+                  {s3TotalMatches === 1 ? "" : "s"} (showing up to{" "}
+                  {s3SearchRows.length.toLocaleString()}).
+                </p>
+                <div className="mt-3 overflow-x-auto rounded-xl border border-[#e5c18e] bg-white/70">
+                  <table className="min-w-full text-left text-xs">
+                    <thead className="bg-[#f3d6a3] text-[11px] uppercase text-[#8a5b44]">
+                      <tr>
+                        <th className="px-3 py-2">S3 key from file</th>
+                        <th className="px-3 py-2">Matched upload</th>
+                        <th className="px-3 py-2">Downloads</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {s3SearchRows.map((row) => {
+                        const baseKey = stripKnownArtifacts(row.s3Key);
+                        return (
+                          <tr key={row.s3Key} className="border-t border-[#e5c18e] align-top">
+                            <td className="px-3 py-2">
+                              <span className="block break-all">{row.s3Key}</span>
+                            </td>
+                            <td className="px-3 py-2 text-[#6b4e3d]">
+                              {row.uploadMatch ? (
+                                <div className="space-y-1">
+                                  <p className="font-medium text-[#3b1a1f]">
+                                    upload#{row.uploadMatch.id.slice(0, 8)}
+                                  </p>
+                                  <p className="break-all">{row.uploadMatch.key}</p>
+                                </div>
+                              ) : (
+                                <span className="text-[#8a5b44]">No upload-table match</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              {row.uploadMatch ? (
+                                <span className="flex flex-wrap gap-2">
+                                  <a
+                                    href={`/api/uploads/download?key=${encodeURIComponent(baseKey)}`}
+                                    className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    Download file
+                                  </a>
+                                  <a
+                                    href={`/api/uploads/download?key=${encodeURIComponent(`${baseKey}.attest`)}`}
+                                    className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    Download .attest
+                                  </a>
+                                  <a
+                                    href={`/api/uploads/download?key=${encodeURIComponent(`${baseKey}.report`)}`}
+                                    className="text-[#7a3b2a] underline hover:text-[#5a2b1a]"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    Download .report
+                                  </a>
+                                </span>
+                              ) : (
+                                <span className="text-[#8a5b44]">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {s3SearchRows.length === 0 ? (
+                        <tr>
+                          <td className="px-3 py-4 text-[#8a5b44]" colSpan={3}>
+                            No matching keys found for this short ID.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {session.user.role === Role.SUPERADMIN ? (

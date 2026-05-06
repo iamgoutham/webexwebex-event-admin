@@ -10,6 +10,7 @@ import type { ParticipantSyncResult } from "./types";
 //   - mission.webex_hosts_non_india
 //   - vrindavan.webex_hosts_india
 //   - mission.webex_participants_non_india
+//   - mission.webex_participants_non_india_gp
 //   - vrindavan.webex_participants_india
 //   - vrindavan.webex_participants_india_students
 // Host↔participant assignment maps (host roster / confirmation) also use
@@ -212,7 +213,7 @@ export async function syncParticipants(
           host_phone_no      AS phone,
           host_first_name    AS "firstName",
           host_last_name     AS "lastName",
-          NULL::text         AS center,
+          host_cntr_name     AS center,
           host_addr_state    AS state
         FROM mission.webex_hosts_non_india
         WHERE provisioned_status_ind = 'Y' AND webex_active_ind = 'Y'
@@ -252,6 +253,27 @@ export async function syncParticipants(
       }),
     );
 
+    let nonIndiaGpRows: ParticipantSourceRow[] = [];
+    try {
+      nonIndiaGpRows =
+        await postgres.$queryRaw<ParticipantSourceRow[]>`
+          SELECT
+            lower(btrim(prtcpnt_email_id::text)) AS email,
+            NULLIF(btrim(prtcpnt_phone_no::text), '') AS phone,
+            NULLIF(btrim(prtcpnt_name::text), '') AS "firstName",
+            NULL::text AS "lastName",
+            NULLIF(btrim(chinmaya_center_name::text), '') AS center,
+            NULLIF(btrim(prtcpnt_addr_state::text), '') AS state
+          FROM mission.webex_participants_non_india_gp
+        `;
+    } catch (err) {
+      result.errors.push(
+        `[participant-sync] mission.webex_participants_non_india_gp: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
     // India participants.
     const indiaParticipants = await postgres.indiaParticipant.findMany({
       select: {
@@ -288,6 +310,7 @@ export async function syncParticipants(
       ...hostNonIndia,
       ...hostIndia,
       ...nonIndiaRows,
+      ...nonIndiaGpRows,
       ...indiaRows,
       ...indiaStudents,
     ];
@@ -297,6 +320,7 @@ export async function syncParticipants(
         hostNonIndia: hostNonIndia.length,
         hostIndia: hostIndia.length,
         nonIndiaParticipants: nonIndiaRows.length,
+        nonIndiaGpParticipants: nonIndiaGpRows.length,
         indiaParticipants: indiaRows.length,
         indiaStudents: indiaStudents.length,
         combinedRows: rows.length,

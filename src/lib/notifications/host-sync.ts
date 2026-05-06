@@ -8,6 +8,8 @@ import type { HostSyncResult } from "./types";
 //
 // Sources:
 //   - mission.webex_hosts_non_india
+//   - mission.webex_hosts_non_india_gp
+//   - mission.webex_hosts_non_india_dattap
 //   - vrindavan.webex_hosts_india
 //
 // Both tables are projected into a common { email, phone, name, state } shape
@@ -110,9 +112,16 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
 
   const tenantId = null;
 
-  let rows: HostRow[] = [];
+  const rows: HostRow[] = [];
+  const pushRows = (label: string, batch: HostRow[]) => {
+    rows.push(...batch);
+    if (DEBUG) {
+      console.log(`[host-sync] ${label}:`, batch.length);
+    }
+  };
+
   try {
-    const nonIndia =
+    const batch =
       await postgres.$queryRaw<HostRow[]>`
         SELECT
           host_email_id      AS email,
@@ -122,6 +131,56 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
         FROM mission.webex_hosts_non_india
         WHERE provisioned_status_ind = 'Y' AND webex_active_ind = 'Y'
       `;
+    pushRows("mission.webex_hosts_non_india", batch);
+  } catch (err) {
+    result.errors.push(
+      `[host-sync] mission.webex_hosts_non_india: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+
+  try {
+    const batch =
+      await postgres.$queryRaw<HostRow[]>`
+        SELECT
+          host_email_id      AS email,
+          host_phone_no      AS phone,
+          (host_first_name || ' ' || host_last_name) AS name,
+          host_addr_state    AS state
+        FROM mission.webex_hosts_non_india_gp
+        WHERE provisioned_status_ind = 'Y' AND webex_active_ind = 'Y'
+      `;
+    pushRows("mission.webex_hosts_non_india_gp", batch);
+  } catch (err) {
+    result.errors.push(
+      `[host-sync] mission.webex_hosts_non_india_gp: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+
+  try {
+    const batch =
+      await postgres.$queryRaw<HostRow[]>`
+        SELECT
+          host_email_id      AS email,
+          host_phone_no      AS phone,
+          (host_first_name || ' ' || host_last_name) AS name,
+          host_addr_state    AS state
+        FROM mission.webex_hosts_non_india_dattap
+        WHERE provisioned_status_ind = 'Y' AND webex_active_ind = 'Y'
+      `;
+    pushRows("mission.webex_hosts_non_india_dattap", batch);
+  } catch (err) {
+    result.errors.push(
+      `[host-sync] mission.webex_hosts_non_india_dattap: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    );
+  }
+
+  try {
     const india =
       await postgres.$queryRaw<HostRow[]>`
         SELECT
@@ -132,21 +191,36 @@ export async function syncHosts(_tenantId?: string | null): Promise<HostSyncResu
         FROM vrindavan.webex_hosts_india
         WHERE provisioned_status_ind = 'Y' AND webex_active_ind = 'Y'
       `;
-    rows = [...nonIndia, ...india];
+    pushRows("vrindavan.webex_hosts_india", india);
   } catch (err) {
     result.errors.push(
-      `Failed to read hosts from downstream Postgres: ${
+      `[host-sync] vrindavan.webex_hosts_india: ${
         err instanceof Error ? err.message : String(err)
       }`,
     );
+  }
+
+  if (rows.length === 0 && result.errors.length > 0) {
     return result;
   }
 
+  /** Same email in multiple source tables → one upsert; first source in list wins field values. */
+  const byEmail = new Map<string, HostRow>();
+  for (const row of rows) {
+    const email = row.email?.trim().toLowerCase() ?? "";
+    if (!email || email === "n/a") continue;
+    if (!byEmail.has(email)) byEmail.set(email, row);
+  }
+  const dedupedRows = [...byEmail.values()];
+
   if (DEBUG) {
-    console.log("[host-sync] Total rows from Postgres (hosts):", rows.length);
+    console.log(
+      "[host-sync] Total rows from Postgres (hosts, deduped by email):",
+      dedupedRows.length,
+    );
   }
 
-  for (const row of rows) {
+  for (const row of dedupedRows) {
     const email = row.email?.trim().toLowerCase() ?? "";
     if (!email || email === "n/a") {
       result.skipped++;

@@ -112,9 +112,67 @@ function findSheetMeetingForIdentity(
   return null;
 }
 
+type GchantTopicIdentity = {
+  meetingNumber: string | null;
+  link: string | null;
+  topic: string;
+};
+
+async function fetchHostGchantTopics(
+  postgres: PostgresPrismaClient,
+  hostEmailLower: string,
+): Promise<GchantTopicIdentity[]> {
+  const rows = await postgres.$queryRaw<
+    { mtng_no: unknown; link: string | null; topic: string | null }[]
+  >`
+    SELECT DISTINCT
+      NULLIF(btrim(g.webex_mtng_no::text), '') AS mtng_no,
+      NULLIF(btrim(g.webex_mtng_link::text), '') AS link,
+      NULLIF(btrim(g.topic::text), '') AS topic
+    FROM mission.gchant_mtng g
+    WHERE lower(btrim(g.organizer_email::text)) = ${hostEmailLower}
+    UNION
+    SELECT DISTINCT
+      NULLIF(btrim(g.webex_mtng_no::text), '') AS mtng_no,
+      NULLIF(btrim(g.webex_mtng_link::text), '') AS link,
+      NULLIF(btrim(g.topic::text), '') AS topic
+    FROM vrindavan.gchant_mtng g
+    WHERE lower(btrim(g.organizer_email::text)) = ${hostEmailLower}
+  `;
+
+  return rows
+    .map((r) => ({
+      meetingNumber: normMeetingNumber(r.mtng_no),
+      link: coerceDisplayableWebexJoinLink(r.link),
+      topic: r.topic?.trim() ?? "",
+    }))
+    .filter((r) => r.topic.length > 0 && (r.meetingNumber || r.link));
+}
+
+function topicFromGchant(
+  identity: HostMapMeetingIdentity,
+  gchantTopics: GchantTopicIdentity[],
+): string | null {
+  if (identity.meetingNumber) {
+    const byNumber = gchantTopics.find(
+      (r) => r.meetingNumber === identity.meetingNumber,
+    );
+    if (byNumber?.topic) return byNumber.topic;
+  }
+  const idLink = coerceDisplayableWebexJoinLink(identity.link)?.toLowerCase();
+  if (idLink) {
+    const byLink = gchantTopics.find(
+      (r) => r.link?.toLowerCase() === idLink,
+    );
+    if (byLink?.topic) return byLink.topic;
+  }
+  return null;
+}
+
 function mapAndSheetToAssignment(
   identity: HostMapMeetingIdentity,
   sheet: SheetMeeting | null,
+  gchantTopics: GchantTopicIdentity[],
   hostEmail: string,
   hostPhone: string | null,
 ): MeetingAssignment {
@@ -123,8 +181,9 @@ function mapAndSheetToAssignment(
     ? coerceDisplayableWebexJoinLink(sheet.webLink)
     : null;
   const link = mapLink ?? sheetLink ?? null;
+  const gchantTopic = topicFromGchant(identity, gchantTopics);
   return {
-    topic: sheet?.title?.trim() ?? null,
+    topic: gchantTopic ?? sheet?.title?.trim() ?? null,
     link,
     meetingNumber: identity.meetingNumber ?? normMeetingNumber(sheet?.meetingNumber),
     startTime: sheet?.start?.trim() || null,
@@ -197,6 +256,7 @@ export async function getHostDashboardMeetings(
     postgres,
     hostEmailLower,
   );
+  const gchantTopics = await fetchHostGchantTopics(postgres, hostEmailLower);
 
   const collected: MeetingAssignment[] = [];
 
@@ -204,7 +264,13 @@ export async function getHostDashboardMeetings(
     for (const id of identities) {
       const sheetRow = findSheetMeetingForIdentity(sheetMeetings, id);
       collected.push(
-        mapAndSheetToAssignment(id, sheetRow, hostEmailLower, hostPhone),
+        mapAndSheetToAssignment(
+          id,
+          sheetRow,
+          gchantTopics,
+          hostEmailLower,
+          hostPhone,
+        ),
       );
     }
   }
@@ -230,7 +296,7 @@ async function lookupHostPhone(
   postgres: PostgresPrismaClient,
   hostEmailLower: string,
 ): Promise<string | null> {
-  const [r1, r2, r3] = await Promise.all([
+  const [r1, r2, r3, r4] = await Promise.all([
     postgres.$queryRaw<{ phone: string | null }[]>`
       SELECT host_phone_no::text AS phone
       FROM mission.webex_hosts_non_india
@@ -252,15 +318,32 @@ async function lookupHostPhone(
         AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
       LIMIT 1
     `,
+    (async (): Promise<{ phone: string | null }[]> => {
+      try {
+        return await postgres.$queryRaw<{ phone: string | null }[]>`
+          SELECT host_phone_no::text AS phone
+          FROM mission.webex_hosts_non_india_dattap
+          WHERE lower(btrim(host_email_id::text)) = ${hostEmailLower}
+            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
+          LIMIT 1
+        `;
+      } catch {
+        return [];
+      }
+    })(),
   ]);
   const p =
-    r1[0]?.phone?.trim() || r2[0]?.phone?.trim() || r3[0]?.phone?.trim();
+    r1[0]?.phone?.trim() ||
+    r2[0]?.phone?.trim() ||
+    r4[0]?.phone?.trim() ||
+    r3[0]?.phone?.trim();
   return p || null;
 }
 
 /**
  * Host emails tied to a participant via downstream map tables
  * (`mission.host_prtcpnt_map_nonindia_nu`, `mission.host_prtcpnt_map_nonindia_gp`,
+ * `mission.host_prtcpnt_map_nonindia_gp_overages`, `mission.host_prtcpnt_map_nonindia_nu_overages`,
  * `mission.host_prtcpnt_map_crossregion`, `vrindavan.host_prtcpnt_map_india`).
  * Column names follow existing mission/vrindavan conventions; alternate queries run if joins differ.
  */
@@ -355,6 +438,86 @@ async function collectHostEmailsFromParticipantMaps(
   } catch (err) {
     console.warn(
       "[confirm-registration] mission host_prtcpnt_map_nonindia_gp host_email_id failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+      SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
+      FROM mission.host_prtcpnt_map_nonindia_gp_overages m
+      INNER JOIN mission.webex_hosts_non_india_gp h
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+       AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+      WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+    `;
+    add(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] mission host_prtcpnt_map_nonindia_gp_overages join failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+      SELECT DISTINCT lower(btrim(m.host_email_id::text)) AS host_email
+      FROM mission.host_prtcpnt_map_nonindia_gp_overages m
+      WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+        AND m.host_email_id IS NOT NULL
+        AND btrim(m.host_email_id::text) <> ''
+        AND EXISTS (
+          SELECT 1
+          FROM mission.webex_hosts_non_india_gp h
+          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        )
+    `;
+    add(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] mission host_prtcpnt_map_nonindia_gp_overages host_email_id failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+      SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
+      FROM mission.host_prtcpnt_map_nonindia_nu_overages m
+      INNER JOIN mission.webex_hosts_non_india h
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+       AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+      WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+    `;
+    add(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] mission host_prtcpnt_map_nonindia_nu_overages join failed:",
+      err,
+    );
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+      SELECT DISTINCT lower(btrim(m.host_email_id::text)) AS host_email
+      FROM mission.host_prtcpnt_map_nonindia_nu_overages m
+      WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+        AND m.host_email_id IS NOT NULL
+        AND btrim(m.host_email_id::text) <> ''
+        AND EXISTS (
+          SELECT 1
+          FROM mission.webex_hosts_non_india h
+          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        )
+    `;
+    add(rows);
+  } catch (err) {
+    console.warn(
+      "[confirm-registration] mission host_prtcpnt_map_nonindia_nu_overages host_email_id failed:",
       err,
     );
   }
@@ -533,6 +696,76 @@ async function collectHostEmailsFromParticipantMaps(
     }
   }
 
+  try {
+    const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+      SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
+      FROM vrindavan.host_prtctpnt_map_india_overages m
+      INNER JOIN vrindavan.webex_hosts_india h
+        ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+       AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+      WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${q}
+    `;
+    add(rows);
+  } catch {
+    try {
+      const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+        SELECT DISTINCT lower(btrim(h.host_email_id::text)) AS host_email
+        FROM vrindavan.host_prtctpnt_map_india_overages m
+        INNER JOIN vrindavan.webex_hosts_india h
+          ON lower(regexp_replace(btrim(h.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+           = lower(regexp_replace(btrim(m.host_unq_shortid::text), '^(CMSG|CMSD|CMSI|CMSJ|CMS)_', '', 'i'))
+         AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+      `;
+      add(rows);
+    } catch (err) {
+      console.warn(
+        "[confirm-registration] vrindavan host_prtctpnt_map_india_overages join failed:",
+        err,
+      );
+    }
+  }
+
+  try {
+    const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+      SELECT DISTINCT lower(btrim(m.host_email_id::text)) AS host_email
+      FROM vrindavan.host_prtctpnt_map_india_overages m
+      WHERE lower(btrim(m.ind_prtcpnt_email_id::text)) = ${q}
+        AND m.host_email_id IS NOT NULL
+        AND btrim(m.host_email_id::text) <> ''
+        AND EXISTS (
+          SELECT 1
+          FROM vrindavan.webex_hosts_india h
+          WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+            AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+        )
+    `;
+    add(rows);
+  } catch {
+    try {
+      const rows = await postgres.$queryRaw<{ host_email: string | null }[]>`
+        SELECT DISTINCT lower(btrim(m.host_email_id::text)) AS host_email
+        FROM vrindavan.host_prtctpnt_map_india_overages m
+        WHERE lower(btrim(m.prtcpnt_email_id::text)) = ${q}
+          AND m.host_email_id IS NOT NULL
+          AND btrim(m.host_email_id::text) <> ''
+          AND EXISTS (
+            SELECT 1
+            FROM vrindavan.webex_hosts_india h
+            WHERE lower(btrim(h.host_email_id::text)) = lower(btrim(m.host_email_id::text))
+              AND btrim(COALESCE(h.webex_active_ind::text, '')) = 'Y'
+          )
+      `;
+      add(rows);
+    } catch (err) {
+      console.warn(
+        "[confirm-registration] vrindavan host_prtctpnt_map_india_overages host_email_id failed:",
+        err,
+      );
+    }
+  }
+
   return out;
 }
 
@@ -547,10 +780,13 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
   const [
     hostNonIndia,
     hostNonIndiaGp,
+    hostNonIndiaDattap,
     hostIndia,
     nonIndiaRows,
     nonIndiaGpRows,
+    nonIndiaGpOveragesRows,
     indiaRows,
+    indiaOveragesRows,
     indiaStudentRows,
   ] = await Promise.all([
     postgres.$queryRaw<{ host_first_name: string | null; host_last_name: string | null }[]>`
@@ -569,6 +805,23 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
         >`
           SELECT host_first_name, host_last_name
           FROM mission.webex_hosts_non_india_gp
+          WHERE lower(btrim(host_email_id::text)) = ${email}
+            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
+          LIMIT 1
+        `;
+      } catch {
+        return [];
+      }
+    })(),
+    (async (): Promise<
+      { host_first_name: string | null; host_last_name: string | null }[]
+    > => {
+      try {
+        return await postgres.$queryRaw<
+          { host_first_name: string | null; host_last_name: string | null }[]
+        >`
+          SELECT host_first_name, host_last_name
+          FROM mission.webex_hosts_non_india_dattap
           WHERE lower(btrim(host_email_id::text)) = ${email}
             AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
           LIMIT 1
@@ -599,10 +852,40 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
         return [];
       }
     })(),
+    (async (): Promise<{ prtcpnt_name: string | null }[]> => {
+      try {
+        return await postgres.$queryRaw<{ prtcpnt_name: string | null }[]>`
+          SELECT prtcpnt_name::text AS prtcpnt_name
+          FROM mission.webex_participants_non_india_gp_overages
+          WHERE lower(btrim(prtcpnt_email_id::text)) = ${email}
+        `;
+      } catch {
+        return [];
+      }
+    })(),
     postgres.indiaParticipant.findMany({
       where: { indPrtcpntEmailId: email },
       select: { indPrtcpntName: true },
     }),
+    (async (): Promise<{ ind_prtcpnt_name: string | null }[]> => {
+      try {
+        return await postgres.$queryRaw<{ ind_prtcpnt_name: string | null }[]>`
+          SELECT ind_prtcpnt_name::text AS ind_prtcpnt_name
+          FROM vrindavan.webex_participants_india_overages
+          WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${email}
+        `;
+      } catch {
+        try {
+          return await postgres.$queryRaw<{ ind_prtcpnt_name: string | null }[]>`
+            SELECT prtcpnt_name::text AS ind_prtcpnt_name
+            FROM vrindavan.webex_participants_india_overages
+            WHERE lower(btrim(prtcpnt_email_id::text)) = ${email}
+          `;
+        } catch {
+          return [];
+        }
+      }
+    })(),
     postgres.$queryRaw<{ ind_prtcpnt_name: string | null }[]>`
       SELECT ind_prtcpnt_name
       FROM vrindavan.webex_participants_india_students
@@ -613,11 +896,14 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
   const isHost =
     hostNonIndia.length > 0 ||
     hostNonIndiaGp.length > 0 ||
+    hostNonIndiaDattap.length > 0 ||
     hostIndia.length > 0;
   const isParticipant = Boolean(
     nonIndiaRows.length > 0 ||
       nonIndiaGpRows.length > 0 ||
+      nonIndiaGpOveragesRows.length > 0 ||
       indiaRows.length > 0 ||
+      indiaOveragesRows.length > 0 ||
       indiaStudentRows.length > 0,
   );
 
@@ -630,8 +916,16 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     const n = r.prtcpnt_name?.trim();
     if (n) participantNameParts.push(n);
   }
+  for (const r of nonIndiaGpOveragesRows) {
+    const n = r.prtcpnt_name?.trim();
+    if (n) participantNameParts.push(n);
+  }
   for (const r of indiaRows) {
     const n = r.indPrtcpntName?.trim();
+    if (n) participantNameParts.push(n);
+  }
+  for (const r of indiaOveragesRows) {
+    const n = r.ind_prtcpnt_name?.trim();
     if (n) participantNameParts.push(n);
   }
   for (const r of indiaStudentRows) {
@@ -639,7 +933,7 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     if (n) participantNameParts.push(n);
   }
 
-  const hostRowNonIndia = hostNonIndia[0] ?? hostNonIndiaGp[0];
+  const hostRowNonIndia = hostNonIndia[0] ?? hostNonIndiaGp[0] ?? hostNonIndiaDattap[0];
   const hostNameFallback =
     hostRowNonIndia?.host_first_name || hostRowNonIndia?.host_last_name
       ? `${hostRowNonIndia?.host_first_name ?? ""} ${hostRowNonIndia?.host_last_name ?? ""}`.trim()
@@ -677,20 +971,24 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     let anyMapIdentity = false;
 
     if (hostList.length > 0) {
-      const [phones, identityLists] = await Promise.all([
+      const [phones, identityLists, gchantTopicLists] = await Promise.all([
         Promise.all(hostList.map((h) => lookupHostPhone(postgres, h))),
         Promise.all(
           hostList.map((h) => fetchHostMapMeetingIdentities(postgres, h)),
         ),
+        Promise.all(hostList.map((h) => fetchHostGchantTopics(postgres, h))),
       ]);
       for (let i = 0; i < hostList.length; i++) {
         const H = hostList[i];
         const hostPhone = phones[i];
         const identities = identityLists[i];
+        const gchantTopics = gchantTopicLists[i];
         if (identities.length > 0) anyMapIdentity = true;
         for (const id of identities) {
           const sheetRow = findSheetMeetingForIdentity(sheetMeetings, id);
-          collected.push(mapAndSheetToAssignment(id, sheetRow, H, hostPhone));
+          collected.push(
+            mapAndSheetToAssignment(id, sheetRow, gchantTopics, H, hostPhone),
+          );
         }
       }
     }
@@ -811,6 +1109,11 @@ async function collectEmailsByPhone(
   `);
   await run(`
     SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india_dattap
+    WHERE ${phoneMatchesSql("host_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
     FROM vrindavan.webex_hosts_india
     WHERE ${phoneMatchesSql("host_phone_no")}
   `);
@@ -822,6 +1125,21 @@ async function collectEmailsByPhone(
   await run(`
     SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
     FROM mission.webex_participants_non_india_gp
+    WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
+    FROM mission.webex_participants_non_india_gp_overages
+    WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(ind_prtcpnt_email_id::text)) AS email
+    FROM vrindavan.webex_participants_india_overages
+    WHERE ${phoneMatchesSql("ind_prtcpnt_phone_no")}
+  `);
+  await run(`
+    SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
+    FROM vrindavan.webex_participants_india_overages
     WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
   `);
   await run(`
