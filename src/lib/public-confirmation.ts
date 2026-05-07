@@ -1247,15 +1247,6 @@ async function indiaEmailPhoneMatched(
         )
       LIMIT 1
     `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_raw_students
-      WHERE lower(btrim(email_of_student_or_student_s_parent::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(whatsapp_number::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(whatsapp_number::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
   ];
 
   for (const p of probes) {
@@ -1388,12 +1379,6 @@ async function collectEmailsByPhone(
     FROM mission.webex_participants_non_india_old_raw
     WHERE ${phoneMatchesSql("contact_phone__whatsapp_")}
   `);
-  await run(`
-    SELECT DISTINCT lower(btrim(email_of_student_or_student_s_parent::text)) AS email
-    FROM vrindavan.webex_participants_india_raw_students
-    WHERE ${phoneMatchesSql("whatsapp_number")}
-  `);
-
   return [...out].sort();
 }
 

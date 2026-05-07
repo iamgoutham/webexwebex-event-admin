@@ -2,7 +2,6 @@ import CopyableMeetingLink from "@/components/copyable-meeting-link";
 import ParticipantLinks from "@/components/participant-links";
 import {
   mergeInviteesMapFirst,
-  parseInvitees,
   parseMeetingInfoJson,
   type InviteeContact,
 } from "@/lib/meeting-invitees-from-sheet";
@@ -21,6 +20,7 @@ import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import { loadHostMeetingParticipants } from "@/lib/host-meeting-participants";
 import { requireAuth } from "@/lib/guards";
 import { getMeetingInfoForEmail } from "@/lib/license-site";
+import { Role } from "@prisma/client";
 
 const formatDateTimeWithZones = (value?: string) => {
   if (!value) return "TBD";
@@ -106,6 +106,8 @@ export default async function MeetingsPage({
   searchParams: _searchParams,
 }: PageProps) {
   const session = await requireAuth();
+  const isAdminUser =
+    session.user.role === Role.ADMIN || session.user.role === Role.SUPERADMIN;
 
   const meetingInfoRaw = session.user.email
     ? await getMeetingInfoForEmail(session.user.email)
@@ -116,7 +118,6 @@ export default async function MeetingsPage({
     : null;
 
   const postgres = getPostgresPrisma();
-  let pendingRequests: { timestamp: string; participantEmail: string }[] = [];
   let hostMapInvitees: InviteeContact[] | null = null;
   let mapWebexLinks: string[] = [];
   let dashboardAssignments: MeetingAssignment[] | null = null;
@@ -131,25 +132,6 @@ export default async function MeetingsPage({
       }
     } catch {
       // Fall back to sheet JSON + coarse map links below
-    }
-    try {
-      const rows = await postgres.$queryRaw<
-        { timestamp: string | null; participantemail: string | null }[]
-      >`
-        SELECT
-          timestamp,
-          participantemail
-        FROM mission.webex_participants_non_india_except_raw
-        WHERE hostemailid = ${hostEmailLower} AND status = 'PENDING'
-        ORDER BY timestamp DESC
-        LIMIT 50
-      `;
-      pendingRequests = rows.map((r) => ({
-        timestamp: r.timestamp ?? "",
-        participantEmail: r.participantemail ?? "",
-      }));
-    } catch {
-      // Pending-requests table optional; do not block map participant load.
     }
 
     try {
@@ -214,13 +196,7 @@ export default async function MeetingsPage({
               assignment,
               sheetMeetingsForDashboard,
             );
-            const inviteesFromSheet = Array.isArray(sheetRow?.invitees)
-              ? parseInvitees(sheetRow.invitees)
-              : [];
-            const invitees = mergeInviteesMapFirst(
-              hostMapInvitees,
-              inviteesFromSheet,
-            );
+            const invitees = mergeInviteesMapFirst(hostMapInvitees, []);
 
             return (
               <div
@@ -266,7 +242,7 @@ export default async function MeetingsPage({
                         rel="noreferrer"
                         className="rounded-full border border-[#7a3b2a]/50 px-3 py-1 text-xs font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
                       >
-                        Open meeting
+                        Start meeting
                       </a>
                     ) : null}
                     {assignment.meetingNumber ? (
@@ -293,13 +269,7 @@ export default async function MeetingsPage({
               meetingsFromJson!.length,
             );
             const mtid = getMtidFromWebLink(webLink);
-            const inviteesFromSheet = Array.isArray(meeting.invitees)
-              ? parseInvitees(meeting.invitees)
-              : [];
-            const invitees = mergeInviteesMapFirst(
-              hostMapInvitees,
-              inviteesFromSheet,
-            );
+            const invitees = mergeInviteesMapFirst(hostMapInvitees, []);
 
             return (
               <div
@@ -332,7 +302,7 @@ export default async function MeetingsPage({
                         rel="noreferrer"
                         className="rounded-full border border-[#7a3b2a]/50 px-3 py-1 text-xs font-semibold text-[#3b1a1f] transition hover:border-[#7a3b2a]"
                       >
-                        Open meeting
+                        Start meeting
                       </a>
                     ) : null}
                     {meeting.meetingNumber ? (
@@ -366,49 +336,14 @@ export default async function MeetingsPage({
         </div>
       )}
 
-      {pendingRequests.length > 0 && (
-        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 text-sm text-[#6b4e3d]">
-          <h2 className="text-lg font-semibold text-[#3b1a1f]">
-            Your pending meeting exception requests
+      {isAdminUser ? (
+        <div className="rounded-2xl border border-dashed border-[#c9a882] bg-[#f5ead8] p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-[#8a5b44]">
+            Request participants to my meetings
           </h2>
-          <p className="mt-1 text-xs text-[#8a5b44]">
-            These requests are still marked as <span className="font-semibold">PENDING</span> in
-            the exception list.
-          </p>
-          <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-[#e5c18e] bg-[#fffdf7]">
-            <table className="w-full text-left text-xs text-[#6b4e3d]">
-              <thead>
-                <tr className="border-b border-[#e5c18e] bg-[#fff4df] text-[#3b1a1f]">
-                  <th className="px-3 py-2">When</th>
-                  <th className="px-3 py-2">Participant email</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingRequests.map((r, idx) => (
-                  <tr
-                    key={`${r.timestamp}-${r.participantEmail}-${idx}`}
-                    className="border-b border-[#e5c18e]/60"
-                  >
-                    <td className="px-3 py-1.5">
-                      {r.timestamp
-                        ? new Date(r.timestamp).toLocaleString()
-                        : "—"}
-                    </td>
-                    <td className="px-3 py-1.5">{r.participantEmail}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="mt-2 text-sm text-[#8a5b44]">Disabled</p>
         </div>
-      )}
-
-      <div className="rounded-2xl border border-dashed border-[#c9a882] bg-[#f5ead8] p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-[#8a5b44]">
-          Request participants to my meetings
-        </h2>
-        <p className="mt-2 text-sm text-[#8a5b44]">Disabled</p>
-      </div>
+      ) : null}
     </div>
   );
 }

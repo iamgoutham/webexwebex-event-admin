@@ -54,6 +54,8 @@ export default function FindameetingClient() {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="+1 555 123 4567"
+          required
+          aria-required="true"
           className="mt-2 w-full rounded-xl border border-[#e5c18e] bg-white px-4 py-3 text-sm text-[#3b1a1f] placeholder:text-[#b08b6b] focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
         />
         <button

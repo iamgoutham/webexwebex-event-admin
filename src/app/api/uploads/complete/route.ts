@@ -11,14 +11,23 @@ import { prisma } from "@/lib/prisma";
 import { s3Bucket, s3Client } from "@/lib/s3";
 import { ensureUserShortId } from "@/lib/user-short-id";
 
-const attestationSchema = z.object({
-  hostName: z.string().min(1),
-  hostEmail: z.string().email(),
-  participantsAssigned: z.number().int().min(0),
-  participantsAttendedWithVideo: z.number().int().min(0),
-  signature: z.string().min(1),
-  attestedAt: z.string().optional(),
-});
+const attestationSchema = z
+  .object({
+    hostName: z.string().min(1),
+    hostEmail: z.string().email(),
+    participantsAssigned: z.number().int().min(0),
+    participantsAttendedWithVideo: z.number().int().min(0),
+    signature: z.string().min(1),
+    attestedAt: z.string().optional(),
+  })
+  .refine(
+    (a) => a.participantsAssigned >= a.participantsAttendedWithVideo,
+    {
+      message:
+        "The number of participants with video ON should be lower than or equal to the total participants",
+      path: ["participantsAssigned"],
+    },
+  );
 
 const completeSchema = z.object({
   key: z.string().min(1),

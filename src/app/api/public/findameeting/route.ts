@@ -8,7 +8,7 @@ import { applyPublicFindameetingCors } from "@/lib/public-api-cors";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  phone: z.string().min(1),
+  phone: z.string().optional().default(""),
 });
 
 function json(
@@ -31,7 +31,7 @@ async function runFindameetingLookup(
   return json(request, { error: result.error }, { status: result.status });
 }
 
-// POST /api/public/findameeting  Body: { "phone": "<whatsapp number>" }
+// POST /api/public/findameeting  Body: { "phone": "<required; not format-validated>" }
 // Requires Authorization: Bearer <FINDAMEETING_API_SECRET> when that env var is set.
 export async function POST(request: NextRequest) {
   if (
@@ -53,13 +53,13 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = schema.safeParse(body);
+  const parsed = schema.safeParse(body ?? {});
   if (!parsed.success) {
     await logFindameetingRequest({
       phoneEntered: "<invalid payload>",
       outcome: "invalid_payload",
     });
-    return json(request, { error: "Please enter a phone number." }, { status: 400 });
+    return json(request, { error: "Invalid JSON body." }, { status: 400 });
   }
 
   const phoneEntered = parsed.data.phone.trim();
@@ -86,17 +86,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const phoneEntered = request.nextUrl.searchParams.get("phone")?.trim() ?? "";
-  if (!phoneEntered) {
-    return json(
-      request,
-      {
-        error: "Missing phone parameter.",
-        hint: "Pass the WhatsApp number as a query string, e.g. ?phone=%2B15551234567",
-      },
-      { status: 400 },
-    );
-  }
+  const phoneEntered =
+    request.nextUrl.searchParams.get("phone")?.trim() ?? "";
 
   return runFindameetingLookup(request, phoneEntered);
 }

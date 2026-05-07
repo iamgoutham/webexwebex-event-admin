@@ -3,14 +3,6 @@ import {
   takeNextFosterRoundRobinIndex,
 } from "@/lib/findameeting-fosterlinks";
 import { logFindameetingRequest } from "@/lib/findameeting-log";
-import { getPostgresPrisma } from "@/lib/prisma-postgres";
-import {
-  isPhoneMatchedInWebexHostTables,
-  lookupJoinCandidatesByPhone,
-  type JoinCandidate,
-} from "@/lib/public-join";
-
-const normDigits = (s: string) => s.replace(/[^0-9]/g, "");
 
 export type FindameetingExecuteResult =
   | { success: true; link: string }
@@ -22,69 +14,33 @@ export type FindameetingExecuteResult =
     };
 
 /**
- * Find-a-meeting: validate phone → Postgres maps → round-robin foster link.
+ * Find-a-meeting: require a non-empty phone (not format-checked or looked up in maps),
+ * log it, then serve a round-robin foster link from `public/fosterlinks.txt`.
  * Used by the public API and the on-site server action (no token in the browser).
  */
 export async function executeFindameetingLookup(
   phoneEntered: string,
 ): Promise<FindameetingExecuteResult> {
-  const digits = normDigits(phoneEntered);
-
-  if (digits.length < 10) {
-    await logFindameetingRequest({ phoneEntered, outcome: "invalid_short_phone" });
-    return {
-      success: false,
-      status: 400,
-      error:
-        "Enter a phone number with at least 10 digits (including area / country code).",
-    };
-  }
-
-  const postgres = getPostgresPrisma();
-  if (!postgres) {
-    await logFindameetingRequest({ phoneEntered, outcome: "db_unconfigured" });
-    return {
-      success: false,
-      status: 500,
-      error: "Downstream database is not configured.",
-    };
-  }
-
-  let candidates: JoinCandidate[];
-  try {
-    candidates = await lookupJoinCandidatesByPhone(postgres, phoneEntered);
-  } catch (e) {
-    const note = e instanceof Error ? e.message : "join lookup failed";
+  const phone = phoneEntered.replace(/\r|\n|\t/g, " ").trim();
+  if (!phone) {
     await logFindameetingRequest({
-      phoneEntered,
-      outcome: "map_lookup_error",
-      note,
+      phoneEntered: "",
+      outcome: "missing_phone",
     });
     return {
       success: false,
-      status: 500,
-      error: "Could not verify your number. Try again later.",
-    };
-  }
-
-  const matchedParticipant = candidates.length > 0;
-  const matchedHost =
-    !matchedParticipant &&
-    (await isPhoneMatchedInWebexHostTables(postgres, phoneEntered));
-
-  if (!matchedParticipant && !matchedHost) {
-    await logFindameetingRequest({ phoneEntered, outcome: "not_in_maps" });
-    return {
-      success: false,
-      status: 404,
-      error:
-        "We could not find that number among registered participants or hosts.",
+      status: 400,
+      error: "Enter your WhatsApp phone number.",
     };
   }
 
   const fosterLinks = await loadFosterLinksFromPublic();
   if (fosterLinks.length === 0) {
-    await logFindameetingRequest({ phoneEntered, outcome: "no_foster_links" });
+    await logFindameetingRequest({
+      phoneEntered: phone,
+      outcome: "no_foster_links",
+      note: `phone=${phone}`,
+    });
     return {
       success: false,
       status: 500,
@@ -96,11 +52,9 @@ export async function executeFindameetingLookup(
   const index = await takeNextFosterRoundRobinIndex(fosterLinks.length);
   const link = fosterLinks[index]!;
   await logFindameetingRequest({
-    phoneEntered,
+    phoneEntered: phone,
     outcome: "success",
-    note: matchedHost
-      ? `foster_index=${index};via=host`
-      : `foster_index=${index}`,
+    note: `foster_index=${index}; phone=${phone}`,
   });
   return { success: true, link };
 }

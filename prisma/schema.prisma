@@ -317,3 +317,15 @@ model Broadcast {
   @@index([status])
   @@index([createdAt])
 }
+
+/// Find-a-meeting API access log (paired with `data/findameeting-phones.log` on disk).
+model FindameetingAccessLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  callerHash String   @db.VarChar(32)
+  outcome    String   @db.VarChar(64)
+  phoneRaw   String?  @db.VarChar(255)
+  note       String?  @db.VarChar(512)
+
+  @@index([createdAt])
+}

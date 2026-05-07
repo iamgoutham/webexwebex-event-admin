@@ -79,13 +79,17 @@ export default function UploadPanel({
 
   const assignedNum = participantsAssigned.trim() === "" ? NaN : parseInt(participantsAssigned, 10);
   const attendedNum = participantsAttendedWithVideo.trim() === "" ? NaN : parseInt(participantsAttendedWithVideo, 10);
+  const participantCountsValid =
+    !Number.isNaN(assignedNum) &&
+    !Number.isNaN(attendedNum) &&
+    assignedNum >= 0 &&
+    attendedNum >= 0 &&
+    assignedNum >= attendedNum;
+
   const formComplete =
     hostName.trim() !== "" &&
     hostEmail.trim() !== "" &&
-    !Number.isNaN(assignedNum) &&
-    assignedNum >= 0 &&
-    !Number.isNaN(attendedNum) &&
-    attendedNum >= 0 &&
+    participantCountsValid &&
     signature.trim() !== "";
 
   const partSize = useMemo(
@@ -104,6 +108,16 @@ export default function UploadPanel({
           status: "error",
           progress: 0,
           message: "Select a file before uploading.",
+        });
+        return;
+      }
+
+      if (!participantCountsValid) {
+        setState({
+          status: "error",
+          progress: 0,
+          message:
+            "The number of participants with video ON should be lower than or equal to the total participants",
         });
         return;
       }
@@ -262,7 +276,7 @@ export default function UploadPanel({
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
-          1) Number of participants that joined my chanting session
+          1) Total number of participants in this video you are uploading
           <input
             type="number"
             min={0}
@@ -273,7 +287,7 @@ export default function UploadPanel({
           />
         </label>
         <label className="flex flex-col gap-2 text-sm text-[#6b4e3d]">
-          2) Number of participants who had their video ON and chanted for the full session
+          2) In this video, number of participants with video ON and Audio ON
           <input
             type="number"
             min={0}
@@ -283,6 +297,16 @@ export default function UploadPanel({
             className="rounded-lg border border-[#e5c18e] bg-white/70 px-3 py-2 text-sm text-[#3b1a1f]"
           />
         </label>
+        {!Number.isNaN(assignedNum) &&
+        !Number.isNaN(attendedNum) &&
+        assignedNum >= 0 &&
+        attendedNum >= 0 &&
+        attendedNum > assignedNum ? (
+          <p className="text-sm text-[#9a3b2e]">
+            The number of participants with video ON should be lower than or
+            equal to the total participants
+          </p>
+        ) : null}
         <p className="text-sm italic text-[#6b4e3d]">
           I <strong>{hostName || "[Host name]"}</strong>{" "}
           <strong>{hostEmail || "[Host email]"}</strong> attest the following

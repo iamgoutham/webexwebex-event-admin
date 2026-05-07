@@ -62,11 +62,7 @@ export async function takeNextFosterRoundRobinIndex(
       const index = counter % linkCount;
       await writeFile(RR_COUNTER_FILE, `${counter + 1}\n`, "utf8");
       return index;
-    } catch (e) {
-      console.warn(
-        "[findameeting] foster round-robin file failed, using time fallback:",
-        e,
-      );
+    } catch {
       return Math.abs(Date.now() % linkCount);
     }
   });
