@@ -48,9 +48,9 @@ export default async function Home() {
           </div>
           <div className="flex w-full shrink-0 flex-col items-center gap-4 md:ml-4 md:w-auto md:items-end">
             <CountdownTimer
-              targetDate={new Date("2026-05-09T00:00:00Z")}
+              targetDate={new Date("2026-05-09T10:00:00-04:00")}
               label="Event Countdown"
-              sublabel="Global Gita Chanting Day — May 9th, 2026"
+              sublabel="Global Gita Chanting Day — May 9, 2026 at 10:00 AM Eastern Time"
             />
             <Link
               href="/help"

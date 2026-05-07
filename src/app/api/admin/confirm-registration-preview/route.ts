@@ -15,6 +15,39 @@ const bodySchema = z.object({
 
 const normalizePhoneDigits = (value: string) => value.replace(/[^0-9]/g, "");
 
+function renderWatiPreviewMessage(
+  templateName: "host_meeting_info" | "participant_meeting_info_v5",
+  templateParams: string[],
+): string {
+  if (templateName === "host_meeting_info") {
+    const [name, email, dateLabel, meetingLink, meetingNumber, hostEmail, schedule, count] =
+      templateParams;
+    return [
+      `Namaste ${name},`,
+      "",
+      `Registered email: ${email}`,
+      `Event date: ${dateLabel}`,
+      `Meeting number: ${meetingNumber}`,
+      `Meeting link: ${meetingLink}`,
+      `Host email: ${hostEmail}`,
+      `Time: ${schedule}`,
+      `Participants mapped to your host record: ${count}`,
+    ].join("\n");
+  }
+
+  const [name, email, dateLabel, meetingLink, meetingNumber, schedule] =
+    templateParams;
+  return [
+    `Namaste ${name},`,
+    "",
+    `Registered email: ${email}`,
+    `Event date: ${dateLabel}`,
+    `Meeting number: ${meetingNumber}`,
+    `Meeting link: ${meetingLink}`,
+    `Time: ${schedule}`,
+  ].join("\n");
+}
+
 function formatUpcomingSaturdayLabel(phoneDigits: string): string {
   const now = new Date();
   const nextSaturday = new Date(now);
@@ -119,31 +152,32 @@ export async function POST(request: Request) {
     const meetingNumber = primaryMeeting?.meetingNumber?.trim() || "TBD";
     const meetingLink = primaryMeeting?.link?.trim() || "Not available";
     const hostEmail = primaryMeeting?.hostEmail?.trim() || "Not available";
-    const hostPhone = primaryMeeting?.hostPhone?.trim() || "Not available";
     const meetingStartSheet = primaryMeeting?.startTime?.trim() || "";
     const meetingStartSaturday = formatUpcomingSaturdayLabel(
       lookup.whatsappDialDigits,
     );
 
-    const templateName = lookup.isHost ? "host_meeting_info" : "participant_meeting_info";
+    const templateName = lookup.isHost
+      ? "host_meeting_info"
+      : "participant_meeting_info_v5";
     const templateParams = lookup.isHost
       ? [
           greetingFirstName,
           registeredEmail,
-          meetingNumber,
+          "May 9th",
           meetingLink,
+          meetingNumber,
           hostEmail,
-          meetingStartSheet || meetingStartSaturday,
+          "May 9th Saturday @ 7am PDT / 10am EDT/ 7:30pm India / 2pm GMT",
           String((lookup.hostMeetingParticipants ?? []).length),
         ]
       : [
           participantName,
           registeredEmail,
-          meetingNumber,
+          "May 9th",
           meetingLink,
-          hostEmail,
-          hostPhone,
-          meetingStartSaturday,
+          meetingNumber,
+          "May 9th Saturday @ 7am PDT / 10am EDT/ 7:30pm India / 2pm GMT",
         ];
 
     return NextResponse.json({
@@ -154,6 +188,7 @@ export async function POST(request: Request) {
       whatsappPreview: {
         templateName,
         templateParams,
+        renderedMessage: renderWatiPreviewMessage(templateName, templateParams),
       },
       lookup: {
         resolvedEmail: lookup.email,

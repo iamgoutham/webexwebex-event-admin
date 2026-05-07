@@ -6,7 +6,11 @@ import {
   type JoinCandidate,
 } from "./actions";
 
-export default function JoinClient() {
+export default function JoinClient({
+  alternateLink = null,
+}: {
+  alternateLink?: string | null;
+}) {
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [candidates, setCandidates] = useState<JoinCandidate[]>([]);
@@ -65,7 +69,7 @@ export default function JoinClient() {
           disabled={!canSearch}
           className="mt-4 rounded-full bg-[#d8792d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:bg-[#d8792d]/40"
         >
-          {status === "loading" ? "Searching..." : "Find my link"}
+          {status === "loading" ? "Searching..." : "Find my meeting"}
         </button>
 
         {error ? (
@@ -77,7 +81,7 @@ export default function JoinClient() {
         {candidates.length > 0 ? (
           <div className="mt-6 rounded-xl border border-[#ead2ae] bg-white p-4">
             <p className="text-sm font-semibold text-[#3b1a1f]">
-              Select your name
+              Select your name to join your assigned meeting (अपनी निर्धारित मीटिंग में शामिल होने के लिए अपना नाम चुनें)
             </p>
             <div className="mt-3 space-y-2">
               {candidates.map((candidate) => (
@@ -90,7 +94,10 @@ export default function JoinClient() {
                     name="join-name"
                     value={candidate.name}
                     checked={selectedName === candidate.name}
-                    onChange={() => setSelectedName(candidate.name)}
+                    onChange={() => {
+                      setSelectedName(candidate.name);
+                      window.open(candidate.joinLink, "_blank", "noopener,noreferrer");
+                    }}
                   />
                   <span>{candidate.name}</span>
                 </label>
@@ -113,6 +120,22 @@ export default function JoinClient() {
           </div>
         ) : null}
       </div>
+
+      {alternateLink ? (
+        <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-[#3b1a1f]">
+            Alternate link
+          </h2>
+          <a
+            href={alternateLink}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 block break-all text-sm font-medium text-[#8a2f2a] underline underline-offset-2"
+          >
+            {alternateLink}
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 }

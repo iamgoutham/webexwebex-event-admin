@@ -30,8 +30,9 @@ type PhonePreviewOk = {
   lookupType: "phone";
   query: string;
   whatsappPreview: {
-    templateName: "host_meeting_info" | "participant_meeting_info";
+    templateName: "host_meeting_info" | "participant_meeting_info_v5";
     templateParams: string[];
+    renderedMessage?: string;
   };
   lookup: {
     resolvedEmail: string;
@@ -199,6 +200,16 @@ export default function ConfirmRegistrationEmailPreview() {
               ))}
             </ol>
           </div>
+          {result.whatsappPreview.renderedMessage ? (
+            <div>
+              <p className="text-xs font-semibold uppercase text-[#8a5b44]">
+                Rendered WhatsApp message preview
+              </p>
+              <pre className="mt-2 max-h-[min(480px,70vh)] overflow-auto whitespace-pre-wrap rounded-xl border border-[#e5c18e] bg-[#fff9ef] p-4 text-left text-xs leading-relaxed text-[#3b1a1f]">
+                {result.whatsappPreview.renderedMessage}
+              </pre>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
