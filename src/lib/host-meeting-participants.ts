@@ -65,8 +65,13 @@ function addMapRefPair(
   if (!e) return;
   const mapName = mapNameRaw?.trim() ? mapNameRaw.trim() : null;
   const mapPhone = formatParticipantPhone(mapPhoneRaw);
-  const key = `${e}\0${normalizeParticipantNameKey(mapName)}`;
   const ms = toRecCreateTstmpMs(recCreateTstmp ?? null);
+  const normalizedNameKey = normalizeParticipantNameKey(mapName);
+  // Primary dedupe is email + full name. For blank-name rows, include phone+timestamp
+  // so we do not collapse everything down to one row by email only.
+  const key = normalizedNameKey
+    ? `${e}\0${normalizedNameKey}`
+    : `${e}\0__blank_name__\0${mapPhone ?? ""}\0${ms ?? ""}`;
   const existing = bucket.get(key);
   if (!existing) {
     bucket.set(key, { email: e, mapName, mapPhone, recCreateTstmpMs: ms });

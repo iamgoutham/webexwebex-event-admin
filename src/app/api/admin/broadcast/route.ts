@@ -13,12 +13,71 @@ import { renderTemplate } from "@/lib/notifications/template";
 // Ensure email channel is registered
 import "@/lib/notifications/channels/email";
 import { renderEmailHtml } from "@/lib/notifications/channels/email-templates";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
 
 // ---------------------------------------------------------------------------
 // POST /api/admin/broadcast — Send a broadcast notification
 // ---------------------------------------------------------------------------
 
 const DYNAMIC_EMAIL_MAX = 500;
+
+async function fetchPostgresHostEmails(): Promise<string[]> {
+  const postgres = getPostgresPrisma();
+  if (!postgres) return [];
+
+  const rows = await postgres.$queryRaw<{ email: string | null }[]>`
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india
+    UNION
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india_gp
+    UNION
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india_dattap
+    UNION
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM vrindavan.webex_hosts_india
+  `;
+
+  return [
+    ...new Set(
+      rows
+        .map((r) => r.email?.trim().toLowerCase())
+        .filter((e): e is string => Boolean(e)),
+    ),
+  ];
+}
+
+async function fetchPostgresParticipantEmails(): Promise<string[]> {
+  const postgres = getPostgresPrisma();
+  if (!postgres) return [];
+
+  const [nonIndia, nonIndiaGp, india, indiaStudents] = await Promise.all([
+    postgres.nonIndiaParticipant.findMany({
+      select: { prtcpntEmailId: true },
+    }),
+    postgres.$queryRaw<{ email: string | null }[]>`
+      SELECT lower(btrim(prtcpnt_email_id::text)) AS email
+      FROM mission.webex_participants_non_india_gp
+    `.catch(() => []),
+    postgres.indiaParticipant.findMany({
+      select: { indPrtcpntEmailId: true },
+    }),
+    postgres.$queryRaw<{ email: string | null }[]>`
+      SELECT lower(btrim(ind_prtcpnt_email_id::text)) AS email
+      FROM vrindavan.webex_participants_india_students
+    `.catch(() => []),
+  ]);
+
+  const all = [
+    ...nonIndia.map((r) => r.prtcpntEmailId),
+    ...nonIndiaGp.map((r) => r.email),
+    ...india.map((r) => r.indPrtcpntEmailId),
+    ...indiaStudents.map((r) => r.email),
+  ];
+
+  return [...new Set(all.map((e) => e?.trim().toLowerCase()).filter((e): e is string => Boolean(e)))];
+}
 
 interface BroadcastBody {
   title: string;
@@ -167,6 +226,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (target === BroadcastTarget.HOSTS_ONLY) {
+      if (tenantId) {
+        return NextResponse.json(
+          { error: "Tenant-scoped host email broadcasts are not supported for direct Postgres lookups." },
+          { status: 400 },
+        );
+      }
+
       const broadcast = await prisma.broadcast.create({
         data: {
           tenantId: tenantId ?? null,
@@ -180,13 +246,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Host emails from Host table (sheet-imported); domain-agnostic, send as group
-      const hostWhere = { optedOut: false, ...(tenantId ? { tenantId } : { tenantId: null }) };
-      const hostsFromTable = await prisma.host.findMany({
-        where: hostWhere,
-        select: { email: true },
-      });
-      const hostEmails = [...new Set(hostsFromTable.map((h) => h.email))];
+      const hostEmails = await fetchPostgresHostEmails();
 
       // In-app: only to Users (logged-in portal hosts)
       const userWhere = tenantId ? { tenantId } : {};
@@ -240,6 +300,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (target === BroadcastTarget.PARTICIPANTS_ONLY) {
+      if (tenantId) {
+        return NextResponse.json(
+          { error: "Tenant-scoped participant email broadcasts are not supported for direct Postgres lookups." },
+          { status: 400 },
+        );
+      }
+
       const broadcast = await prisma.broadcast.create({
         data: {
           tenantId: tenantId ?? null,
@@ -253,17 +320,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Get participant emails
-      const partWhere = {
-        optedOut: false,
-        ...(tenantId ? { tenantId } : {}),
-      };
-      const participants = await prisma.participant.findMany({
-        where: partWhere,
-        select: { email: true },
-      });
-
-      const uniqueEmails = [...new Set(participants.map((p) => p.email))];
+      const uniqueEmails = await fetchPostgresParticipantEmails();
 
       const { sendBulkEmail } = await import("@/lib/notifications/channels/email");
       const results = await sendBulkEmail(uniqueEmails, title, bodyText, emailHtmlBody);
@@ -291,6 +348,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (target === BroadcastTarget.ALL) {
+      if (tenantId) {
+        return NextResponse.json(
+          { error: "Tenant-scoped participant email broadcasts are not supported for direct Postgres lookups." },
+          { status: 400 },
+        );
+      }
+
       const broadcast = await prisma.broadcast.create({
         data: {
           tenantId: tenantId ?? null,
@@ -311,15 +375,7 @@ export async function POST(request: NextRequest) {
         select: { id: true },
       });
 
-      const partWhere = {
-        optedOut: false,
-        ...(tenantId ? { tenantId } : {}),
-      };
-      const participants = await prisma.participant.findMany({
-        where: partWhere,
-        select: { email: true },
-      });
-      const participantEmails = [...new Set(participants.map((p) => p.email))];
+      const participantEmails = await fetchPostgresParticipantEmails();
 
       const { sendBulkEmail } = await import("@/lib/notifications/channels/email");
 

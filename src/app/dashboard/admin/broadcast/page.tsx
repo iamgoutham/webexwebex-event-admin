@@ -7,9 +7,12 @@ import BroadcastHistory from "@/components/notifications/broadcast-history";
 import ParticipantSyncButton from "@/components/notifications/participant-sync-button";
 import HostSyncButton from "@/components/notifications/host-sync-button";
 import TestSesButton from "@/components/notifications/test-ses-button";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
 
 export default async function BroadcastPage() {
   const session = await requireRole(SUPERADMIN_ONLY);
+
+  const postgres = getPostgresPrisma();
 
   // Fetch tenants for the scope selector
   const tenants = await prisma.tenant.findMany({
@@ -17,14 +20,68 @@ export default async function BroadcastPage() {
     select: { id: true, name: true },
   });
 
-  // Get participant + host counts for the stats cards
-  const [participantCount, activeParticipantCount, portalHostCount, sheetHostCount] =
+  // Get host + participant counts from downstream Postgres plus portal user count.
+  const [portalHostCount, hostRows, nonIndiaRows, nonIndiaGpRows, indiaRows, indiaStudentRows] =
     await Promise.all([
-      prisma.participant.count(),
-      prisma.participant.count({ where: { optedOut: false } }),
       prisma.user.count(),
-      prisma.host.count({ where: { optedOut: false } }),
+      postgres
+        ? postgres.$queryRaw<{ email: string | null }[]>`
+            SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+            FROM mission.webex_hosts_non_india
+            UNION
+            SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+            FROM mission.webex_hosts_non_india_gp
+            UNION
+            SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+            FROM mission.webex_hosts_non_india_dattap
+            UNION
+            SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+            FROM vrindavan.webex_hosts_india
+          `.catch(() => [])
+        : Promise.resolve([]),
+      postgres
+        ? postgres.nonIndiaParticipant.findMany({
+            select: { prtcpntEmailId: true },
+          })
+        : Promise.resolve([]),
+      postgres
+        ? postgres.$queryRaw<{ email: string | null }[]>`
+            SELECT lower(btrim(prtcpnt_email_id::text)) AS email
+            FROM mission.webex_participants_non_india_gp
+          `.catch(() => [])
+        : Promise.resolve([]),
+      postgres
+        ? postgres.indiaParticipant.findMany({
+            select: { indPrtcpntEmailId: true },
+          })
+        : Promise.resolve([]),
+      postgres
+        ? postgres.$queryRaw<{ email: string | null }[]>`
+            SELECT lower(btrim(ind_prtcpnt_email_id::text)) AS email
+            FROM vrindavan.webex_participants_india_students
+          `.catch(() => [])
+        : Promise.resolve([]),
     ]);
+
+  const sheetHostCount = new Set(
+    hostRows
+      .map((r) => r.email?.trim().toLowerCase())
+      .filter((e): e is string => Boolean(e)),
+  ).size;
+
+  const participantCount = new Set(
+    [
+      ...nonIndiaRows.map((r) => r.prtcpntEmailId),
+      ...nonIndiaGpRows.map((r) => r.email),
+      ...indiaRows.map((r) => r.indPrtcpntEmailId),
+      ...indiaStudentRows.map((r) => r.email),
+    ]
+      .map((e) => e?.trim().toLowerCase())
+      .filter((e): e is string => Boolean(e)),
+  ).size;
+
+  // For Postgres-direct recipients there is no app-level optedOut source; active equals total.
+  const activeParticipantCount = participantCount;
 
   return (
     <div className="space-y-8 text-[#3b1a1f]">
@@ -55,7 +112,7 @@ export default async function BroadcastPage() {
             {activeParticipantCount.toLocaleString()}
           </p>
           <p className="mt-1 text-xs text-[#8a5b44]">
-            Active Participants (email)
+            Active Participants (email, Postgres)
           </p>
         </div>
         <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-5 text-center">

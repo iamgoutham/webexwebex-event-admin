@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/guards";
 import { fetchEmailsInProcessedExceptTables } from "@/lib/postgres-participant-except-emails";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
 
 const US_STATE_MAP: Record<string, string> = {
   AL: "Alabama",
@@ -76,44 +76,137 @@ export async function GET() {
     return NextResponse.json({ participants: [] });
   }
 
-  const host = await prisma.host.findFirst({
-    where: { email: userEmail },
-    select: { state: true },
-  });
-  const userState = normalizeUsState(host?.state);
+  const postgres = getPostgresPrisma();
+  if (!postgres) {
+    return NextResponse.json({ participants: [] });
+  }
+
+  const hostStateRows = await postgres.$queryRaw<{ state: string | null }[]>`
+    SELECT NULLIF(btrim(host_addr_state::text), '') AS state
+    FROM mission.webex_hosts_non_india
+    WHERE lower(btrim(host_email_id::text)) = ${userEmail}
+    UNION
+    SELECT NULLIF(btrim(host_addr_state::text), '') AS state
+    FROM mission.webex_hosts_non_india_gp
+    WHERE lower(btrim(host_email_id::text)) = ${userEmail}
+    UNION
+    SELECT NULLIF(btrim(host_addr_state::text), '') AS state
+    FROM mission.webex_hosts_non_india_dattap
+    WHERE lower(btrim(host_email_id::text)) = ${userEmail}
+    UNION
+    SELECT NULLIF(btrim(host_addr_state::text), '') AS state
+    FROM vrindavan.webex_hosts_india
+    WHERE lower(btrim(host_email_id::text)) = ${userEmail}
+  `.catch(() => []);
+  const userState = normalizeUsState(hostStateRows[0]?.state);
 
   if (!userState) {
     return NextResponse.json({ participants: [] });
   }
 
-  const participants = await prisma.participant.findMany({
-    where: { state: userState },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }, { name: "asc" }, { email: "asc" }],
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      firstName: true,
-      lastName: true,
-      center: true,
-      state: true,
-      tenantId: true,
-      tenant: { select: { name: true } },
-    },
-  });
+  type RawParticipant = {
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    name: string | null;
+    center: string | null;
+    state: string | null;
+  };
+  const [nonIndiaRows, gpRows, indiaRows, indiaStudentRows] = await Promise.all([
+    postgres.nonIndiaParticipant.findMany({
+      select: {
+        prtcpntEmailId: true,
+        prtcpntName: true,
+        chinmayaCenterName: true,
+        prtcpntAddrState: true,
+      },
+    }),
+    postgres.$queryRaw<RawParticipant[]>`
+      SELECT
+        lower(btrim(prtcpnt_email_id::text)) AS email,
+        NULLIF(btrim(prtcpnt_name::text), '') AS "firstName",
+        NULL::text AS "lastName",
+        NULLIF(btrim(prtcpnt_name::text), '') AS name,
+        NULLIF(btrim(chinmaya_center_name::text), '') AS center,
+        NULLIF(btrim(prtcpnt_addr_state::text), '') AS state
+      FROM mission.webex_participants_non_india_gp
+    `.catch(() => []),
+    postgres.indiaParticipant.findMany({
+      select: {
+        indPrtcpntEmailId: true,
+        indPrtcpntName: true,
+        indChinmayaCenterName: true,
+        indPrtcpntAddrState: true,
+      },
+    }),
+    postgres.$queryRaw<RawParticipant[]>`
+      SELECT
+        lower(btrim(ind_prtcpnt_email_id::text)) AS email,
+        NULLIF(btrim(ind_prtcpnt_name::text), '') AS "firstName",
+        NULL::text AS "lastName",
+        NULLIF(btrim(ind_prtcpnt_name::text), '') AS name,
+        NULLIF(btrim(ind_chinmaya_center_name::text), '') AS center,
+        NULLIF(btrim(ind_prtcpnt_addr_state::text), '') AS state
+      FROM vrindavan.webex_participants_india_students
+    `.catch(() => []),
+  ]);
+
+  const combined: RawParticipant[] = [
+    ...nonIndiaRows.map((r) => ({
+      email: r.prtcpntEmailId,
+      firstName: r.prtcpntName,
+      lastName: null,
+      name: r.prtcpntName,
+      center: r.chinmayaCenterName,
+      state: r.prtcpntAddrState,
+    })),
+    ...gpRows,
+    ...indiaRows.map((r) => ({
+      email: r.indPrtcpntEmailId,
+      firstName: r.indPrtcpntName,
+      lastName: null,
+      name: r.indPrtcpntName,
+      center: r.indChinmayaCenterName,
+      state: r.indPrtcpntAddrState,
+    })),
+    ...indiaStudentRows,
+  ];
+
+  const byEmail = new Map<string, RawParticipant>();
+  for (const row of combined) {
+    const email = row.email?.trim().toLowerCase();
+    if (!email) continue;
+    const normalizedState = normalizeUsState(row.state);
+    if (!normalizedState || normalizedState !== userState) continue;
+    const prev = byEmail.get(email);
+    if (!prev) {
+      byEmail.set(email, row);
+      continue;
+    }
+    byEmail.set(email, {
+      email,
+      firstName: prev.firstName || row.firstName,
+      lastName: prev.lastName || row.lastName,
+      name: prev.name || row.name,
+      center: prev.center || row.center,
+      state: prev.state || row.state,
+    });
+  }
 
   // Emails that also exist in Host are shown but marked pickable: false.
-  const emails = participants
-    .map((p) => p.email?.trim().toLowerCase())
-    .filter((e): e is string => Boolean(e));
-
-  const hostEmails =
-    emails.length > 0
-      ? await prisma.host.findMany({
-          where: { email: { in: emails } },
-          select: { email: true },
-        })
-      : [];
+  const hostEmails = await postgres.$queryRaw<{ email: string | null }[]>`
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india
+    UNION
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india_gp
+    UNION
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM mission.webex_hosts_non_india_dattap
+    UNION
+    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+    FROM vrindavan.webex_hosts_india
+  `.catch(() => []);
 
   const hostEmailSet = new Set(
     hostEmails
@@ -123,17 +216,19 @@ export async function GET() {
 
   const exceptEmailSet = await fetchEmailsInProcessedExceptTables();
 
-  const list = participants.map((p) => {
-    const emailLower = p.email?.trim().toLowerCase() ?? "";
+  const list = [...byEmail.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([email, p], index) => {
+    const emailLower = email;
     let displayName =
       p.lastName && p.firstName
         ? `${p.lastName}, ${p.firstName}`
-        : p.firstName ?? p.email;
+        : p.firstName ?? email;
     const regAlias = p.name?.trim();
     if (regAlias) {
       displayName = `${displayName} (${regAlias})`;
     }
-    const centerName = p.center ?? p.tenant?.name ?? "—";
+    const centerName = p.center ?? "—";
     const isAlsoHost = Boolean(emailLower) && hostEmailSet.has(emailLower);
     const inExceptTable = Boolean(emailLower) && exceptEmailSet.has(emailLower);
     const pickable = Boolean(emailLower) && !isAlsoHost && !inExceptTable;
@@ -147,11 +242,11 @@ export async function GET() {
         : undefined;
 
     return {
-      id: p.id,
-      email: p.email,
+      id: `pg-${index + 1}-${email}`,
+      email,
       name: displayName,
       center: centerName,
-      state: p.state ?? "",
+      state: normalizeUsState(p.state) ?? "",
       /** false = listed for visibility but cannot be added to exception request */
       pickable,
       nonPickableReason,

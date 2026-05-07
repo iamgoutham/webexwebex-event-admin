@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Role } from "@prisma/client";
 import AuthButtons from "@/components/auth-buttons";
-import NotificationBell from "@/components/notifications/notification-bell";
 import { isRelayAndNotificationsSseDisabled } from "@/lib/relay-sse-disable";
 import { getServerAuthSession } from "@/lib/session";
 import { getTenantConfigFromHeaders } from "@/lib/webex-tenants";
@@ -77,9 +76,6 @@ export default async function SiteHeader() {
           </nav>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          {user ? (
-            <NotificationBell sseDisabled={relaySseDisabled} />
-          ) : null}
           {user ? (
             <div className="text-left text-xs text-[#fbe9c6]/60 sm:text-right">
               <div className="font-medium text-[#fbe9c6]">

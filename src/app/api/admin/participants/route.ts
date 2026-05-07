@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma, Role } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { Role } from "@prisma/client";
 import { requireApiAuth } from "@/lib/api-guards";
 import { fetchEmailsInProcessedExceptTables } from "@/lib/postgres-participant-except-emails";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
 
 const US_STATE_MAP: Record<string, string> = {
   AL: "Alabama",
@@ -102,124 +102,187 @@ export async function GET(request: NextRequest) {
     searchParams.get("markProcessedExceptPickability") === "true" ||
     searchParams.get("markProcessedExceptPickability") === "1";
 
-  const matchTermClause = (term: string): Prisma.ParticipantWhereInput => ({
-    OR: [
-      { email: { contains: term } },
-      { name: { contains: term } },
-      { firstName: { contains: term } },
-      { lastName: { contains: term } },
-      { center: { contains: term } },
-      { phone: { contains: term } },
-    ],
-  });
-
   const searchTerms =
     searchTrimmed.length > 0
       ? searchTrimmed.split(/\s+/).filter((t) => t.length > 0)
       : [];
-
-  const where: Prisma.ParticipantWhereInput = {};
+  const postgres = getPostgresPrisma();
+  if (!postgres) {
+    return NextResponse.json(
+      { error: "Downstream Postgres is not configured." },
+      { status: 503 },
+    );
+  }
 
   if (tenantId) {
-    where.tenantId = tenantId;
-  }
-
-  if (stateParam) {
-    const normalizedState = normalizeUsState(stateParam);
-    if (normalizedState) {
-      where.state = normalizedState;
-    }
-  }
-
-  if (optedOutFilter === "true") {
-    where.optedOut = true;
-  } else if (optedOutFilter === "false") {
-    where.optedOut = false;
-  }
-
-  if (searchTerms.length === 1) {
-    Object.assign(where, matchTermClause(searchTerms[0]!));
-  } else if (searchTerms.length > 1) {
-    const termClauses = searchTerms.map(matchTermClause);
-    const baseEntries = Object.entries({ ...where }).filter(
-      ([, v]) => v !== undefined,
+    return NextResponse.json(
+      { error: "tenantId filter is not supported for direct Postgres participant lookups." },
+      { status: 400 },
     );
-    Object.keys(where).forEach((k) => {
-      delete (where as Record<string, unknown>)[k];
-    });
-    if (baseEntries.length === 0) {
-      Object.assign(where, { AND: termClauses });
-    } else {
-      Object.assign(where, {
-        AND: [
-          ...baseEntries.map(
-            ([k, v]) => ({ [k]: v }) as Prisma.ParticipantWhereInput,
-          ),
-          ...termClauses,
-        ],
-      });
-    }
   }
 
-  const findArgs: Parameters<typeof prisma.participant.findMany>[0] = {
-    where,
-    orderBy: { email: "asc" },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      firstName: true,
-      lastName: true,
-      center: true,
-      state: true,
-      phone: true,
-      optedOut: true,
-      tenantId: true,
-      createdAt: true,
-    },
+  type RawParticipant = {
+    email: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    name: string | null;
+    center: string | null;
+    state: string | null;
+    phone: string | null;
   };
 
-  if (!unlimited && limit != null) {
-    findArgs.skip = (page - 1) * limit;
-    findArgs.take = limit;
+  const [nonIndiaRows, gpRows, indiaRows, indiaStudentRows, hostRows] =
+    await Promise.all([
+      postgres.nonIndiaParticipant.findMany({
+        select: {
+          prtcpntEmailId: true,
+          prtcpntName: true,
+          chinmayaCenterName: true,
+          prtcpntAddrState: true,
+          prtcpntPhoneNo: true,
+        },
+      }),
+      postgres.$queryRaw<RawParticipant[]>`
+        SELECT
+          lower(btrim(prtcpnt_email_id::text)) AS email,
+          NULLIF(btrim(prtcpnt_name::text), '') AS "firstName",
+          NULL::text AS "lastName",
+          NULLIF(btrim(prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(chinmaya_center_name::text), '') AS center,
+          NULLIF(btrim(prtcpnt_addr_state::text), '') AS state,
+          NULLIF(btrim(prtcpnt_phone_no::text), '') AS phone
+        FROM mission.webex_participants_non_india_gp
+      `.catch(() => []),
+      postgres.indiaParticipant.findMany({
+        select: {
+          indPrtcpntEmailId: true,
+          indPrtcpntName: true,
+          indChinmayaCenterName: true,
+          indPrtcpntAddrState: true,
+          indPrtcpntPhoneNo: true,
+        },
+      }),
+      postgres.$queryRaw<RawParticipant[]>`
+        SELECT
+          lower(btrim(ind_prtcpnt_email_id::text)) AS email,
+          NULLIF(btrim(ind_prtcpnt_name::text), '') AS "firstName",
+          NULL::text AS "lastName",
+          NULLIF(btrim(ind_prtcpnt_name::text), '') AS name,
+          NULLIF(btrim(ind_chinmaya_center_name::text), '') AS center,
+          NULLIF(btrim(ind_prtcpnt_addr_state::text), '') AS state,
+          NULLIF(btrim(ind_prtcpnt_phone_no::text), '') AS phone
+        FROM vrindavan.webex_participants_india_students
+      `.catch(() => []),
+      postgres.$queryRaw<{ email: string | null }[]>`
+        SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+        FROM mission.webex_hosts_non_india
+        UNION
+        SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+        FROM mission.webex_hosts_non_india_gp
+        UNION
+        SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+        FROM mission.webex_hosts_non_india_dattap
+        UNION
+        SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
+        FROM vrindavan.webex_hosts_india
+      `.catch(() => []),
+    ]);
+
+  const combined: RawParticipant[] = [
+    ...nonIndiaRows.map((r) => ({
+      email: r.prtcpntEmailId,
+      firstName: r.prtcpntName,
+      lastName: null,
+      name: r.prtcpntName,
+      center: r.chinmayaCenterName,
+      state: r.prtcpntAddrState,
+      phone: r.prtcpntPhoneNo,
+    })),
+    ...gpRows,
+    ...indiaRows.map((r) => ({
+      email: r.indPrtcpntEmailId,
+      firstName: r.indPrtcpntName,
+      lastName: null,
+      name: r.indPrtcpntName,
+      center: r.indChinmayaCenterName,
+      state: r.indPrtcpntAddrState,
+      phone: r.indPrtcpntPhoneNo,
+    })),
+    ...indiaStudentRows,
+  ];
+
+  const byEmail = new Map<string, RawParticipant>();
+  for (const row of combined) {
+    const email = row.email?.trim().toLowerCase();
+    if (!email) continue;
+    const prev = byEmail.get(email);
+    if (!prev) {
+      byEmail.set(email, row);
+      continue;
+    }
+    byEmail.set(email, {
+      email,
+      firstName: prev.firstName || row.firstName,
+      lastName: prev.lastName || row.lastName,
+      name: prev.name || row.name,
+      center: prev.center || row.center,
+      state: prev.state || row.state,
+      phone: prev.phone || row.phone,
+    });
   }
 
-  const [participantsRaw, total, totalOptedOut] = await Promise.all([
-    prisma.participant.findMany(findArgs),
-    prisma.participant.count({ where }),
-    prisma.participant.count({ where: { ...where, optedOut: true } }),
-  ]);
-
-  const emailsForHostCheck = [
-    ...new Set(
-      participantsRaw
-        .map((p) => p.email?.trim().toLowerCase())
-        .filter((e): e is string => Boolean(e)),
-    ),
-  ];
-  const hostRows =
-    emailsForHostCheck.length > 0
-      ? await prisma.host.findMany({
-          where: { email: { in: emailsForHostCheck } },
-          select: { email: true },
-        })
-      : [];
   const hostEmailSet = new Set(
     hostRows
       .map((h) => h.email?.trim().toLowerCase())
       .filter((e): e is string => Boolean(e)),
   );
 
-  /** Every row is a synced participant; isHost = same email exists in Host table (broadcast/sheet). */
-  let participants = participantsRaw.map((p) => {
-    const e = p.email?.trim().toLowerCase();
-    const isHost = Boolean(e && hostEmailSet.has(e));
-    return {
-      ...p,
-      isParticipant: true as const,
-      isHost,
-    };
+  const normalizedStateFilter = stateParam ? normalizeUsState(stateParam) : null;
+  const participantsBase = [...byEmail.entries()].map(([email, row], index) => ({
+    id: `pg-${index + 1}-${email}`,
+    email,
+    name: row.name,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    center: row.center,
+    state: normalizeUsState(row.state),
+    phone: row.phone,
+    optedOut: false,
+    tenantId: null,
+    createdAt: null,
+    isParticipant: true as const,
+    isHost: hostEmailSet.has(email),
+  }));
+
+  const matchesSearch = (row: (typeof participantsBase)[number]) => {
+    if (searchTerms.length === 0) return true;
+    const haystack = [
+      row.email,
+      row.name ?? "",
+      row.firstName ?? "",
+      row.lastName ?? "",
+      row.center ?? "",
+      row.phone ?? "",
+    ]
+      .join(" ")
+      .toLowerCase();
+    return searchTerms.every((t) => haystack.includes(t.toLowerCase()));
+  };
+
+  let participants = participantsBase.filter((p) => {
+    if (normalizedStateFilter && p.state !== normalizedStateFilter) return false;
+    if (optedOutFilter === "true") return false;
+    return matchesSearch(p);
   });
+
+  participants.sort((a, b) => a.email.localeCompare(b.email));
+
+  const total = participants.length;
+  const totalOptedOut = 0;
+  if (!unlimited && limit != null) {
+    const start = (page - 1) * limit;
+    participants = participants.slice(start, start + limit);
+  }
 
   if (markProcessedExceptPickability) {
     const exceptSet = await fetchEmailsInProcessedExceptTables();
@@ -242,10 +305,8 @@ export async function GET(request: NextRequest) {
   }
 
   // Also get aggregate counts
-  const [totalAll, totalActiveAll] = await Promise.all([
-    prisma.participant.count(),
-    prisma.participant.count({ where: { optedOut: false } }),
-  ]);
+  const totalAll = participantsBase.length;
+  const totalActiveAll = participantsBase.length;
 
   return NextResponse.json({
     participants,
