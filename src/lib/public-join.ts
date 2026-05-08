@@ -329,7 +329,8 @@ export async function lookupJoinCandidatesByPhoneFromParticipantSheetSet(
   const last10 = digits.length >= 10 ? digits.slice(-10) : "";
   if (digits.length < 10) return [];
 
-  const all: JoinMapRow[] = [];
+  const participantRows: JoinMapRow[] = [];
+  const hostRows: JoinMapRow[] = [];
 
   // Same source table, tolerant column fallbacks for environment schema variants.
   const sources: Array<{ source: string; sql: Prisma.Sql }> = [
@@ -394,14 +395,114 @@ export async function lookupJoinCandidatesByPhoneFromParticipantSheetSet(
         WHERE ${phoneMatchSql("s.host_whatsapp_phone", digits, last10)}
       `,
     },
+    {
+      source: "schema-agnostic json fallback (participant_data_sheet_set)",
+      sql: Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_name', to_jsonb(s)->>'participant_name')), ''),
+            NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email')), '')
+          ) AS name,
+          NULLIF(btrim(COALESCE(
+            to_jsonb(s)->>'webex_mtng_link',
+            to_jsonb(s)->>'webex_join_link',
+            to_jsonb(s)->>'webex_meeting_link'
+          )), '') AS link,
+          NULL::timestamp AS rec_create_tstmp,
+          to_jsonb(s)->>'prtcpnt_phone_no' AS matched_phone
+        FROM mission.participant_data_sheet_set s
+        WHERE (
+          regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+        UNION ALL
+        SELECT
+          COALESCE(
+            NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_name', to_jsonb(s)->>'participant_name')), ''),
+            NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email')), '')
+          ) AS name,
+          NULLIF(btrim(COALESCE(
+            to_jsonb(s)->>'webex_mtng_link',
+            to_jsonb(s)->>'webex_join_link',
+            to_jsonb(s)->>'webex_meeting_link'
+          )), '') AS link,
+          NULL::timestamp AS rec_create_tstmp,
+          to_jsonb(s)->>'whatsapp_phone' AS matched_phone
+        FROM mission.participant_data_sheet_set s
+        WHERE (
+          regexp_replace(btrim(COALESCE(to_jsonb(s)->>'whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+        UNION ALL
+        SELECT
+          COALESCE(
+            NULLIF(
+              btrim(
+                COALESCE(
+                  to_jsonb(s)->>'host_name',
+                  concat_ws(' ', to_jsonb(s)->>'host_first_name', to_jsonb(s)->>'host_last_name')
+                )
+              ),
+              ''
+            ),
+            NULLIF(btrim(to_jsonb(s)->>'host_email_id'), '')
+          ) AS name,
+          NULLIF(btrim(COALESCE(
+            to_jsonb(s)->>'webex_mtng_link',
+            to_jsonb(s)->>'webex_join_link',
+            to_jsonb(s)->>'webex_meeting_link'
+          )), '') AS link,
+          NULL::timestamp AS rec_create_tstmp,
+          to_jsonb(s)->>'host_phone_no' AS matched_phone
+        FROM mission.participant_data_sheet_set s
+        WHERE (
+          regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+        UNION ALL
+        SELECT
+          COALESCE(
+            NULLIF(
+              btrim(
+                COALESCE(
+                  to_jsonb(s)->>'host_name',
+                  concat_ws(' ', to_jsonb(s)->>'host_first_name', to_jsonb(s)->>'host_last_name')
+                )
+              ),
+              ''
+            ),
+            NULLIF(btrim(to_jsonb(s)->>'host_email_id'), '')
+          ) AS name,
+          NULLIF(btrim(COALESCE(
+            to_jsonb(s)->>'webex_mtng_link',
+            to_jsonb(s)->>'webex_join_link',
+            to_jsonb(s)->>'webex_meeting_link'
+          )), '') AS link,
+          NULL::timestamp AS rec_create_tstmp,
+          to_jsonb(s)->>'host_whatsapp_phone' AS matched_phone
+        FROM mission.participant_data_sheet_set s
+        WHERE (
+          regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+      `,
+    },
   ];
 
   for (const source of sources) {
     const result = await runJoinSourceQuery(postgres, source.source, source.sql);
-    addRows(all, result.rows);
+    if (source.source.toLowerCase().includes("host match")) {
+      addRows(hostRows, result.rows);
+    } else {
+      addRows(participantRows, result.rows);
+    }
   }
 
-  return finalizeCandidates(all);
+  // Precedence rule: if phone matches host-side fields, use host identity only.
+  if (hostRows.length > 0) {
+    return finalizeCandidates(hostRows);
+  }
+  return finalizeCandidates(participantRows);
 }
 
 /**
