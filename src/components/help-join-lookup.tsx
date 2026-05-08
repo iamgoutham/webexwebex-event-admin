@@ -117,7 +117,10 @@ export default function HelpJoinLookup({
       {showAlternate && alternateLink ? (
         <div className="rounded-xl border border-[#ead2ae] bg-white p-4">
           <p className="text-sm font-semibold text-[#3b1a1f]">
-            Alternate link (वैकल्पिक लिंक)
+            If you have difficulty joining your assigned meeting use this link
+            <span className="block mt-1 font-normal text-[#5b3b2b]">
+              यदि आपको अपनी निर्धारित मीटिंग में शामिल होने में कठिनाई हो तो इस लिंक का उपयोग करें
+            </span>
           </p>
           <label className="mt-3 flex items-center gap-2 text-sm text-[#3b1a1f]">
             <input
