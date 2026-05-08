@@ -1,10 +1,6 @@
 import { logFindameetingRequest } from "@/lib/findameeting-log";
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import { lookupJoinCandidatesByPhoneFromParticipantSheetSet } from "@/lib/public-join";
-import {
-  loadFosterLinksFromPostgres,
-  takeNextFosterRoundRobinIndex,
-} from "@/lib/findameeting-fosterlinks";
 
 export type FindameetingExecuteResult =
   | { success: true; link: string; fosterLink: string | null }
@@ -50,8 +46,20 @@ export async function executeFindameetingLookup(
     };
   }
 
-  const fosterLinks = await loadFosterLinksFromPostgres();
-  if (fosterLinks.length === 0) {
+  let fosterLink: string | null = null;
+  try {
+    const rows = await postgres.$queryRawUnsafe<Array<{ link: string | null }>>(
+      "SELECT mission.func_inst_reg($1, $2, $3)::text AS link",
+      phone,
+      "",
+      "",
+    );
+    fosterLink = rows[0]?.link?.trim() || null;
+  } catch {
+    fosterLink = null;
+  }
+
+  if (!fosterLink) {
     await logFindameetingRequest({
       phoneEntered: phone,
       outcome: "no_foster_links",
@@ -60,12 +68,9 @@ export async function executeFindameetingLookup(
     return {
       success: false,
       status: 500,
-      error:
-        "Meeting links are not configured in mission.dyn_alloc_webex_list.webex_meeting_link.",
+      error: "Alternate meeting link is not available right now.",
     };
   }
-  const fosterIndex = await takeNextFosterRoundRobinIndex(fosterLinks.length);
-  const fosterLink = fosterLinks[fosterIndex]!;
 
   let candidates:
     | Awaited<ReturnType<typeof lookupJoinCandidatesByPhoneFromParticipantSheetSet>>
@@ -93,7 +98,7 @@ export async function executeFindameetingLookup(
     await logFindameetingRequest({
       phoneEntered: phone,
       outcome: "not_in_maps",
-      note: `source=foster; foster_index=${fosterIndex}; phone=${phone}`,
+      note: `source=func_inst_reg; phone=${phone}`,
     });
     return { success: true, link: fosterLink, fosterLink };
   }
@@ -101,7 +106,7 @@ export async function executeFindameetingLookup(
   await logFindameetingRequest({
     phoneEntered: phone,
     outcome: "success",
-    note: `source=mission.participant_data_sheet_set; foster_index=${fosterIndex}; phone=${phone}`,
+    note: `source=mission.participant_data_sheet_set; alternate=func_inst_reg; phone=${phone}`,
   });
   return { success: true, link, fosterLink };
 }

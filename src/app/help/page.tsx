@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import HelpJoinLookup from "@/components/help-join-lookup";
-import { loadFosterLinksFromPostgres } from "@/lib/findameeting-fosterlinks";
 
 export const metadata: Metadata = {
   title: "CGS SELF-HELPDESK – Chinmaya Gita Samarpanam",
@@ -12,9 +11,6 @@ export const metadata: Metadata = {
 const ORIGIN = "https://webex-usa.chinmayavrindavan.org";
 
 export default async function HelpPage() {
-  const fosterLinks = await loadFosterLinksFromPostgres();
-  const alternateLink = fosterLinks[0] ?? null;
-
   return (
     <div className="space-y-10 rounded-[32px] bg-[#fdf6e9] px-4 py-8 text-[#2b1f13] shadow-[0_30px_80px_rgba(58,25,15,0.15)] sm:px-6 sm:py-10 md:px-8">
       <p>
@@ -37,7 +33,7 @@ export default async function HelpPage() {
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Enter your WhatsApp number to find your assigned meeting link.
         </p>
-        <HelpJoinLookup alternateLink={alternateLink} />
+        <HelpJoinLookup useStoredProcAlternate />
       </section>
 
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">

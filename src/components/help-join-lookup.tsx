@@ -1,12 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { helpJoinLookupAction, type JoinCandidate } from "@/app/join/actions";
+import {
+  helpJoinLookupAction,
+  helpdeskAlternateLinkAction,
+  type JoinCandidate,
+} from "@/app/join/actions";
 
 export default function HelpJoinLookup({
   alternateLink = null,
+  useStoredProcAlternate = false,
 }: {
   alternateLink?: string | null;
+  useStoredProcAlternate?: boolean;
 }) {
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "loading">("idle");
@@ -15,6 +21,9 @@ export default function HelpJoinLookup({
   const [error, setError] = useState<string | null>(null);
   const [showAlternate, setShowAlternate] = useState(false);
   const [alternateSelected, setAlternateSelected] = useState(false);
+  const [alternateLinkResolved, setAlternateLinkResolved] = useState<string | null>(
+    alternateLink,
+  );
 
   const canSearch = useMemo(
     () => phone.trim().length >= 7 && status !== "loading",
@@ -31,12 +40,22 @@ export default function HelpJoinLookup({
     setSelectedName("");
     setError(null);
     try {
-      const data = await helpJoinLookupAction(phone.trim());
+      const [data, alt] = await Promise.all([
+        helpJoinLookupAction(phone.trim()),
+        useStoredProcAlternate
+          ? helpdeskAlternateLinkAction(phone.trim(), "", "")
+          : Promise.resolve({ ok: true as const, link: alternateLink }),
+      ]);
       if (data.ok) {
         setCandidates(data.candidates);
       } else {
         setCandidates([]);
         setError(data.error);
+      }
+      if (alt.ok) {
+        setAlternateLinkResolved(alt.link ?? null);
+      } else {
+        setAlternateLinkResolved(alternateLink);
       }
     } finally {
       setStatus("idle");
@@ -114,7 +133,7 @@ export default function HelpJoinLookup({
         </div>
       ) : null}
 
-      {showAlternate && alternateLink ? (
+      {showAlternate && alternateLinkResolved ? (
         <div className="rounded-xl border border-[#ead2ae] bg-white p-4">
           <p className="text-sm font-semibold text-[#3b1a1f]">
             If you have difficulty joining your assigned meeting use this link
@@ -129,14 +148,14 @@ export default function HelpJoinLookup({
               checked={alternateSelected}
               onChange={() => {
                 setAlternateSelected(true);
-                window.open(alternateLink, "_blank", "noopener,noreferrer");
+                window.open(alternateLinkResolved, "_blank", "noopener,noreferrer");
               }}
             />
             <span>Alternate meeting Link (वैकल्पिक मीटिंग लिंक)</span>
           </label>
           {alternateSelected ? (
             <a
-              href={alternateLink}
+              href={alternateLinkResolved}
               target="_blank"
               rel="noreferrer"
               className="mt-2 block break-all text-sm font-medium text-[#8a2f2a] underline underline-offset-2"
