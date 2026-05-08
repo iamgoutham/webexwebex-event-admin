@@ -132,7 +132,7 @@ export default function HelpJoinLookup({
                 window.open(alternateLink, "_blank", "noopener,noreferrer");
               }}
             />
-            <span>Meeting</span>
+            <span>Alternate meeting Link (वैकल्पिक मीटिंग लिंक)</span>
           </label>
           {alternateSelected ? (
             <a
