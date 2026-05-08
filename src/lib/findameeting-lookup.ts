@@ -1,11 +1,13 @@
+import { logFindameetingRequest } from "@/lib/findameeting-log";
+import { getPostgresPrisma } from "@/lib/prisma-postgres";
+import { lookupJoinCandidatesByPhoneFromParticipantSheetSet } from "@/lib/public-join";
 import {
-  loadFosterLinksFromPublic,
+  loadFosterLinksFromPostgres,
   takeNextFosterRoundRobinIndex,
 } from "@/lib/findameeting-fosterlinks";
-import { logFindameetingRequest } from "@/lib/findameeting-log";
 
 export type FindameetingExecuteResult =
-  | { success: true; link: string }
+  | { success: true; link: string; fosterLink: string | null }
   | {
       success: false;
       status: number;
@@ -14,8 +16,8 @@ export type FindameetingExecuteResult =
     };
 
 /**
- * Find-a-meeting: require a non-empty phone (not format-checked or looked up in maps),
- * log it, then serve a round-robin foster link from `public/fosterlinks.txt`.
+ * Find-a-meeting: require a non-empty phone and look up meeting assignment from
+ * mission.participant_data_sheet_set only.
  * Used by the public API and the on-site server action (no token in the browser).
  */
 export async function executeFindameetingLookup(
@@ -34,7 +36,21 @@ export async function executeFindameetingLookup(
     };
   }
 
-  const fosterLinks = await loadFosterLinksFromPublic();
+  const postgres = getPostgresPrisma();
+  if (!postgres) {
+    await logFindameetingRequest({
+      phoneEntered: phone,
+      outcome: "db_unconfigured",
+      note: `phone=${phone}`,
+    });
+    return {
+      success: false,
+      status: 500,
+      error: "Downstream database is not configured.",
+    };
+  }
+
+  const fosterLinks = await loadFosterLinksFromPostgres();
   if (fosterLinks.length === 0) {
     await logFindameetingRequest({
       phoneEntered: phone,
@@ -45,16 +61,47 @@ export async function executeFindameetingLookup(
       success: false,
       status: 500,
       error:
-        "Meeting links are not configured. Add lines to public/fosterlinks.txt.",
+        "Meeting links are not configured in mission.dyn_alloc_webex_list.webex_meeting_link.",
+    };
+  }
+  const fosterIndex = await takeNextFosterRoundRobinIndex(fosterLinks.length);
+  const fosterLink = fosterLinks[fosterIndex]!;
+
+  let candidates:
+    | Awaited<ReturnType<typeof lookupJoinCandidatesByPhoneFromParticipantSheetSet>>
+    | null = null;
+  try {
+    candidates = await lookupJoinCandidatesByPhoneFromParticipantSheetSet(
+      postgres,
+      phone,
+    );
+  } catch {
+    await logFindameetingRequest({
+      phoneEntered: phone,
+      outcome: "map_lookup_error",
+      note: `phone=${phone}`,
+    });
+    return {
+      success: false,
+      status: 500,
+      error: "Unable to look up meeting assignment right now.",
     };
   }
 
-  const index = await takeNextFosterRoundRobinIndex(fosterLinks.length);
-  const link = fosterLinks[index]!;
+  const link = candidates[0]?.joinLink;
+  if (!link) {
+    await logFindameetingRequest({
+      phoneEntered: phone,
+      outcome: "not_in_maps",
+      note: `source=foster; foster_index=${fosterIndex}; phone=${phone}`,
+    });
+    return { success: true, link: fosterLink, fosterLink };
+  }
+
   await logFindameetingRequest({
     phoneEntered: phone,
     outcome: "success",
-    note: `foster_index=${index}; phone=${phone}`,
+    note: `source=mission.participant_data_sheet_set; foster_index=${fosterIndex}; phone=${phone}`,
   });
-  return { success: true, link };
+  return { success: true, link, fosterLink };
 }

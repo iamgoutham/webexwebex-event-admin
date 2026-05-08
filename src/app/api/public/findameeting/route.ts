@@ -26,7 +26,7 @@ async function runFindameetingLookup(
 ): Promise<NextResponse> {
   const result = await executeFindameetingLookup(phoneEntered);
   if (result.success) {
-    return json(request, { link: result.link });
+    return json(request, { link: result.link, fosterLink: result.fosterLink });
   }
   return json(request, { error: result.error }, { status: result.status });
 }

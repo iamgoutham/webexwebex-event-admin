@@ -1,7 +1,10 @@
 "use server";
 
 import { z } from "zod";
-import { executePublicJoinLookup } from "@/lib/public-join-lookup";
+import {
+  executeHelpdeskJoinLookup,
+  executePublicJoinLookup,
+} from "@/lib/public-join-lookup";
 
 const schema = z.object({
   phone: z.string().min(3),
@@ -23,6 +26,33 @@ export async function joinLookupAction(
   }
 
   const result = await executePublicJoinLookup(parsed.data.phone, false);
+  if (!result.ok) {
+    const err =
+      typeof result.body === "object" &&
+      result.body !== null &&
+      "error" in result.body
+        ? String((result.body as { error: unknown }).error)
+        : "Lookup failed.";
+    return { ok: false, error: err };
+  }
+
+  const body = result.body as { candidates?: JoinCandidate[] };
+  return {
+    ok: true,
+    candidates: Array.isArray(body.candidates) ? body.candidates : [],
+  };
+}
+
+/** Helpdesk lookup: single-table lookup on mission.participant_data_sheet_set. */
+export async function helpJoinLookupAction(
+  phone: string,
+): Promise<JoinLookupActionResult> {
+  const parsed = schema.safeParse({ phone: phone.trim() });
+  if (!parsed.success) {
+    return { ok: false, error: "Enter a valid phone number." };
+  }
+
+  const result = await executeHelpdeskJoinLookup(parsed.data.phone);
   if (!result.ok) {
     const err =
       typeof result.body === "object" &&

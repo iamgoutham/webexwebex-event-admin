@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { joinLookupAction, type JoinCandidate } from "@/app/join/actions";
+import { helpJoinLookupAction, type JoinCandidate } from "@/app/join/actions";
 
 export default function HelpJoinLookup({
   alternateLink = null,
@@ -31,7 +31,7 @@ export default function HelpJoinLookup({
     setSelectedName("");
     setError(null);
     try {
-      const data = await joinLookupAction(phone.trim());
+      const data = await helpJoinLookupAction(phone.trim());
       if (data.ok) {
         setCandidates(data.candidates);
       } else {

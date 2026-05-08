@@ -317,6 +317,94 @@ export async function lookupJoinCandidatesByPhone(
 }
 
 /**
+ * Single-table lookup on mission.participant_data_sheet_set.
+ * Matches both participant and host phone columns and chooses display fields
+ * from the matched side.
+ */
+export async function lookupJoinCandidatesByPhoneFromParticipantSheetSet(
+  postgres: PostgresPrismaClient,
+  phoneRaw: string,
+): Promise<JoinCandidate[]> {
+  const digits = normalizeDigits(phoneRaw);
+  const last10 = digits.length >= 10 ? digits.slice(-10) : "";
+  if (digits.length < 10) return [];
+
+  const all: JoinMapRow[] = [];
+
+  // Same source table, tolerant column fallbacks for environment schema variants.
+  const sources: Array<{ source: string; sql: Prisma.Sql }> = [
+    {
+      source: "participant match: prtcpnt_phone_no + prtcpnt_name",
+      sql: Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(btrim(s.prtcpnt_name::text), ''),
+            NULLIF(btrim(s.prtcpnt_email_id::text), '')
+          ) AS name,
+          NULLIF(btrim(s.webex_mtng_link::text), '') AS link,
+          s.rec_create_tstmp AS rec_create_tstmp,
+          s.prtcpnt_phone_no::text AS matched_phone
+        FROM mission.participant_data_sheet_set s
+        WHERE ${phoneMatchSql("s.prtcpnt_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "participant match: whatsapp_phone + participant_name",
+      sql: Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(btrim(s.participant_name::text), ''),
+            NULLIF(btrim(s.prtcpnt_email_id::text), '')
+          ) AS name,
+          NULLIF(btrim(s.webex_join_link::text), '') AS link,
+          s.rec_create_tstmp AS rec_create_tstmp,
+          s.whatsapp_phone::text AS matched_phone
+        FROM mission.participant_data_sheet_set s
+        WHERE ${phoneMatchSql("s.whatsapp_phone", digits, last10)}
+      `,
+    },
+    {
+      source: "host match: host_phone_no + host first/last",
+      sql: Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(btrim(concat_ws(' ', s.host_first_name::text, s.host_last_name::text)), ''),
+            NULLIF(btrim(s.host_name::text), ''),
+            NULLIF(btrim(s.host_email_id::text), '')
+          ) AS name,
+          NULLIF(btrim(s.webex_mtng_link::text), '') AS link,
+          s.rec_create_tstmp AS rec_create_tstmp,
+          s.host_phone_no::text AS matched_phone
+        FROM mission.participant_data_sheet_set s
+        WHERE ${phoneMatchSql("s.host_phone_no", digits, last10)}
+      `,
+    },
+    {
+      source: "host match: host_whatsapp_phone + host_name",
+      sql: Prisma.sql`
+        SELECT
+          COALESCE(
+            NULLIF(btrim(s.host_name::text), ''),
+            NULLIF(btrim(s.host_email_id::text), '')
+          ) AS name,
+          NULLIF(btrim(s.webex_join_link::text), '') AS link,
+          s.rec_create_tstmp AS rec_create_tstmp,
+          s.host_whatsapp_phone::text AS matched_phone
+        FROM mission.participant_data_sheet_set s
+        WHERE ${phoneMatchSql("s.host_whatsapp_phone", digits, last10)}
+      `,
+    },
+  ];
+
+  for (const source of sources) {
+    const result = await runJoinSourceQuery(postgres, source.source, source.sql);
+    addRows(all, result.rows);
+  }
+
+  return finalizeCandidates(all);
+}
+
+/**
  * True if `phoneRaw` matches `host_phone_no` on an active-style host row
  * (same digit / last-10 rules as participant map join lookup).
  * Used when a number is not in host–participant maps but may be a host.

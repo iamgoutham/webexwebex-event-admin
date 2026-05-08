@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import HelpJoinLookup from "@/components/help-join-lookup";
-import { loadFosterLinksFromPublic } from "@/lib/findameeting-fosterlinks";
+import { loadFosterLinksFromPostgres } from "@/lib/findameeting-fosterlinks";
 
 export const metadata: Metadata = {
   title: "CGS SELF-HELPDESK – Chinmaya Gita Samarpanam",
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const ORIGIN = "https://webex-usa.chinmayavrindavan.org";
 
 export default async function HelpPage() {
-  const fosterLinks = await loadFosterLinksFromPublic();
+  const fosterLinks = await loadFosterLinksFromPostgres();
   const alternateLink = fosterLinks[0] ?? null;
 
   return (

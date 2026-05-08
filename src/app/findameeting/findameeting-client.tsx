@@ -7,6 +7,7 @@ export default function FindameetingClient() {
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [link, setLink] = useState<string | null>(null);
+  const [fosterLink, setFosterLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const canSearch = useMemo(
@@ -19,10 +20,12 @@ export default function FindameetingClient() {
     setStatus("loading");
     setError(null);
     setLink(null);
+    setFosterLink(null);
     try {
       const data = await findMeetingLinkAction(phone.trim());
       if (data.ok) {
         setLink(data.link);
+        setFosterLink(data.fosterLink ?? null);
         return;
       }
       setError(data.error || "Something went wrong. Please try again.");
@@ -83,6 +86,22 @@ export default function FindameetingClient() {
               className="mt-1 block break-all underline underline-offset-2"
             >
               {link}
+            </a>
+          </div>
+        ) : null}
+
+        {fosterLink ? (
+          <div className="mt-4 rounded-xl border border-[#ead2ae] bg-white p-4 text-sm text-[#3b1a1f]">
+            <p className="font-semibold">
+              If you have difficulty joining your assigned meeting use this link
+            </p>
+            <a
+              href={fosterLink}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 block break-all text-sm font-medium text-[#8a2f2a] underline underline-offset-2"
+            >
+              {fosterLink}
             </a>
           </div>
         ) : null}

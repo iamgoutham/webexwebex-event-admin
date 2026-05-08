@@ -105,11 +105,7 @@ export async function POST(request: NextRequest) {
   const meetingNumber = primaryMeeting?.meetingNumber?.trim() || "TBD";
   const meetingLink = primaryMeeting?.link?.trim() || "Not available";
   const hostEmail = primaryMeeting?.hostEmail?.trim() || "Not available";
-  const hostPhone = primaryMeeting?.hostPhone?.trim() || "Not available";
-  const meetingStartSheet = primaryMeeting?.startTime?.trim() || "";
-  const meetingStartSaturday = formatUpcomingSaturdayLabel(
-    phoneLookup.whatsappDialDigits,
-  );
+  const meetingStartSaturday = formatUpcomingSaturdayLabel(phoneLookup.whatsappDialDigits);
 
   const whatsappSend = phoneLookup.isHost
     ? await sendWatiTemplateMessage(phoneLookup.whatsappDialDigits, "host_meeting_info", [
@@ -119,12 +115,9 @@ export async function POST(request: NextRequest) {
         { name: "4", value: meetingLink },
         { name: "5", value: meetingNumber },
         { name: "6", value: hostEmail },
+        { name: "7", value: "May 9th Saturday @ 7am PDT / 10am EDT/ 7:30pm India / 2pm GMT" },
         {
-          name: "6",
-          value: meetingStartSheet || meetingStartSaturday,
-        },
-        {
-          name: "7",
+          name: "8",
           value: String((phoneLookup.hostMeetingParticipants ?? []).length),
         },
       ])

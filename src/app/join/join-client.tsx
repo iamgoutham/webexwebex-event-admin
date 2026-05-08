@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import {
-  joinLookupAction,
+  helpJoinLookupAction,
   type JoinCandidate,
 } from "./actions";
 
@@ -30,7 +30,7 @@ export default function JoinClient({
     setSelectedName("");
     setError(null);
     try {
-      const data = await joinLookupAction(phone.trim());
+      const data = await helpJoinLookupAction(phone.trim());
       if (data.ok) {
         setCandidates(data.candidates);
       } else {
