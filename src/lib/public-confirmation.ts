@@ -784,296 +784,106 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
   if (!postgres) {
     throw new Error("Downstream database is not configured.");
   }
+  type SheetRow = {
+    participant_email: string | null;
+    participant_name: string | null;
+    participant_phone: string | null;
+    host_email: string | null;
+    host_name: string | null;
+    host_phone: string | null;
+    meeting_link: string | null;
+    meeting_number: string | null;
+  };
 
-  // Presence checks across curated participants + hosts + india students.
-  const [
-    hostNonIndia,
-    hostNonIndiaGp,
-    hostNonIndiaDattap,
-    hostIndia,
-    nonIndiaRows,
-    nonIndiaGpRows,
-    nonIndiaGpOveragesRows,
-    indiaRows,
-    indiaOveragesRows,
-    indiaStudentRows,
-  ] = await Promise.all([
-    postgres.$queryRaw<{ host_first_name: string | null; host_last_name: string | null }[]>`
-      SELECT host_first_name, host_last_name
-      FROM mission.webex_hosts_non_india
-      WHERE lower(btrim(host_email_id::text)) = ${email}
-        AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
-      LIMIT 1
-    `,
-    (async (): Promise<
-      { host_first_name: string | null; host_last_name: string | null }[]
-    > => {
-      try {
-        return await postgres.$queryRaw<
-          { host_first_name: string | null; host_last_name: string | null }[]
-        >`
-          SELECT host_first_name, host_last_name
-          FROM mission.webex_hosts_non_india_gp
-          WHERE lower(btrim(host_email_id::text)) = ${email}
-            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
-          LIMIT 1
-        `;
-      } catch {
-        return [];
-      }
-    })(),
-    (async (): Promise<
-      { host_first_name: string | null; host_last_name: string | null }[]
-    > => {
-      try {
-        return await postgres.$queryRaw<
-          { host_first_name: string | null; host_last_name: string | null }[]
-        >`
-          SELECT host_first_name, host_last_name
-          FROM mission.webex_hosts_non_india_dattap
-          WHERE lower(btrim(host_email_id::text)) = ${email}
-            AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
-          LIMIT 1
-        `;
-      } catch {
-        return [];
-      }
-    })(),
-    postgres.$queryRaw<{ host_first_name: string | null; host_last_name: string | null; chinmaya_center_name: string | null }[]>`
-      SELECT host_first_name, host_last_name, chinmaya_center_name
-      FROM vrindavan.webex_hosts_india
-      WHERE lower(btrim(host_email_id::text)) = ${email}
-        AND btrim(COALESCE(webex_active_ind::text, '')) = 'Y'
-      LIMIT 1
-    `,
-    postgres.nonIndiaParticipant.findMany({
-      where: { prtcpntEmailId: email },
-      select: { prtcpntName: true },
-    }),
-    (async (): Promise<{ prtcpnt_name: string | null }[]> => {
-      try {
-        return await postgres.$queryRaw<{ prtcpnt_name: string | null }[]>`
-          SELECT prtcpnt_name::text AS prtcpnt_name
-          FROM mission.webex_participants_non_india_gp
-          WHERE lower(btrim(prtcpnt_email_id::text)) = ${email}
-        `;
-      } catch {
-        return [];
-      }
-    })(),
-    (async (): Promise<{ prtcpnt_name: string | null }[]> => {
-      try {
-        return await postgres.$queryRaw<{ prtcpnt_name: string | null }[]>`
-          SELECT prtcpnt_name::text AS prtcpnt_name
-          FROM mission.webex_participants_non_india_gp_overages
-          WHERE lower(btrim(prtcpnt_email_id::text)) = ${email}
-        `;
-      } catch {
-        return [];
-      }
-    })(),
-    postgres.indiaParticipant.findMany({
-      where: { indPrtcpntEmailId: email },
-      select: { indPrtcpntName: true },
-    }),
-    (async (): Promise<{ ind_prtcpnt_name: string | null }[]> => {
-      try {
-        return await postgres.$queryRaw<{ ind_prtcpnt_name: string | null }[]>`
-          SELECT ind_prtcpnt_name::text AS ind_prtcpnt_name
-          FROM vrindavan.webex_participants_india_overages
-          WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${email}
-        `;
-      } catch {
-        try {
-          return await postgres.$queryRaw<{ ind_prtcpnt_name: string | null }[]>`
-            SELECT prtcpnt_name::text AS ind_prtcpnt_name
-            FROM vrindavan.webex_participants_india_overages
-            WHERE lower(btrim(prtcpnt_email_id::text)) = ${email}
-          `;
-        } catch {
-          return [];
-        }
-      }
-    })(),
-    postgres.$queryRaw<{ ind_prtcpnt_name: string | null }[]>`
-      SELECT ind_prtcpnt_name
-      FROM vrindavan.webex_participants_india_students
-      WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${email}
-    `,
-  ]);
+  const rows = await postgres.$queryRaw<SheetRow[]>`
+    SELECT
+      NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email')), '') AS participant_email,
+      NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_name', to_jsonb(s)->>'participant_name')), '') AS participant_name,
+      NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', to_jsonb(s)->>'whatsapp_phone')), '') AS participant_phone,
+      NULLIF(btrim(to_jsonb(s)->>'host_email_id'), '') AS host_email,
+      NULLIF(
+        btrim(
+          COALESCE(
+            to_jsonb(s)->>'host_name',
+            concat_ws(' ', to_jsonb(s)->>'host_first_name', to_jsonb(s)->>'host_last_name')
+          )
+        ),
+        ''
+      ) AS host_name,
+      NULLIF(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', to_jsonb(s)->>'host_whatsapp_phone')), '') AS host_phone,
+      NULLIF(btrim(COALESCE(to_jsonb(s)->>'webex_mtng_link', to_jsonb(s)->>'webex_join_link', to_jsonb(s)->>'webex_meeting_link')), '') AS meeting_link,
+      NULLIF(btrim(COALESCE(to_jsonb(s)->>'webex_mtng_no', to_jsonb(s)->>'meeting_number')), '') AS meeting_number
+    FROM mission.participant_data_sheet_set s
+    WHERE lower(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email', ''))) = ${email}
+       OR lower(btrim(COALESCE(to_jsonb(s)->>'host_email_id', ''))) = ${email}
+  `;
 
-  const isHost =
-    hostNonIndia.length > 0 ||
-    hostNonIndiaGp.length > 0 ||
-    hostNonIndiaDattap.length > 0 ||
-    hostIndia.length > 0;
-  const isParticipant = Boolean(
-    nonIndiaRows.length > 0 ||
-      nonIndiaGpRows.length > 0 ||
-      nonIndiaGpOveragesRows.length > 0 ||
-      indiaRows.length > 0 ||
-      indiaOveragesRows.length > 0 ||
-      indiaStudentRows.length > 0,
+  const participantRows = rows.filter(
+    (r) => r.participant_email?.trim().toLowerCase() === email,
   );
+  const hostRows = rows.filter((r) => r.host_email?.trim().toLowerCase() === email);
 
-  const participantNameParts: string[] = [];
-  for (const r of nonIndiaRows) {
-    const n = r.prtcpntName?.trim();
-    if (n) participantNameParts.push(n);
-  }
-  for (const r of nonIndiaGpRows) {
-    const n = r.prtcpnt_name?.trim();
-    if (n) participantNameParts.push(n);
-  }
-  for (const r of nonIndiaGpOveragesRows) {
-    const n = r.prtcpnt_name?.trim();
-    if (n) participantNameParts.push(n);
-  }
-  for (const r of indiaRows) {
-    const n = r.indPrtcpntName?.trim();
-    if (n) participantNameParts.push(n);
-  }
-  for (const r of indiaOveragesRows) {
-    const n = r.ind_prtcpnt_name?.trim();
-    if (n) participantNameParts.push(n);
-  }
-  for (const r of indiaStudentRows) {
-    const n = r.ind_prtcpnt_name?.trim();
-    if (n) participantNameParts.push(n);
-  }
+  const isParticipant = participantRows.length > 0;
+  const isHost = hostRows.length > 0;
 
-  const hostRowNonIndia = hostNonIndia[0] ?? hostNonIndiaGp[0] ?? hostNonIndiaDattap[0];
-  const hostNameFallback =
-    hostRowNonIndia?.host_first_name || hostRowNonIndia?.host_last_name
-      ? `${hostRowNonIndia?.host_first_name ?? ""} ${hostRowNonIndia?.host_last_name ?? ""}`.trim()
-      : hostIndia[0]?.host_first_name || hostIndia[0]?.host_last_name
-        ? `${hostIndia[0]?.host_first_name ?? ""} ${hostIndia[0]?.host_last_name ?? ""}`.trim()
-        : null;
+  const participantNames = [...new Set(
+    participantRows
+      .map((r) => r.participant_name?.trim())
+      .filter((n): n is string => Boolean(n)),
+  )];
+  const hostNames = [...new Set(
+    hostRows
+      .map((r) => r.host_name?.trim())
+      .filter((n): n is string => Boolean(n)),
+  )];
 
   const displayName =
-    participantNameParts.length > 0
-      ? participantNameParts.join("; ")
-      : hostNameFallback;
+    participantNames.length > 0
+      ? participantNames.join("; ")
+      : hostNames[0] ?? null;
 
-  let mappedHostEmails = new Set<string>();
-  try {
-    if (isParticipant) {
-      mappedHostEmails = await collectHostEmailsFromParticipantMaps(postgres, email);
-    }
-  } catch (err) {
-    console.error("[confirm-registration] Participant host map lookup failed:", err);
-  }
+  const meetingRows = isHost ? hostRows : participantRows;
+  const meetings = dedupeMeetingsPreferLinked(
+    meetingRows.map((r) => ({
+      topic: null,
+      link: coerceDisplayableWebexJoinLink(r.meeting_link),
+      meetingNumber: normMeetingNumber(r.meeting_number),
+      startTime: null,
+      endTime: null,
+      hostEmail: r.host_email?.trim().toLowerCase() ?? null,
+      hostPhone: r.host_phone?.trim() ?? null,
+      ...(isParticipant && r.participant_name?.trim()
+        ? { participantNames: [r.participant_name.trim()] }
+        : {}),
+    })),
+  );
 
-  const meetingInfoRaw = await getMeetingInfoForEmail(email);
-  const sheetMeetings = meetingInfoRaw
-    ? parseMeetingInfoJson(meetingInfoRaw) ?? []
+  const hostMeetingParticipants: HostMeetingParticipant[] = isHost
+    ? [
+        ...new Map(
+          hostRows
+            .filter((r) => Boolean(r.participant_email?.trim()))
+            .map((r) => {
+              const e = r.participant_email!.trim().toLowerCase();
+              return [
+                e,
+                {
+                  email: e,
+                  phone: r.participant_phone?.trim() ?? null,
+                  name: r.participant_name?.trim() ?? null,
+                } satisfies HostMeetingParticipant,
+              ] as const;
+            }),
+        ).values(),
+      ]
     : [];
 
-  const hostEmailsToQuery = new Set<string>();
-  if (isHost) hostEmailsToQuery.add(email);
-  for (const h of mappedHostEmails) hostEmailsToQuery.add(h);
-
-  const collected: MeetingAssignment[] = [];
-
-  try {
-    const hostList = [...hostEmailsToQuery].sort();
-    let anyMapIdentity = false;
-
-    if (hostList.length > 0) {
-      const [phones, identityLists, gchantTopicLists] = await Promise.all([
-        Promise.all(hostList.map((h) => lookupHostPhone(postgres, h))),
-        Promise.all(
-          hostList.map((h) => fetchHostMapMeetingIdentities(postgres, h)),
-        ),
-        Promise.all(hostList.map((h) => fetchHostGchantTopics(postgres, h))),
-      ]);
-      for (let i = 0; i < hostList.length; i++) {
-        const H = hostList[i];
-        const hostPhone = phones[i];
-        const identities = identityLists[i];
-        const gchantTopics = gchantTopicLists[i];
-        if (identities.length > 0) anyMapIdentity = true;
-        for (const id of identities) {
-          const sheetRow = findSheetMeetingForIdentity(sheetMeetings, id);
-          collected.push(
-            mapAndSheetToAssignment(id, sheetRow, gchantTopics, H, hostPhone),
-          );
-        }
-      }
-    }
-
-    if (!anyMapIdentity && sheetMeetings.length > 0) {
-      const { hostEmail, hostPhone } = await sheetOnlyHostContext(
-        postgres,
-        email,
-        isHost,
-        mappedHostEmails,
-      );
-      for (const sm of sheetMeetings) {
-        collected.push(sheetMeetingToAssignment(sm, hostEmail, hostPhone));
-      }
-    }
-  } catch (err) {
-    console.error("[confirm-registration] Meeting lookup failed:", err);
-  }
-
-  let meetings = dedupeMeetingsPreferLinked(collected);
-
-  meetings.sort((a, b) => {
-    const ta = a.startTime ?? "";
-    const tb = b.startTime ?? "";
-    return ta.localeCompare(tb);
-  });
-
-  if (isParticipant && meetings.length > 0) {
-    meetings = await Promise.all(
-      meetings.map(async (m) => {
-        if (!m.hostEmail) {
-          return m;
-        }
-        const participantNames = await fetchParticipantNamesForHostMeetingPair(
-          postgres,
-          email,
-          m.hostEmail,
-          m.meetingNumber,
-          m.link,
-        );
-        if (participantNames.length === 0) {
-          return m;
-        }
-        return { ...m, participantNames };
-      }),
-    );
-  }
-
-  let hostMeetingParticipants: HostMeetingParticipant[] = [];
-  if (isHost) {
-    try {
-      hostMeetingParticipants = await loadHostMeetingParticipants(
-        postgres,
-        email,
-      );
-    } catch (err) {
-      console.error(
-        "[confirm-registration] Host meeting participants lookup failed:",
-        err,
-      );
-    }
-  }
-
-  const hasIndiaPresence =
-    hostIndia.length > 0 ||
-    indiaRows.length > 0 ||
-    indiaOveragesRows.length > 0 ||
-    indiaStudentRows.length > 0;
-  const hasNonIndiaPresence =
-    hostNonIndia.length > 0 ||
-    hostNonIndiaGp.length > 0 ||
-    hostNonIndiaDattap.length > 0 ||
-    nonIndiaRows.length > 0 ||
-    nonIndiaGpRows.length > 0 ||
-    nonIndiaGpOveragesRows.length > 0;
-
+  const allPhones = rows
+    .flatMap((r) => [r.participant_phone, r.host_phone])
+    .map((p) => onlyDigits(p ?? ""))
+    .filter((p) => p.length >= 10);
+  const hasIndiaPresence = allPhones.some((p) => /^[6-9][0-9]{9}$/.test(p.slice(-10)));
+  const hasNonIndiaPresence = allPhones.some((p) => /^1[0-9]{10}$/.test(p) || /^[2-9][0-9]{9}$/.test(p.slice(-10)));
   let registrationRegion: RegistrationRegion;
   if (hasIndiaPresence && hasNonIndiaPresence) registrationRegion = "both";
   else if (hasIndiaPresence) registrationRegion = "india";
@@ -1127,81 +937,30 @@ async function missionEmailPhoneMatched(
   digits: string,
   last10: string,
 ): Promise<boolean> {
-  const probes: Array<Promise<{ c: bigint }[]>> = [
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM mission.webex_hosts_non_india
-      WHERE lower(btrim(host_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM mission.webex_hosts_non_india_gp
-      WHERE lower(btrim(host_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM mission.webex_hosts_non_india_dattap
-      WHERE lower(btrim(host_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india_old
-      WHERE lower(btrim(prtcpnt_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india_gp
-      WHERE lower(btrim(prtcpnt_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india_gp_overages
-      WHERE lower(btrim(prtcpnt_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM mission.webex_participants_non_india_old_raw
-      WHERE lower(btrim(email::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(contact_phone__whatsapp_::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(contact_phone__whatsapp_::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-  ];
-
-  for (const p of probes) {
-    try {
-      const rows = await p;
-      if (Number(rows[0]?.c ?? 0) > 0) return true;
-    } catch {
-      // Optional table variants.
-    }
-  }
-  return false;
+  const rows = await postgres.$queryRaw<{ phone: string | null }[]>`
+    SELECT
+      NULLIF(
+        btrim(
+          COALESCE(
+            to_jsonb(s)->>'prtcpnt_phone_no',
+            to_jsonb(s)->>'whatsapp_phone',
+            to_jsonb(s)->>'host_phone_no',
+            to_jsonb(s)->>'host_whatsapp_phone'
+          )
+        ),
+        ''
+      ) AS phone
+    FROM mission.participant_data_sheet_set s
+    WHERE lower(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email', ''))) = ${emailLower}
+       OR lower(btrim(COALESCE(to_jsonb(s)->>'host_email_id', ''))) = ${emailLower}
+  `;
+  return rows.some((r) => {
+    const p = onlyDigits(r.phone ?? "");
+    if (!p) return false;
+    const match = p === digits || p.slice(-10) === last10;
+    if (!match) return false;
+    return /^1[0-9]{10}$/.test(p) || /^[2-9][0-9]{9}$/.test(p.slice(-10));
+  });
 }
 
 async function indiaEmailPhoneMatched(
@@ -1210,54 +969,30 @@ async function indiaEmailPhoneMatched(
   digits: string,
   last10: string,
 ): Promise<boolean> {
-  const probes: Array<Promise<{ c: bigint }[]>> = [
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_hosts_india
-      WHERE lower(btrim(host_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(host_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_overages
-      WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(ind_prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(ind_prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_overages
-      WHERE lower(btrim(prtcpnt_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-    postgres.$queryRaw<{ c: bigint }[]>`
-      SELECT COUNT(*)::bigint AS c FROM vrindavan.webex_participants_india_students
-      WHERE lower(btrim(ind_prtcpnt_email_id::text)) = ${emailLower}
-        AND (
-          regexp_replace(btrim(COALESCE(ind_prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(ind_prtcpnt_phone_no::text, '')), '[^0-9]', '', 'g'), 10) = ${last10}
-        )
-      LIMIT 1
-    `,
-  ];
-
-  for (const p of probes) {
-    try {
-      const rows = await p;
-      if (Number(rows[0]?.c ?? 0) > 0) return true;
-    } catch {
-      // Optional schema / table variants per environment.
-    }
-  }
-  return false;
+  const rows = await postgres.$queryRaw<{ phone: string | null }[]>`
+    SELECT
+      NULLIF(
+        btrim(
+          COALESCE(
+            to_jsonb(s)->>'prtcpnt_phone_no',
+            to_jsonb(s)->>'whatsapp_phone',
+            to_jsonb(s)->>'host_phone_no',
+            to_jsonb(s)->>'host_whatsapp_phone'
+          )
+        ),
+        ''
+      ) AS phone
+    FROM mission.participant_data_sheet_set s
+    WHERE lower(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email', ''))) = ${emailLower}
+       OR lower(btrim(COALESCE(to_jsonb(s)->>'host_email_id', ''))) = ${emailLower}
+  `;
+  return rows.some((r) => {
+    const p = onlyDigits(r.phone ?? "");
+    if (!p) return false;
+    const match = p === digits || p.slice(-10) === last10;
+    if (!match) return false;
+    return /^[6-9][0-9]{9}$/.test(p.slice(-10));
+  });
 }
 
 async function resolveWhatsappDialDigitsForRegistration(
@@ -1299,86 +1034,29 @@ async function collectEmailsByPhone(
   const digits = onlyDigits(phoneRaw);
   if (digits.length < 10) return [];
   const last10 = digits.slice(-10);
-  const out = new Set<string>();
-
-  const add = (rows: { email: string | null }[]) => {
-    for (const r of rows) {
-      const e = r.email?.trim().toLowerCase();
-      if (e) out.add(e);
-    }
-  };
-
-  const phoneMatchesSql = (columnSql: string) => `
-    (
-      regexp_replace(btrim(COALESCE(${columnSql}::text, '')), '[^0-9]', '', 'g') = '${digits}'
-      OR right(regexp_replace(btrim(COALESCE(${columnSql}::text, '')), '[^0-9]', '', 'g'), 10) = '${last10}'
+  const rows = await postgres.$queryRaw<{ participant_email: string | null; host_email: string | null }[]>`
+    SELECT DISTINCT
+      NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email')), '') AS participant_email,
+      NULLIF(btrim(COALESCE(to_jsonb(s)->>'host_email_id', '')), '') AS host_email
+    FROM mission.participant_data_sheet_set s
+    WHERE (
+      regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+      OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+      OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
+      OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+      OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+      OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+      OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
+      OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}
     )
   `;
-
-  const run = async (query: string) => {
-    try {
-      const rows = await postgres.$queryRawUnsafe<{ email: string | null }[]>(query);
-      add(rows);
-    } catch {
-      // Optional table variations by environment.
-    }
-  };
-
-  await run(`
-    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
-    FROM mission.webex_hosts_non_india
-    WHERE ${phoneMatchesSql("host_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
-    FROM mission.webex_hosts_non_india_gp
-    WHERE ${phoneMatchesSql("host_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
-    FROM mission.webex_hosts_non_india_dattap
-    WHERE ${phoneMatchesSql("host_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(host_email_id::text)) AS email
-    FROM vrindavan.webex_hosts_india
-    WHERE ${phoneMatchesSql("host_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
-    FROM mission.webex_participants_non_india_old
-    WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
-    FROM mission.webex_participants_non_india_gp
-    WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
-    FROM mission.webex_participants_non_india_gp_overages
-    WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(ind_prtcpnt_email_id::text)) AS email
-    FROM vrindavan.webex_participants_india_overages
-    WHERE ${phoneMatchesSql("ind_prtcpnt_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(prtcpnt_email_id::text)) AS email
-    FROM vrindavan.webex_participants_india_overages
-    WHERE ${phoneMatchesSql("prtcpnt_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(ind_prtcpnt_email_id::text)) AS email
-    FROM vrindavan.webex_participants_india_students
-    WHERE ${phoneMatchesSql("ind_prtcpnt_phone_no")}
-  `);
-  await run(`
-    SELECT DISTINCT lower(btrim(email::text)) AS email
-    FROM mission.webex_participants_non_india_old_raw
-    WHERE ${phoneMatchesSql("contact_phone__whatsapp_")}
-  `);
+  const out = new Set<string>();
+  for (const r of rows) {
+    const pe = r.participant_email?.trim().toLowerCase();
+    const he = r.host_email?.trim().toLowerCase();
+    if (pe) out.add(pe);
+    if (he) out.add(he);
+  }
   return [...out].sort();
 }
 
