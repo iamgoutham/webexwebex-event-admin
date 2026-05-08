@@ -6,6 +6,10 @@
  * TLS: if you see `self-signed certificate in certificate chain`, either point
  * `POSTGRES_SSL_CA_PATH` at the RDS/proxy CA bundle, or set `POSTGRES_TLS_INSECURE=1`
  * (dev only — disables certificate verification for the Pool).
+ *
+ * If Postgres returns `28000` / `no pg_hba.conf entry ... no encryption`, the server only
+ * accepts TLS (`hostssl`). Enable TLS by adding `?sslmode=require` to POSTGRES_URL or set
+ * `POSTGRES_REQUIRE_SSL=1`. Optionally allow the app host in pg_hba.conf / security groups.
  */
 
 import fs from "node:fs";
@@ -51,6 +55,44 @@ function buildPostgresPoolSsl():
   return undefined;
 }
 
+/** True when POSTGRES_URL query asks for TLS (common on RDS / managed Postgres). */
+function postgresUrlRequestsTls(connectionString: string): boolean {
+  try {
+    const u = new URL(connectionString);
+    const mode = u.searchParams.get("sslmode")?.toLowerCase();
+    if (
+      mode === "require" ||
+      mode === "verify-ca" ||
+      mode === "verify-full" ||
+      mode === "prefer"
+    ) {
+      return true;
+    }
+    const s = u.searchParams.get("ssl")?.toLowerCase();
+    if (s === "true" || s === "1") return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function resolvePoolSsl(connectionString: string):
+  | { rejectUnauthorized: boolean; ca?: string }
+  | undefined {
+  const explicit = buildPostgresPoolSsl();
+  if (explicit) return explicit;
+
+  const forceTls =
+    process.env.POSTGRES_REQUIRE_SSL === "1" ||
+    process.env.POSTGRES_REQUIRE_SSL?.toLowerCase() === "true";
+
+  if (postgresUrlRequestsTls(connectionString) || forceTls) {
+    return { rejectUnauthorized: false };
+  }
+
+  return undefined;
+}
+
 function createPostgresPrisma(): PostgresPrismaClient | null {
   const url = process.env.POSTGRES_URL;
   if (!url) return null;
@@ -59,7 +101,7 @@ function createPostgresPrisma(): PostgresPrismaClient | null {
     return globalForPostgres.postgresPrisma;
   }
 
-  const ssl = buildPostgresPoolSsl();
+  const ssl = resolvePoolSsl(url);
   const pool = new Pool(
     ssl ? { connectionString: url, ssl } : { connectionString: url },
   );

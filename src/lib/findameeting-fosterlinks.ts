@@ -2,7 +2,6 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
 
-const FOSTER_FILE = "fosterlinks.txt";
 const DYN_ALLOC_CACHE_TTL_MS = 60_000;
 const RR_COUNTER_FILE = join(
   process.cwd(),
@@ -28,20 +27,6 @@ async function withRoundRobinLock<T>(fn: () => Promise<T>): Promise<T> {
   } finally {
     release();
   }
-}
-
-/** One URL (or any text) per line; # starts a comment; blank lines ignored. */
-export async function loadFosterLinksFromPublic(): Promise<string[]> {
-  const path = join(process.cwd(), "public", FOSTER_FILE);
-  const raw = await readFile(path, "utf8").catch(() => "");
-  return raw
-    .split(/\r?\n/)
-    .map((l) => l.replace(/\s+$/, ""))
-    .map((l) => {
-      const i = l.indexOf("#");
-      return i === -1 ? l.trim() : l.slice(0, i).trim();
-    })
-    .filter((l) => l.length > 0);
 }
 
 /** Foster links from downstream Postgres: mission.dyn_alloc_webex_list.webex_meeting_link */

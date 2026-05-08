@@ -1,11 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import {
-  executeHelpdeskJoinLookup,
-  executePublicJoinLookup,
-} from "@/lib/public-join-lookup";
-import { getPostgresPrisma } from "@/lib/prisma-postgres";
+import { executeHelpdeskJoinLookup } from "@/lib/public-join-lookup";
+import { loadFosterLinksFromPostgres } from "@/lib/findameeting-fosterlinks";
 
 const schema = z.object({
   phone: z.string().min(3),
@@ -30,7 +27,7 @@ export async function joinLookupAction(
     return { ok: false, error: "Enter a valid phone number." };
   }
 
-  const result = await executePublicJoinLookup(parsed.data.phone, false);
+  const result = await executeHelpdeskJoinLookup(parsed.data.phone);
   if (!result.ok) {
     const err =
       typeof result.body === "object" &&
@@ -75,10 +72,7 @@ export async function helpJoinLookupAction(
   };
 }
 
-/**
- * Helpdesk alternate link from Postgres stored function:
- * mission.func_inst_reg(reg_ph_no varchar(20), reg_name varchar(60), reg_eml varchar(50))
- */
+/** Helpdesk alternate link from mission.dyn_alloc_webex_list (cached). */
 export async function helpdeskAlternateLinkAction(
   phone: string,
   regName = "",
@@ -89,24 +83,24 @@ export async function helpdeskAlternateLinkAction(
     return { ok: false, error: "Enter a valid phone number." };
   }
 
-  const postgres = getPostgresPrisma();
-  if (!postgres) {
-    return { ok: false, error: "Downstream database is not configured." };
-  }
+  void phone;
+  void regName;
+  void regEmail;
 
   try {
-    const rows = await postgres.$queryRawUnsafe<Array<{ link: string | null }>>(
-      "SELECT mission.func_inst_reg($1, $2, $3)::text AS link",
-      parsed.data.phone,
-      regName ?? "",
-      regEmail ?? "",
-    );
-    const link = rows[0]?.link?.trim() || null;
+    const links = await loadFosterLinksFromPostgres();
+    const link =
+      links.length > 0
+        ? links[Math.floor(Math.random() * links.length)] ?? null
+        : null;
     return { ok: true, link };
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "Stored function lookup failed.",
+      error:
+        err instanceof Error
+          ? err.message
+          : "Alternate link lookup failed.",
     };
   }
 }

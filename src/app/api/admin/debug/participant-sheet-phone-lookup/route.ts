@@ -12,9 +12,7 @@ type SampleRow = {
   host_email: string | null;
   meeting_link: string | null;
   prtcpnt_phone_no: string | null;
-  whatsapp_phone: string | null;
   host_phone_no: string | null;
-  host_whatsapp_phone: string | null;
 };
 
 const normalizeDigits = (value: string) => value.replace(/[^0-9]/g, "");
@@ -53,6 +51,8 @@ export async function GET(request: NextRequest) {
           COUNT(*) FILTER (
             WHERE regexp_replace(btrim(COALESCE(j->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
                OR right(regexp_replace(btrim(COALESCE(j->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+               OR regexp_replace(btrim(COALESCE(j->>'host_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+               OR right(regexp_replace(btrim(COALESCE(j->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
           )::int AS count
         FROM rows
       `,
@@ -60,31 +60,20 @@ export async function GET(request: NextRequest) {
         SELECT
           NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_name', to_jsonb(s)->>'participant_name')), '') AS participant_name,
           NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email')), '') AS participant_email,
-          NULLIF(
-            btrim(
-              COALESCE(
-                to_jsonb(s)->>'host_name',
-                concat_ws(' ', to_jsonb(s)->>'host_first_name', to_jsonb(s)->>'host_last_name')
-              )
-            ),
-            ''
-          ) AS host_name,
+          NULLIF(btrim(to_jsonb(s)->>'host_name'), '') AS host_name,
           NULLIF(btrim(to_jsonb(s)->>'host_email_id'), '') AS host_email,
-          NULLIF(btrim(COALESCE(to_jsonb(s)->>'webex_mtng_link', to_jsonb(s)->>'webex_join_link', to_jsonb(s)->>'webex_meeting_link')), '') AS meeting_link,
+          NULLIF(btrim(COALESCE(
+            to_jsonb(s)->>'webex_mtng_link',
+            to_jsonb(s)->>'webex_meeting_link'
+          )), '') AS meeting_link,
           NULLIF(btrim(to_jsonb(s)->>'prtcpnt_phone_no'), '') AS prtcpnt_phone_no,
-          NULLIF(btrim(to_jsonb(s)->>'whatsapp_phone'), '') AS whatsapp_phone,
-          NULLIF(btrim(to_jsonb(s)->>'host_phone_no'), '') AS host_phone_no,
-          NULLIF(btrim(to_jsonb(s)->>'host_whatsapp_phone'), '') AS host_whatsapp_phone
+          NULLIF(btrim(to_jsonb(s)->>'host_phone_no'), '') AS host_phone_no
         FROM mission.participant_data_sheet_set s
         WHERE (
           regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
           OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
-          OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}
           OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
           OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
-          OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
-          OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}
         )
         LIMIT 25
       `,
@@ -102,21 +91,13 @@ export async function GET(request: NextRequest) {
         SELECT
           (regexp_replace(btrim(COALESCE(j->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
             OR right(regexp_replace(btrim(COALESCE(j->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}) AS m_prtcpnt_phone_no,
-          (regexp_replace(btrim(COALESCE(j->>'whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
-            OR right(regexp_replace(btrim(COALESCE(j->>'whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}) AS m_whatsapp_phone,
           (regexp_replace(btrim(COALESCE(j->>'host_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
-            OR right(regexp_replace(btrim(COALESCE(j->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}) AS m_host_phone_no,
-          (regexp_replace(btrim(COALESCE(j->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
-            OR right(regexp_replace(btrim(COALESCE(j->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}) AS m_host_whatsapp_phone
+            OR right(regexp_replace(btrim(COALESCE(j->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}) AS m_host_phone_no
         FROM rows
       )
       SELECT 'prtcpnt_phone_no'::text AS key, COUNT(*)::int AS count FROM matches WHERE m_prtcpnt_phone_no
       UNION ALL
-      SELECT 'whatsapp_phone'::text AS key, COUNT(*)::int AS count FROM matches WHERE m_whatsapp_phone
-      UNION ALL
       SELECT 'host_phone_no'::text AS key, COUNT(*)::int AS count FROM matches WHERE m_host_phone_no
-      UNION ALL
-      SELECT 'host_whatsapp_phone'::text AS key, COUNT(*)::int AS count FROM matches WHERE m_host_whatsapp_phone
     `;
 
     return NextResponse.json({
@@ -138,4 +119,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

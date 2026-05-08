@@ -9,6 +9,8 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   phone: z.string().optional().default(""),
+  /** When true, response includes participant-sheet diagnostics (counts, samples, SQL source errors). */
+  debug: z.boolean().optional().default(false),
 });
 
 function json(
@@ -23,12 +25,22 @@ function json(
 async function runFindameetingLookup(
   request: NextRequest,
   phoneEntered: string,
+  debugRequested: boolean,
 ): Promise<NextResponse> {
-  const result = await executeFindameetingLookup(phoneEntered);
+  const result = await executeFindameetingLookup(phoneEntered, {
+    debug: debugRequested,
+  });
   if (result.success) {
-    return json(request, { link: result.link, fosterLink: result.fosterLink });
+    const payload: Record<string, unknown> = {
+      link: result.link,
+      fosterLink: result.fosterLink,
+    };
+    if (result.debug) payload.debug = result.debug;
+    return json(request, payload);
   }
-  return json(request, { error: result.error }, { status: result.status });
+  const payload: Record<string, unknown> = { error: result.error };
+  if (result.debug) payload.debug = result.debug;
+  return json(request, payload, { status: result.status });
 }
 
 // POST /api/public/findameeting  Body: { "phone": "<required; not format-validated>" }
@@ -63,7 +75,8 @@ export async function POST(request: NextRequest) {
   }
 
   const phoneEntered = parsed.data.phone.trim();
-  return runFindameetingLookup(request, phoneEntered);
+  const debugRequested = parsed.data.debug;
+  return runFindameetingLookup(request, phoneEntered, debugRequested);
 }
 
 // GET /api/public/findameeting?phone=<whatsapp number>
@@ -89,7 +102,10 @@ export async function GET(request: NextRequest) {
   const phoneEntered =
     request.nextUrl.searchParams.get("phone")?.trim() ?? "";
 
-  return runFindameetingLookup(request, phoneEntered);
+  const d = request.nextUrl.searchParams.get("debug")?.toLowerCase()?.trim();
+  const debugRequested = d === "1" || d === "true" || d === "yes";
+
+  return runFindameetingLookup(request, phoneEntered, debugRequested);
 }
 
 // Browser preflight when using cross-origin fetch with Content-Type: application/json

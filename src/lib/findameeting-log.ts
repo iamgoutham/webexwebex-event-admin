@@ -18,7 +18,9 @@ export type FindameetingLogOutcome =
   | "missing_phone"
   | "no_foster_links"
   | "db_unconfigured"
-  | "map_lookup_error";
+  | "map_lookup_error"
+  | "not_found_no_inst_reg"
+  | "not_in_sheet_inst_reg";
 
 /** Stable pseudonymous id for correlation — derived from normalized digits or trimmed input. */
 function callerOpaqueId(phoneEntered: string): string {

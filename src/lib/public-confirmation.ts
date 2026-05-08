@@ -799,19 +799,14 @@ export async function lookupConfirmation(emailRaw: string): Promise<Confirmation
     SELECT
       NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email')), '') AS participant_email,
       NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_name', to_jsonb(s)->>'participant_name')), '') AS participant_name,
-      NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', to_jsonb(s)->>'whatsapp_phone')), '') AS participant_phone,
+      NULLIF(btrim(to_jsonb(s)->>'prtcpnt_phone_no'), '') AS participant_phone,
       NULLIF(btrim(to_jsonb(s)->>'host_email_id'), '') AS host_email,
-      NULLIF(
-        btrim(
-          COALESCE(
-            to_jsonb(s)->>'host_name',
-            concat_ws(' ', to_jsonb(s)->>'host_first_name', to_jsonb(s)->>'host_last_name')
-          )
-        ),
-        ''
-      ) AS host_name,
-      NULLIF(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', to_jsonb(s)->>'host_whatsapp_phone')), '') AS host_phone,
-      NULLIF(btrim(COALESCE(to_jsonb(s)->>'webex_mtng_link', to_jsonb(s)->>'webex_join_link', to_jsonb(s)->>'webex_meeting_link')), '') AS meeting_link,
+      NULLIF(btrim(to_jsonb(s)->>'host_name'), '') AS host_name,
+      NULLIF(btrim(to_jsonb(s)->>'host_phone_no'), '') AS host_phone,
+      NULLIF(btrim(COALESCE(
+        to_jsonb(s)->>'webex_mtng_link',
+        to_jsonb(s)->>'webex_meeting_link'
+      )), '') AS meeting_link,
       NULLIF(btrim(COALESCE(to_jsonb(s)->>'webex_mtng_no', to_jsonb(s)->>'meeting_number')), '') AS meeting_number
     FROM mission.participant_data_sheet_set s
     WHERE lower(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email', ''))) = ${email}
@@ -937,29 +932,26 @@ async function missionEmailPhoneMatched(
   digits: string,
   last10: string,
 ): Promise<boolean> {
-  const rows = await postgres.$queryRaw<{ phone: string | null }[]>`
+  const rows = await postgres.$queryRaw<
+    { prtcpnt_phone: string | null; host_phone: string | null }[]
+  >`
     SELECT
-      NULLIF(
-        btrim(
-          COALESCE(
-            to_jsonb(s)->>'prtcpnt_phone_no',
-            to_jsonb(s)->>'whatsapp_phone',
-            to_jsonb(s)->>'host_phone_no',
-            to_jsonb(s)->>'host_whatsapp_phone'
-          )
-        ),
-        ''
-      ) AS phone
+      NULLIF(btrim(to_jsonb(s)->>'prtcpnt_phone_no'), '') AS prtcpnt_phone,
+      NULLIF(btrim(to_jsonb(s)->>'host_phone_no'), '') AS host_phone
     FROM mission.participant_data_sheet_set s
     WHERE lower(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email', ''))) = ${emailLower}
        OR lower(btrim(COALESCE(to_jsonb(s)->>'host_email_id', ''))) = ${emailLower}
   `;
+  const matchesMissionShape = (p: string) =>
+    /^1[0-9]{10}$/.test(p) || /^[2-9][0-9]{9}$/.test(p.slice(-10));
   return rows.some((r) => {
-    const p = onlyDigits(r.phone ?? "");
-    if (!p) return false;
-    const match = p === digits || p.slice(-10) === last10;
-    if (!match) return false;
-    return /^1[0-9]{10}$/.test(p) || /^[2-9][0-9]{9}$/.test(p.slice(-10));
+    for (const raw of [r.prtcpnt_phone, r.host_phone]) {
+      const p = onlyDigits(raw ?? "");
+      if (!p) continue;
+      const match = p === digits || p.slice(-10) === last10;
+      if (match && matchesMissionShape(p)) return true;
+    }
+    return false;
   });
 }
 
@@ -969,29 +961,24 @@ async function indiaEmailPhoneMatched(
   digits: string,
   last10: string,
 ): Promise<boolean> {
-  const rows = await postgres.$queryRaw<{ phone: string | null }[]>`
+  const rows = await postgres.$queryRaw<
+    { prtcpnt_phone: string | null; host_phone: string | null }[]
+  >`
     SELECT
-      NULLIF(
-        btrim(
-          COALESCE(
-            to_jsonb(s)->>'prtcpnt_phone_no',
-            to_jsonb(s)->>'whatsapp_phone',
-            to_jsonb(s)->>'host_phone_no',
-            to_jsonb(s)->>'host_whatsapp_phone'
-          )
-        ),
-        ''
-      ) AS phone
+      NULLIF(btrim(to_jsonb(s)->>'prtcpnt_phone_no'), '') AS prtcpnt_phone,
+      NULLIF(btrim(to_jsonb(s)->>'host_phone_no'), '') AS host_phone
     FROM mission.participant_data_sheet_set s
     WHERE lower(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email', ''))) = ${emailLower}
        OR lower(btrim(COALESCE(to_jsonb(s)->>'host_email_id', ''))) = ${emailLower}
   `;
   return rows.some((r) => {
-    const p = onlyDigits(r.phone ?? "");
-    if (!p) return false;
-    const match = p === digits || p.slice(-10) === last10;
-    if (!match) return false;
-    return /^[6-9][0-9]{9}$/.test(p.slice(-10));
+    for (const raw of [r.prtcpnt_phone, r.host_phone]) {
+      const p = onlyDigits(raw ?? "");
+      if (!p) continue;
+      const match = p === digits || p.slice(-10) === last10;
+      if (match && /^[6-9][0-9]{9}$/.test(p.slice(-10))) return true;
+    }
+    return false;
   });
 }
 
@@ -1042,12 +1029,8 @@ async function collectEmailsByPhone(
     WHERE (
       regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
       OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
-      OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
-      OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}
       OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
       OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
-      OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g') = ${digits}
-      OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_whatsapp_phone', '')), '[^0-9]', '', 'g'), 10) = ${last10}
     )
   `;
   const out = new Set<string>();

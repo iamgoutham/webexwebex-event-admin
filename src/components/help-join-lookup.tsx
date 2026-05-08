@@ -17,7 +17,7 @@ export default function HelpJoinLookup({
   const [phone, setPhone] = useState("");
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [candidates, setCandidates] = useState<JoinCandidate[]>([]);
-  const [selectedName, setSelectedName] = useState<string>("");
+  const [selectedJoinLink, setSelectedJoinLink] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [showAlternate, setShowAlternate] = useState(false);
   const [alternateSelected, setAlternateSelected] = useState(false);
@@ -30,14 +30,15 @@ export default function HelpJoinLookup({
     [phone, status],
   );
 
-  const selected = candidates.find((c) => c.name === selectedName) ?? null;
+  const selected =
+    candidates.find((c) => c.joinLink === selectedJoinLink) ?? null;
 
   const onSearch = async () => {
     if (!canSearch) return;
     setShowAlternate(true);
     setAlternateSelected(false);
     setStatus("loading");
-    setSelectedName("");
+    setSelectedJoinLink("");
     setError(null);
     try {
       const [data, alt] = await Promise.all([
@@ -97,22 +98,22 @@ export default function HelpJoinLookup({
             Select your name to join your assigned meeting (अपनी निर्धारित मीटिंग में शामिल होने के लिए अपना नाम चुनें)
           </p>
           <div className="mt-3 space-y-2">
-            {candidates.map((candidate) => (
+            {candidates.map((candidate, idx) => (
               <label
-                key={candidate.name}
+                key={`${candidate.joinLink}-${idx}`}
                 className="flex items-center gap-2 text-sm text-[#3b1a1f]"
               >
                 <input
                   type="radio"
                   name="join-name-help"
-                  value={candidate.name}
-                  checked={selectedName === candidate.name}
+                  value={candidate.joinLink}
+                  checked={selectedJoinLink === candidate.joinLink}
                   onChange={() => {
-                    setSelectedName(candidate.name);
+                    setSelectedJoinLink(candidate.joinLink);
                     window.open(candidate.joinLink, "_blank", "noopener,noreferrer");
                   }}
                 />
-                <span>{candidate.name}</span>
+                <span>{candidate.name || "—"}</span>
               </label>
             ))}
           </div>

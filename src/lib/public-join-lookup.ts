@@ -1,8 +1,7 @@
 import { getPostgresPrisma } from "@/lib/prisma-postgres";
 import {
-  lookupJoinCandidatesByPhone,
   lookupJoinCandidatesByPhoneFromParticipantSheetSet,
-  lookupJoinCandidatesByPhoneWithDebug,
+  participantSheetPhoneDebugSnapshot,
 } from "@/lib/public-join";
 
 export type PublicJoinLookupResult =
@@ -13,7 +12,10 @@ export type PublicJoinLookupResult =
       body: unknown;
     };
 
-/** Shared by `/api/public/join` and the `/join` server action. */
+/**
+ * Shared by `/api/public/join` and the `/join` server action.
+ * Uses mission.participant_data_sheet_set only (same rules as Helpdesk).
+ */
 export async function executePublicJoinLookup(
   phone: string,
   debug: boolean,
@@ -28,11 +30,20 @@ export async function executePublicJoinLookup(
   }
 
   if (debug) {
-    const result = await lookupJoinCandidatesByPhoneWithDebug(postgres, phone);
-    return { ok: true, body: result };
+    const snapshot = await participantSheetPhoneDebugSnapshot(postgres, phone);
+    return {
+      ok: true,
+      body: {
+        candidates: snapshot.finalizedCandidates,
+        debug: snapshot,
+      },
+    };
   }
 
-  const candidates = await lookupJoinCandidatesByPhone(postgres, phone);
+  const candidates = await lookupJoinCandidatesByPhoneFromParticipantSheetSet(
+    postgres,
+    phone,
+  );
   return { ok: true, body: { candidates } };
 }
 

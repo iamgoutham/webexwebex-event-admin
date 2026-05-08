@@ -4,7 +4,7 @@ const METHODS = "GET, POST, OPTIONS";
 
 /** Headers clients may send on protected public APIs (secrets + JSON). */
 export const PUBLIC_API_CORS_ALLOW_HEADERS =
-  "Content-Type, Authorization, X-Findameeting-Secret, X-Join-Secret";
+  "Content-Type, Authorization, X-Findameeting-Secret, X-Join-Secret, X-Member-Update-Secret";
 
 function applyPublicApiCorsInner(
   res: NextResponse,
