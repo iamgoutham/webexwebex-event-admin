@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   lookupConfirmation,
   lookupConfirmationByPhone,
+  lookupConfirmationByPhoneDebug,
   sendConfirmationEmail,
 } from "@/lib/public-confirmation";
 import { sendWatiTemplateMessage } from "@/lib/notifications/channels/whatsapp";
@@ -10,6 +11,7 @@ import { sendWatiTemplateMessage } from "@/lib/notifications/channels/whatsapp";
 const schema = z.object({
   lookupType: z.enum(["email", "phone"]),
   query: z.string().min(3),
+  debug: z.boolean().optional().default(false),
 });
 
 const normalizePhoneDigits = (value: string) => value.replace(/[^0-9]/g, "");
@@ -87,11 +89,16 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const phoneLookup = await lookupConfirmationByPhone(phoneDigits);
+  const phoneDebugResult = parsed.data.debug
+    ? await lookupConfirmationByPhoneDebug(phoneDigits)
+    : null;
+  const phoneLookup =
+    phoneDebugResult?.lookup ?? (await lookupConfirmationByPhone(phoneDigits));
   if (!phoneLookup) {
     return NextResponse.json({
       message:
         "If your WhatsApp number is registered, you will receive meeting information shortly.",
+      ...(phoneDebugResult ? { debug: phoneDebugResult.debug } : {}),
     });
   }
 
@@ -135,12 +142,14 @@ export async function POST(request: NextRequest) {
         error:
           whatsappSend.error ??
           "Unable to send WhatsApp message. Please try email search.",
+        ...(phoneDebugResult ? { debug: phoneDebugResult.debug } : {}),
       },
       { status: 502 },
     );
   }
   return NextResponse.json({
     message: "Meeting information sent on WhatsApp.",
+    ...(phoneDebugResult ? { debug: phoneDebugResult.debug } : {}),
   });
 }
 

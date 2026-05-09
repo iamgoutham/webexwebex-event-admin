@@ -54,6 +54,17 @@ export type ConfirmationLookupWithWhatsappDigits = ConfirmationLookupResult & {
   whatsappDialDigits: string;
 };
 
+export type ConfirmationPhoneLookupDebug = {
+  inputDigits: string;
+  participantMatchedEmails: string[];
+  hostMatchedEmails: string[];
+  preferHost: boolean;
+  selectedEmail: string | null;
+  usedFallbackEmailScan: boolean;
+  fallbackEmails: string[];
+  selectedResultRole: "host" | "participant" | "both" | "none";
+};
+
 function normMeetingNumber(value: unknown): string | null {
   if (value == null) return null;
   const s = String(value).trim().replace(/\.0+$/, "");
@@ -1043,6 +1054,59 @@ async function collectEmailsByPhone(
   return [...out].sort();
 }
 
+async function collectMatchedEmailsByPhoneRole(
+  postgres: PostgresPrismaClient,
+  phoneRaw: string,
+): Promise<{ participantEmails: string[]; hostEmails: string[] }> {
+  const digits = onlyDigits(phoneRaw);
+  if (digits.length < 10) {
+    return { participantEmails: [], hostEmails: [] };
+  }
+  const last10 = digits.slice(-10);
+
+  const rows = await postgres.$queryRaw<
+    { participant_email: string | null; host_email: string | null }[]
+  >`
+    SELECT DISTINCT
+      CASE
+        WHEN (
+          regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+        THEN NULLIF(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_email_id', to_jsonb(s)->>'participant_email')), '')
+        ELSE NULL
+      END AS participant_email,
+      CASE
+        WHEN (
+          regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+          OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+        )
+        THEN NULLIF(btrim(COALESCE(to_jsonb(s)->>'host_email_id', '')), '')
+        ELSE NULL
+      END AS host_email
+    FROM mission.participant_data_sheet_set s
+    WHERE (
+      regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+      OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+      OR regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
+      OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'host_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
+    )
+  `;
+
+  const participantSet = new Set<string>();
+  const hostSet = new Set<string>();
+  for (const r of rows) {
+    const pe = r.participant_email?.trim().toLowerCase();
+    const he = r.host_email?.trim().toLowerCase();
+    if (pe) participantSet.add(pe);
+    if (he) hostSet.add(he);
+  }
+  return {
+    participantEmails: [...participantSet].sort(),
+    hostEmails: [...hostSet].sort(),
+  };
+}
+
 export async function lookupConfirmationByPhone(
   phoneRaw: string,
 ): Promise<ConfirmationLookupWithWhatsappDigits | null> {
@@ -1050,21 +1114,145 @@ export async function lookupConfirmationByPhone(
   if (!postgres) {
     throw new Error("Downstream database is not configured.");
   }
-  const emails = await collectEmailsByPhone(postgres, phoneRaw);
+  const { participantEmails, hostEmails } = await collectMatchedEmailsByPhoneRole(
+    postgres,
+    phoneRaw,
+  );
   const inputDigits = onlyDigits(phoneRaw);
-  for (const email of emails) {
+  const preferHost = hostEmails.length > 0;
+  const candidateEmails = preferHost ? hostEmails : participantEmails;
+
+  for (const email of candidateEmails) {
     const result = await lookupConfirmation(email);
-    if (result.valid) {
-      const whatsappDialDigits = await resolveWhatsappDialDigitsForRegistration(
-        postgres,
-        email,
-        inputDigits,
-        result.registrationRegion,
-      );
-      return { ...result, whatsappDialDigits };
-    }
+    if (!result.valid) continue;
+    if (preferHost && !result.isHost) continue;
+    if (!preferHost && !result.isParticipant) continue;
+
+    const whatsappDialDigits = await resolveWhatsappDialDigitsForRegistration(
+      postgres,
+      email,
+      inputDigits,
+      result.registrationRegion,
+    );
+    return { ...result, whatsappDialDigits };
+  }
+
+  // Defensive fallback for legacy rows that may be missing role-side emails.
+  const fallbackEmails = await collectEmailsByPhone(postgres, phoneRaw);
+  for (const email of fallbackEmails) {
+    const result = await lookupConfirmation(email);
+    if (!result.valid) continue;
+    const whatsappDialDigits = await resolveWhatsappDialDigitsForRegistration(
+      postgres,
+      email,
+      inputDigits,
+      result.registrationRegion,
+    );
+    return { ...result, whatsappDialDigits };
   }
   return null;
+}
+
+export async function lookupConfirmationByPhoneDebug(
+  phoneRaw: string,
+): Promise<{
+  lookup: ConfirmationLookupWithWhatsappDigits | null;
+  debug: ConfirmationPhoneLookupDebug;
+}> {
+  const postgres = getPostgresPrisma();
+  if (!postgres) {
+    throw new Error("Downstream database is not configured.");
+  }
+
+  const inputDigits = onlyDigits(phoneRaw);
+  const { participantEmails, hostEmails } = await collectMatchedEmailsByPhoneRole(
+    postgres,
+    phoneRaw,
+  );
+  const preferHost = hostEmails.length > 0;
+  const candidateEmails = preferHost ? hostEmails : participantEmails;
+
+  let selectedEmail: string | null = null;
+  let selectedResultRole: ConfirmationPhoneLookupDebug["selectedResultRole"] =
+    "none";
+
+  for (const email of candidateEmails) {
+    const result = await lookupConfirmation(email);
+    if (!result.valid) continue;
+    if (preferHost && !result.isHost) continue;
+    if (!preferHost && !result.isParticipant) continue;
+
+    const whatsappDialDigits = await resolveWhatsappDialDigitsForRegistration(
+      postgres,
+      email,
+      inputDigits,
+      result.registrationRegion,
+    );
+    selectedEmail = email;
+    selectedResultRole = result.isHost
+      ? result.isParticipant
+        ? "both"
+        : "host"
+      : "participant";
+    return {
+      lookup: { ...result, whatsappDialDigits },
+      debug: {
+        inputDigits,
+        participantMatchedEmails: participantEmails,
+        hostMatchedEmails: hostEmails,
+        preferHost,
+        selectedEmail,
+        usedFallbackEmailScan: false,
+        fallbackEmails: [],
+        selectedResultRole,
+      },
+    };
+  }
+
+  const fallbackEmails = await collectEmailsByPhone(postgres, phoneRaw);
+  for (const email of fallbackEmails) {
+    const result = await lookupConfirmation(email);
+    if (!result.valid) continue;
+    const whatsappDialDigits = await resolveWhatsappDialDigitsForRegistration(
+      postgres,
+      email,
+      inputDigits,
+      result.registrationRegion,
+    );
+    selectedEmail = email;
+    selectedResultRole = result.isHost
+      ? result.isParticipant
+        ? "both"
+        : "host"
+      : "participant";
+    return {
+      lookup: { ...result, whatsappDialDigits },
+      debug: {
+        inputDigits,
+        participantMatchedEmails: participantEmails,
+        hostMatchedEmails: hostEmails,
+        preferHost,
+        selectedEmail,
+        usedFallbackEmailScan: true,
+        fallbackEmails,
+        selectedResultRole,
+      },
+    };
+  }
+
+  return {
+    lookup: null,
+    debug: {
+      inputDigits,
+      participantMatchedEmails: participantEmails,
+      hostMatchedEmails: hostEmails,
+      preferHost,
+      selectedEmail: null,
+      usedFallbackEmailScan: fallbackEmails.length > 0,
+      fallbackEmails,
+      selectedResultRole: "none",
+    },
+  };
 }
 
 const CONFIRMATION_EMAIL_SUBJECT =
