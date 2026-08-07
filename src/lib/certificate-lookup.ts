@@ -223,8 +223,27 @@ async function findRowsByContact(
   }
 }
 
+/**
+ * Dedupe key for a participant name.
+ *
+ * Registrations of one person differ in punctuation as often as in case —
+ * "Ameetha Sankaranarayanan" against "Ameetha, Sankaranarayanan", or
+ * "Sundarambal Baskaran" against "Sundarambal.Baskaran" — so separators are
+ * flattened to spaces before comparing.
+ *
+ * Only these specific marks are touched, never a broad non-alphanumeric class:
+ * names in this sheet include Devanagari and other non-ASCII scripts that such a
+ * class can strip entirely, which would collapse unrelated people onto one empty key.
+ *
+ * `normalizedNameSql` must apply the same rules, since the correction groups rows
+ * in SQL while the display groups them here.
+ */
 const normalizeName = (value: string) =>
-  value.trim().replace(/\s+/g, " ").toLowerCase();
+  value
+    .replace(/[.,'’\-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 
 /**
  * Collapse rows that describe the same participant registered more than once:
@@ -370,9 +389,11 @@ export type NameCorrectionResult =
   | { ok: true; updated: number }
   | { ok: false; error: string; alreadyUsed?: boolean };
 
-/** SQL-side equivalent of `normalizeName`: trim, collapse runs of whitespace, lowercase. */
+/** SQL-side equivalent of `normalizeName` — keep the two in step. */
 const normalizedNameSql = (column: string): Prisma.Sql =>
-  Prisma.sql`lower(regexp_replace(btrim(COALESCE(${Prisma.raw(column)}, '')), '\\s+', ' ', 'g'))`;
+  Prisma.sql`lower(btrim(regexp_replace(
+    regexp_replace(COALESCE(${Prisma.raw(column)}, ''), '[.,''’-]+', ' ', 'g'),
+    '\\s+', ' ', 'g')))`;
 
 /**
  * Record a participant's single allowed name correction.
