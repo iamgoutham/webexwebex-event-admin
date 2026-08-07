@@ -25,13 +25,18 @@ export const CERTIFICATE_LINK_TTL_SECONDS = 7 * 24 * 60 * 60; // 604800
 /** Where participants are sent once their single name correction is spent. */
 export const CERTIFICATE_SUPPORT_EMAIL = "cgs@chinmayavrindavan.org";
 
-/** Distinct participants shown after duplicate registrations are collapsed. */
-const MAX_CANDIDATES = 50;
+/**
+ * Distinct participants shown after duplicate registrations are collapsed.
+ * Group registrations are large — one school phone covers 71 people and one school
+ * email 64 — and anyone cut off here could never reach their certificate, so this
+ * sits well above the real maximum rather than at a tidy round number.
+ */
+const MAX_CANDIDATES = 200;
 
 /**
- * Raw rows pulled before de-duplication. One shared phone matches 424 rows, so this
- * is deliberately wider than MAX_CANDIDATES; rows holding a certificate are ordered
- * first, so they survive the window even for the busiest numbers.
+ * Raw rows pulled before de-duplication: the busiest phone has 126 rows and the
+ * busiest email 108. Rows holding a certificate are ordered first, so they survive
+ * the window even if a contact ever outgrows it.
  */
 const RAW_ROW_LIMIT = 400;
 
