@@ -1,32 +1,59 @@
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { type PrismaClient as PostgresPrismaClient } from "@/generated/postgres-client";
+import {
+  Prisma,
+  type PrismaClient as PostgresPrismaClient,
+} from "@/generated/postgres-client";
 import { s3Bucket, s3Client } from "@/lib/s3";
 
 /**
  * Presigned download links for participant PDF certificates.
  *
- * Mirrors the `/join` phone-lookup pattern (see `public-join.ts`), but instead of
- * a Webex meeting link it resolves the S3 location stored on
- * `mission.participant_data_sheet_set.certificate_s3_location` and mints a
- * presigned GET URL that is valid for one week.
+ * Mirrors the `/join` phone-lookup pattern (see `public-join.ts`), but resolves the
+ * S3 location stored on `mission.participant_data_sheet_set.certificate_s3_location`
+ * and mints a presigned GET URL valid for one week.
+ *
+ * Participants may also look themselves up by registered email (some forget which
+ * number they registered with), and may correct their registered name exactly once.
+ * The corrected name is written back to the sheet; an external job re-renders the
+ * PDF at `certificates/<prtcpnt_entry_id>.pdf`.
  */
 
 /** SigV4 presigned URLs cannot outlive 7 days — one week is exactly the ceiling. */
 export const CERTIFICATE_LINK_TTL_SECONDS = 7 * 24 * 60 * 60; // 604800
 
+/** Where participants are sent once their single name correction is spent. */
+export const CERTIFICATE_SUPPORT_EMAIL = "cgs@chinmayavrindavan.org";
+
+/** A shared phone/email can match hundreds of registrations; keep the list sane. */
+const MAX_CANDIDATES = 50;
+
+export type CertificateLookupMode = "phone" | "email";
+
 export type CertificateCandidate = {
+  /** Unique registration id (`prtcpnt_entry_id`); also the certificate filename stem. */
+  entryId: string;
+  /** Registered name; empty string when the sheet has no name on record. */
   name: string;
-  /** Presigned S3 GET URL; downloads the PDF. Valid for CERTIFICATE_LINK_TTL_SECONDS. */
-  downloadUrl: string;
-  /** ISO timestamp when downloadUrl stops working and a new link must be generated. */
-  expiresAt: string;
+  /** Presigned S3 GET URL, or null when no certificate has been generated yet. */
+  downloadUrl: string | null;
+  /** ISO expiry of downloadUrl; null when there is no link. */
+  expiresAt: string | null;
+  /** True once the one allowed name correction has been used. */
+  nameChangeUsed: boolean;
+  /**
+   * True when the name was corrected but the stored PDF still predates that change,
+   * i.e. the external job has not re-rendered it yet.
+   */
+  regenerationPending: boolean;
 };
 
-type SheetCertificateRow = {
-  name: string | null;
+type SheetRow = {
+  entry_id: string;
+  name: string;
   s3_location: string | null;
-  matched_phone: string | null;
+  name_change_count: number;
+  name_changed_at: Date | null;
 };
 
 const normalizeDigits = (value: string) => value.replace(/[^0-9]/g, "");
@@ -79,77 +106,127 @@ export async function generateCertificateDownloadUrl(
     )}"`,
   });
 
-  return getSignedUrl(s3Client, command, {
-    expiresIn: CERTIFICATE_LINK_TTL_SECONDS,
-  });
+  try {
+    return await getSignedUrl(s3Client, command, {
+      expiresIn: CERTIFICATE_LINK_TTL_SECONDS,
+    });
+  } catch {
+    // Missing credentials or a bad key must not take down the whole lookup —
+    // the row simply shows as "no certificate available yet".
+    return null;
+  }
 }
 
 /**
- * Raw rows on `mission.participant_data_sheet_set` whose participant phone matches
- * `phoneRaw` and that have a stored certificate location. Same digit / last-10
- * matching rules as the join lookup.
+ * True when the stored PDF is older than the name correction, meaning the external
+ * generator has not caught up yet. Best-effort: on any S3 error we assume it is fine
+ * rather than hiding a certificate the participant can legitimately download.
  */
-async function findCertificateRowsByPhone(
-  postgres: PostgresPrismaClient,
-  phoneRaw: string,
-): Promise<SheetCertificateRow[]> {
-  const digits = normalizeDigits(phoneRaw);
-  const last10 = digits.length >= 10 ? digits.slice(-10) : "";
-  if (digits.length < 10) return [];
+async function isRegenerationPending(
+  s3Location: string,
+  nameChangedAt: Date | null,
+): Promise<boolean> {
+  if (!nameChangedAt) return false;
+  const parsed = parseS3Location(s3Location);
+  if (!parsed) return false;
 
   try {
-    return await postgres.$queryRaw<SheetCertificateRow[]>`
+    const head = await s3Client.send(
+      new HeadObjectCommand({ Bucket: parsed.bucket, Key: parsed.key }),
+    );
+    if (!head.LastModified) return false;
+    return head.LastModified.getTime() < nameChangedAt.getTime();
+  } catch {
+    return false;
+  }
+}
+
+/** WHERE fragment matching a participant by phone digits or by registered email. */
+function contactMatchSql(mode: CertificateLookupMode, contact: string): Prisma.Sql | null {
+  if (mode === "email") {
+    const email = contact.trim().toLowerCase();
+    if (!email || !email.includes("@")) return null;
+    return Prisma.sql`lower(btrim(COALESCE(s.prtcpnt_email_id, ''))) = ${email}`;
+  }
+
+  const digits = normalizeDigits(contact);
+  if (digits.length < 10) return null;
+  const last10 = digits.slice(-10);
+  const normalized = Prisma.sql`regexp_replace(btrim(COALESCE(s.prtcpnt_phone_no, '')), '[^0-9]', '', 'g')`;
+  return Prisma.sql`(${normalized} = ${digits} OR right(${normalized}, 10) = ${last10})`;
+}
+
+/**
+ * Registrations matching the contact. Rows without a certificate are included on
+ * purpose: a participant whose name is missing has no certificate yet, and must be
+ * able to find their registration in order to supply one.
+ */
+async function findRowsByContact(
+  postgres: PostgresPrismaClient,
+  mode: CertificateLookupMode,
+  contact: string,
+): Promise<SheetRow[]> {
+  const match = contactMatchSql(mode, contact);
+  if (!match) return [];
+
+  try {
+    const rows = await postgres.$queryRaw<SheetRow[]>(Prisma.sql`
       SELECT
-        COALESCE(NULLIF(btrim(to_jsonb(s)->>'prtcpnt_name'), ''), '') AS name,
-        NULLIF(btrim(to_jsonb(s)->>'certificate_s3_location'), '') AS s3_location,
-        to_jsonb(s)->>'prtcpnt_phone_no' AS matched_phone
+        s.prtcpnt_entry_id::text                             AS entry_id,
+        COALESCE(NULLIF(btrim(s.prtcpnt_name), ''), '')      AS name,
+        NULLIF(btrim(s.certificate_s3_location), '')         AS s3_location,
+        COALESCE(s.name_change_count, 0)::int                AS name_change_count,
+        s.name_changed_at                                    AS name_changed_at
       FROM mission.participant_data_sheet_set s
-      WHERE (
-        regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g') = ${digits}
-        OR right(regexp_replace(btrim(COALESCE(to_jsonb(s)->>'prtcpnt_phone_no', '')), '[^0-9]', '', 'g'), 10) = ${last10}
-      )
-      AND NULLIF(btrim(to_jsonb(s)->>'certificate_s3_location'), '') IS NOT NULL
-    `;
+      WHERE ${match}
+      ORDER BY
+        (NULLIF(btrim(s.certificate_s3_location), '') IS NULL),
+        s.prtcpnt_name NULLS LAST,
+        s.prtcpnt_entry_id
+      LIMIT ${MAX_CANDIDATES}
+    `);
+    return rows;
   } catch {
     return [];
   }
 }
 
 /**
- * Look up a participant by phone and return a certificate download candidate for
- * each distinct stored certificate, each with a freshly minted one-week link.
+ * Look up registrations by phone or email and attach a freshly minted one-week
+ * download link to every row that already has a generated certificate.
  */
-export async function lookupCertificateCandidatesByPhone(
+export async function lookupCertificateCandidates(
   postgres: PostgresPrismaClient,
-  phoneRaw: string,
+  mode: CertificateLookupMode,
+  contact: string,
 ): Promise<CertificateCandidate[]> {
-  const rows = await findCertificateRowsByPhone(postgres, phoneRaw);
+  const rows = await findRowsByContact(postgres, mode, contact);
 
-  // Dedupe on the stored location so the same certificate isn't listed twice.
-  const byLocation = new Map<string, string>(); // location -> name
-  for (const row of rows) {
-    const location = row.s3_location?.trim();
-    if (!location) continue;
-    if (!byLocation.has(location)) {
-      byLocation.set(location, (row.name ?? "").trim());
-    }
-  }
+  return Promise.all(
+    rows.map(async (row) => {
+      const location = row.s3_location?.trim() || null;
+      const nameChangedAt =
+        row.name_changed_at instanceof Date ? row.name_changed_at : null;
 
-  const expiresAt = new Date(
-    Date.now() + CERTIFICATE_LINK_TTL_SECONDS * 1000,
-  ).toISOString();
+      const [downloadUrl, regenerationPending] = location
+        ? await Promise.all([
+            generateCertificateDownloadUrl(location),
+            isRegenerationPending(location, nameChangedAt),
+          ])
+        : [null, Boolean(nameChangedAt)];
 
-  const candidates = await Promise.all(
-    [...byLocation.entries()].map(async ([location, name]) => {
-      const downloadUrl = await generateCertificateDownloadUrl(location);
-      if (!downloadUrl) return null;
-      return { name, downloadUrl, expiresAt } satisfies CertificateCandidate;
+      return {
+        entryId: row.entry_id,
+        name: row.name ?? "",
+        downloadUrl,
+        expiresAt: downloadUrl
+          ? new Date(Date.now() + CERTIFICATE_LINK_TTL_SECONDS * 1000).toISOString()
+          : null,
+        nameChangeUsed: Number(row.name_change_count ?? 0) > 0,
+        regenerationPending,
+      } satisfies CertificateCandidate;
     }),
   );
-
-  return candidates
-    .filter((c): c is CertificateCandidate => c !== null)
-    .sort((a, b) => (a.name || "￿").localeCompare(b.name || "￿"));
 }
 
 export type CertificateLookupResult =
@@ -159,7 +236,8 @@ export type CertificateLookupResult =
 /** Shared by `/api/public/certificate` and the `/certificate` server action. */
 export async function executeCertificateLookup(
   postgres: PostgresPrismaClient | null,
-  phone: string,
+  mode: CertificateLookupMode,
+  contact: string,
 ): Promise<CertificateLookupResult> {
   if (!postgres) {
     return {
@@ -176,6 +254,70 @@ export async function executeCertificateLookup(
     };
   }
 
-  const candidates = await lookupCertificateCandidatesByPhone(postgres, phone);
+  const candidates = await lookupCertificateCandidates(postgres, mode, contact);
   return { ok: true, body: { candidates } };
+}
+
+export type NameCorrectionResult =
+  | { ok: true }
+  | { ok: false; error: string; alreadyUsed?: boolean };
+
+/**
+ * Record a participant's single allowed name correction.
+ *
+ * The UPDATE re-verifies the contact and the unused-allowance guard in its own
+ * WHERE clause, so it is safe against a guessed `entryId` and against double
+ * submits: a second concurrent call matches zero rows instead of incrementing
+ * twice. `orig_prtcpnt_name` preserves whatever was originally registered.
+ */
+export async function applyNameCorrection(
+  postgres: PostgresPrismaClient | null,
+  mode: CertificateLookupMode,
+  contact: string,
+  entryId: string,
+  newName: string,
+): Promise<NameCorrectionResult> {
+  if (!postgres) {
+    return { ok: false, error: "Downstream database is not configured." };
+  }
+
+  const match = contactMatchSql(mode, contact);
+  if (!match) {
+    return { ok: false, error: "Enter a valid phone number or email." };
+  }
+
+  const name = newName.trim().replace(/\s+/g, " ");
+  if (name.length < 2 || name.length > 100) {
+    return { ok: false, error: "Enter your full name (2–100 characters)." };
+  }
+
+  const id = entryId.trim();
+  if (!id) return { ok: false, error: "Select the registration to correct." };
+
+  let updated = 0;
+  try {
+    updated = await postgres.$executeRaw(Prisma.sql`
+      UPDATE mission.participant_data_sheet_set s
+      SET orig_prtcpnt_name = COALESCE(s.orig_prtcpnt_name, s.prtcpnt_name),
+          prtcpnt_name      = ${name},
+          name_change_count = COALESCE(s.name_change_count, 0) + 1,
+          name_changed_at   = now()
+      WHERE s.prtcpnt_entry_id = ${id}
+        AND COALESCE(s.name_change_count, 0) = 0
+        AND ${match}
+    `);
+  } catch {
+    return { ok: false, error: "Could not save the name. Please try again." };
+  }
+
+  if (updated === 0) {
+    // Either the allowance is spent, or the entry does not belong to this contact.
+    return {
+      ok: false,
+      alreadyUsed: true,
+      error: `This registration's one-time name change has already been used. Please email ${CERTIFICATE_SUPPORT_EMAIL} for further changes.`,
+    };
+  }
+
+  return { ok: true };
 }

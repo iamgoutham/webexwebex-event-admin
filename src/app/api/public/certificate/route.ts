@@ -7,9 +7,14 @@ import { applyPublicJoinCors } from "@/lib/public-api-cors";
 
 export const dynamic = "force-dynamic";
 
-const schema = z.object({
-  phone: z.string().min(3),
-});
+const schema = z
+  .object({
+    phone: z.string().trim().min(3).optional(),
+    email: z.string().trim().min(3).optional(),
+  })
+  .refine((v) => Boolean(v.phone) || Boolean(v.email), {
+    message: "Provide phone or email.",
+  });
 
 function json(
   request: NextRequest,
@@ -35,6 +40,7 @@ function unauthorized(request: NextRequest): NextResponse {
 async function handleCertificate(
   request: NextRequest,
   phoneRaw: string,
+  emailRaw: string,
 ): Promise<NextResponse> {
   if (
     !validateOptionalApiSecret(
@@ -46,14 +52,23 @@ async function handleCertificate(
     return unauthorized(request);
   }
 
-  const parsed = schema.safeParse({ phone: phoneRaw.trim() });
+  const parsed = schema.safeParse({
+    phone: phoneRaw.trim() || undefined,
+    email: emailRaw.trim() || undefined,
+  });
   if (!parsed.success) {
     return json(request, { candidates: [] });
   }
 
+  // Phone takes precedence when both are supplied.
+  const [mode, contact] = parsed.data.phone
+    ? (["phone", parsed.data.phone] as const)
+    : (["email", parsed.data.email!] as const);
+
   const result = await executeCertificateLookup(
     getPostgresPrisma(),
-    parsed.data.phone,
+    mode,
+    contact,
   );
   if (!result.ok) {
     return json(request, result.body, { status: result.status });
@@ -61,30 +76,31 @@ async function handleCertificate(
   return json(request, result.body);
 }
 
-// POST /api/public/certificate  Body: { "phone": "<number>" }
+// POST /api/public/certificate  Body: { "phone": "<number>" } or { "email": "<email>" }
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
-  const phone =
-    body && typeof body === "object" && "phone" in body
-      ? String((body as { phone?: unknown }).phone ?? "")
+  const read = (key: "phone" | "email") =>
+    body && typeof body === "object" && key in body
+      ? String((body as Record<string, unknown>)[key] ?? "")
       : "";
-  return handleCertificate(request, phone);
+  return handleCertificate(request, read("phone"), read("email"));
 }
 
-// GET /api/public/certificate?phone=...
+// GET /api/public/certificate?phone=...  or  ?email=...
 export async function GET(request: NextRequest) {
   const phone = request.nextUrl.searchParams.get("phone")?.trim() ?? "";
-  if (!phone) {
+  const email = request.nextUrl.searchParams.get("email")?.trim() ?? "";
+  if (!phone && !email) {
     return json(
       request,
       {
-        error: "Missing phone parameter.",
-        hint: "Use ?phone=%2B15551234567.",
+        error: "Missing phone or email parameter.",
+        hint: "Use ?phone=%2B15551234567 or ?email=you%40example.com.",
       },
       { status: 400 },
     );
   }
-  return handleCertificate(request, phone);
+  return handleCertificate(request, phone, email);
 }
 
 export async function OPTIONS(request: NextRequest) {
