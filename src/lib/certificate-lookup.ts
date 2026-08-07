@@ -25,8 +25,15 @@ export const CERTIFICATE_LINK_TTL_SECONDS = 7 * 24 * 60 * 60; // 604800
 /** Where participants are sent once their single name correction is spent. */
 export const CERTIFICATE_SUPPORT_EMAIL = "cgs@chinmayavrindavan.org";
 
-/** A shared phone/email can match hundreds of registrations; keep the list sane. */
+/** Distinct participants shown after duplicate registrations are collapsed. */
 const MAX_CANDIDATES = 50;
+
+/**
+ * Raw rows pulled before de-duplication. One shared phone matches 424 rows, so this
+ * is deliberately wider than MAX_CANDIDATES; rows holding a certificate are ordered
+ * first, so they survive the window even for the busiest numbers.
+ */
+const RAW_ROW_LIMIT = 400;
 
 export type CertificateLookupMode = "phone" | "email";
 
@@ -51,6 +58,8 @@ export type CertificateCandidate = {
 type SheetRow = {
   entry_id: string;
   name: string;
+  email: string | null;
+  phone: string | null;
   s3_location: string | null;
   name_change_count: number;
   name_changed_at: Date | null;
@@ -174,6 +183,8 @@ async function findRowsByContact(
       SELECT
         s.prtcpnt_entry_id::text                             AS entry_id,
         COALESCE(NULLIF(btrim(s.prtcpnt_name), ''), '')      AS name,
+        NULLIF(btrim(s.prtcpnt_email_id), '')                AS email,
+        NULLIF(btrim(s.prtcpnt_phone_no), '')                AS phone,
         NULLIF(btrim(s.certificate_s3_location), '')         AS s3_location,
         COALESCE(s.name_change_count, 0)::int                AS name_change_count,
         s.name_changed_at                                    AS name_changed_at
@@ -183,12 +194,79 @@ async function findRowsByContact(
         (NULLIF(btrim(s.certificate_s3_location), '') IS NULL),
         s.prtcpnt_name NULLS LAST,
         s.prtcpnt_entry_id
-      LIMIT ${MAX_CANDIDATES}
+      LIMIT ${RAW_ROW_LIMIT}
     `);
     return rows;
   } catch {
     return [];
   }
+}
+
+const normalizeName = (value: string) =>
+  value.trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * Collapse rows that describe the same participant registered more than once:
+ * same name + same email, or same name + same phone. Grouping is transitive, so
+ * rows linked through either key end up in one group.
+ *
+ * Rows with no name are never merged — two unknown names are not evidence of the
+ * same person, and merging them would cost one of them the chance to supply a name.
+ *
+ * The surviving row is the one holding a certificate, so a collapsed duplicate can
+ * never hide a downloadable PDF.
+ */
+function dedupeRows(rows: SheetRow[]): SheetRow[] {
+  const parent = rows.map((_, i) => i);
+  const find = (i: number): number => {
+    let root = i;
+    while (parent[root] !== root) root = parent[root];
+    while (parent[i] !== root) {
+      const next = parent[i];
+      parent[i] = root;
+      i = next;
+    }
+    return root;
+  };
+  const union = (a: number, b: number) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[rb] = ra;
+  };
+
+  const seen = new Map<string, number>();
+  rows.forEach((row, i) => {
+    const name = normalizeName(row.name ?? "");
+    if (!name) return; // unnamed rows stay distinct
+
+    const digits = normalizeDigits(row.phone ?? "");
+    const email = (row.email ?? "").trim().toLowerCase();
+
+    const keys: string[] = [];
+    if (digits.length >= 10) keys.push(`${name}|p|${digits.slice(-10)}`);
+    if (email) keys.push(`${name}|e|${email}`);
+
+    for (const key of keys) {
+      const previous = seen.get(key);
+      if (previous === undefined) seen.set(key, i);
+      else union(previous, i);
+    }
+  });
+
+  // Prefer the row that actually has a certificate; ties keep the first seen.
+  const best = new Map<number, number>();
+  rows.forEach((row, i) => {
+    const group = find(i);
+    const incumbent = best.get(group);
+    if (incumbent === undefined) {
+      best.set(group, i);
+      return;
+    }
+    if (!rows[incumbent].s3_location && row.s3_location) best.set(group, i);
+  });
+
+  const chosen = new Set(best.values());
+  return rows.filter((_, i) => chosen.has(i));
 }
 
 /**
@@ -200,7 +278,9 @@ export async function lookupCertificateCandidates(
   mode: CertificateLookupMode,
   contact: string,
 ): Promise<CertificateCandidate[]> {
-  const rows = await findRowsByContact(postgres, mode, contact);
+  const rows = dedupeRows(
+    await findRowsByContact(postgres, mode, contact),
+  ).slice(0, MAX_CANDIDATES);
 
   return Promise.all(
     rows.map(async (row) => {
