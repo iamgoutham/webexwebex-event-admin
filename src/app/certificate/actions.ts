@@ -11,8 +11,6 @@ const schema = z.object({
   phone: z.string().min(3),
 });
 
-export type { CertificateCandidate };
-
 export type CertificateLookupActionResult =
   | { ok: true; candidates: CertificateCandidate[] }
   | { ok: false; error: string };

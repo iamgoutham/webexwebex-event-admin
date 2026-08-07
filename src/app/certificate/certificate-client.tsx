@@ -1,10 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import {
-  certificateLookupAction,
-  type CertificateCandidate,
-} from "./actions";
+import { certificateLookupAction } from "./actions";
+import type { CertificateCandidate } from "@/lib/certificate-lookup";
 
 export default function CertificateClient() {
   const [phone, setPhone] = useState("");
