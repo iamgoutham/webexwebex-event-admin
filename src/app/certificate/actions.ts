@@ -26,7 +26,7 @@ export type CertificateLookupActionResult =
   | { ok: false; error: string };
 
 export type NameCorrectionActionResult =
-  | { ok: true; candidates: CertificateCandidate[] }
+  | { ok: true; candidates: CertificateCandidate[]; updated: number }
   | { ok: false; error: string };
 
 /**
@@ -100,5 +100,6 @@ export async function correctNameAction(
   return {
     ok: true,
     candidates: refreshed.ok ? refreshed.body.candidates : [],
+    updated: applied.updated,
   };
 }

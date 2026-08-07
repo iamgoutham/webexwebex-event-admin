@@ -344,16 +344,34 @@ export async function executeCertificateLookup(
 }
 
 export type NameCorrectionResult =
-  | { ok: true }
+  | { ok: true; updated: number }
   | { ok: false; error: string; alreadyUsed?: boolean };
+
+/** SQL-side equivalent of `normalizeName`: trim, collapse runs of whitespace, lowercase. */
+const normalizedNameSql = (column: string): Prisma.Sql =>
+  Prisma.sql`lower(regexp_replace(btrim(COALESCE(${Prisma.raw(column)}, '')), '\\s+', ' ', 'g'))`;
 
 /**
  * Record a participant's single allowed name correction.
  *
- * The UPDATE re-verifies the contact and the unused-allowance guard in its own
- * WHERE clause, so it is safe against a guessed `entryId` and against double
- * submits: a second concurrent call matches zero rows instead of incrementing
- * twice. `orig_prtcpnt_name` preserves whatever was originally registered.
+ * A participant who registered several times has one row per registration, and
+ * correcting only the row they clicked would leave the duplicates showing the old
+ * name — including whichever one the certificate generator happens to read. The
+ * correction therefore applies to the whole duplicate group: every row sharing the
+ * old name together with the same email or the same phone.
+ *
+ * Anchoring on the selected row keeps this safe. That row must match the contact
+ * the participant just searched, so a guessed `entryId` still cannot rename anyone,
+ * and the group can only ever extend to rows carrying that same person's name and
+ * contact details.
+ *
+ * Rows with no name are never grouped — two blank names are not evidence of the
+ * same person — so supplying a missing name updates only the selected row.
+ *
+ * `COALESCE(name_change_count, 0) = 0` appears in both the anchor lookup and the
+ * UPDATE, so the one-time limit holds and a second concurrent submit matches zero
+ * rows instead of incrementing twice. `orig_prtcpnt_name` preserves whatever was
+ * originally registered.
  */
 export async function applyNameCorrection(
   postgres: PostgresPrismaClient | null,
@@ -379,30 +397,83 @@ export async function applyNameCorrection(
   const id = entryId.trim();
   if (!id) return { ok: false, error: "Select the registration to correct." };
 
-  let updated = 0;
+  const spent: NameCorrectionResult = {
+    ok: false,
+    alreadyUsed: true,
+    error: `This registration's one-time name change has already been used. Please email ${CERTIFICATE_SUPPORT_EMAIL} for further changes.`,
+  };
+
   try {
-    updated = await postgres.$executeRaw(Prisma.sql`
+    // The selected row, proven to belong to this contact and still unspent.
+    const anchors = await postgres.$queryRaw<
+      { name: string; email: string | null; phone: string | null }[]
+    >(Prisma.sql`
+      SELECT
+        COALESCE(NULLIF(btrim(s.prtcpnt_name), ''), '') AS name,
+        NULLIF(btrim(s.prtcpnt_email_id), '')           AS email,
+        NULLIF(btrim(s.prtcpnt_phone_no), '')           AS phone
+      FROM mission.participant_data_sheet_set s
+      WHERE s.prtcpnt_entry_id = ${id}
+        AND COALESCE(s.name_change_count, 0) = 0
+        AND ${match}
+    `);
+    const anchor = anchors[0];
+    if (!anchor) return spent;
+
+    const target = buildCorrectionTargetSql(id, anchor);
+
+    const updated = await postgres.$executeRaw(Prisma.sql`
       UPDATE mission.participant_data_sheet_set s
       SET orig_prtcpnt_name = COALESCE(s.orig_prtcpnt_name, s.prtcpnt_name),
           prtcpnt_name      = ${name},
           name_change_count = COALESCE(s.name_change_count, 0) + 1,
           name_changed_at   = now()
-      WHERE s.prtcpnt_entry_id = ${id}
+      WHERE ${target}
         AND COALESCE(s.name_change_count, 0) = 0
-        AND ${match}
     `);
+
+    if (updated === 0) return spent;
+    return { ok: true, updated };
   } catch {
     return { ok: false, error: "Could not save the name. Please try again." };
   }
+}
 
-  if (updated === 0) {
-    // Either the allowance is spent, or the entry does not belong to this contact.
-    return {
-      ok: false,
-      alreadyUsed: true,
-      error: `This registration's one-time name change has already been used. Please email ${CERTIFICATE_SUPPORT_EMAIL} for further changes.`,
-    };
+/**
+ * Rows the correction should reach: the selected row alone when it has no name,
+ * otherwise every row sharing that name plus the same email or the same phone.
+ *
+ * Unlike `dedupeRows`, this deliberately does not follow the grouping transitively.
+ * Chaining name+phone to name+email and back again can walk from one person to
+ * another through a shared family phone or a common name, which is harmless when
+ * it merely collapses a displayed list but would rename a stranger here. Every row
+ * this matches carries the selected row's own name together with the selected row's
+ * own email or phone.
+ */
+function buildCorrectionTargetSql(
+  entryId: string,
+  anchor: { name: string; email: string | null; phone: string | null },
+): Prisma.Sql {
+  const oldName = normalizeName(anchor.name);
+  if (!oldName) return Prisma.sql`s.prtcpnt_entry_id = ${entryId}`;
+
+  const digits = normalizeDigits(anchor.phone ?? "");
+  const email = anchor.email?.trim().toLowerCase() ?? "";
+
+  const contactKeys: Prisma.Sql[] = [];
+  if (email) {
+    contactKeys.push(
+      Prisma.sql`lower(btrim(COALESCE(s.prtcpnt_email_id, ''))) = ${email}`,
+    );
   }
+  if (digits.length >= 10) {
+    contactKeys.push(
+      Prisma.sql`right(regexp_replace(btrim(COALESCE(s.prtcpnt_phone_no, '')), '[^0-9]', '', 'g'), 10) = ${digits.slice(-10)}`,
+    );
+  }
+  // No usable contact key to group on: fall back to the selected row only.
+  if (contactKeys.length === 0) return Prisma.sql`s.prtcpnt_entry_id = ${entryId}`;
 
-  return { ok: true };
+  return Prisma.sql`${normalizedNameSql("s.prtcpnt_name")} = ${oldName}
+    AND (${Prisma.join(contactKeys, " OR ")})`;
 }

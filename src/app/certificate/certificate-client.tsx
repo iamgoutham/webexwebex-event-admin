@@ -26,6 +26,7 @@ export default function CertificateClient() {
   const [savingEntryId, setSavingEntryId] = useState<string | null>(null);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
+  const [savedCount, setSavedCount] = useState(0);
 
   const canSearch = useMemo(() => {
     if (status === "loading") return false;
@@ -38,6 +39,7 @@ export default function CertificateClient() {
     setDraftName("");
     setCorrectionError(null);
     setSavedEntryId(null);
+    setSavedCount(0);
   };
 
   const onSearch = async () => {
@@ -82,6 +84,7 @@ export default function CertificateClient() {
         setEditingEntryId(null);
         setDraftName("");
         setSavedEntryId(entryId);
+        setSavedCount(res.updated);
       } else {
         setCorrectionError(res.error);
       }
@@ -224,8 +227,12 @@ export default function CertificateClient() {
 
                   {justSaved ? (
                     <p className="mt-2 rounded-lg bg-[#eefaf2] px-3 py-2 text-xs text-[#1f6b4a]">
-                      Name saved. Your certificate is being prepared with the
-                      corrected name — please check back later to download it.
+                      Name saved
+                      {savedCount > 1
+                        ? ` across all ${savedCount} of your registrations`
+                        : ""}
+                      . Your certificate is being prepared with the corrected
+                      name — please check back later to download it.
                     </p>
                   ) : null}
 
@@ -295,7 +302,8 @@ export default function CertificateClient() {
                         />
                         <p className="mt-1 text-xs text-[#8a5a2a]">
                           You can do this only once. Please check the spelling
-                          carefully before saving.
+                          carefully before saving. If you registered more than
+                          once, all of your registrations are updated together.
                         </p>
                         {correctionError ? (
                           <p
