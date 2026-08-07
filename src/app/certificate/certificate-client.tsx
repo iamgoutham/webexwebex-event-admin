@@ -141,8 +141,7 @@ export default function CertificateClient() {
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Look yourself up with your registered phone number — or your registered
           email if you don&apos;t remember the number — to generate a link to your
-          PDF certificate. The link stays valid for one week; if it expires, come
-          back and generate a new one.
+          PDF certificate.
         </p>
       </div>
 
