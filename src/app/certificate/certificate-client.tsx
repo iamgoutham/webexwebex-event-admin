@@ -227,21 +227,30 @@ export default function CertificateClient() {
 
                   {justSaved ? (
                     <p className="mt-2 rounded-lg bg-[#eefaf2] px-3 py-2 text-xs text-[#1f6b4a]">
-                      Name saved
-                      {savedCount > 1
-                        ? ` across all ${savedCount} of your registrations`
-                        : ""}
-                      . Your certificate is being prepared with the corrected
-                      name — please check back later to download it.
+                      <span className="font-semibold">
+                        Name saved
+                        {savedCount > 1
+                          ? ` across all ${savedCount} of your registrations`
+                          : ""}
+                        .
+                      </span>{" "}
+                      Your certificate now has to be prepared again with the
+                      corrected name, which takes a little time. Please come
+                      back later and search again — the new certificate will be
+                      ready for download here.
                     </p>
                   ) : null}
 
                   {candidate.regenerationPending && !justSaved ? (
                     <p className="mt-2 rounded-lg bg-[#fff4df] px-3 py-2 text-xs text-[#8a5a2a]">
-                      Your certificate is being updated with your corrected name.
+                      <span className="font-semibold">
+                        Your corrected certificate is still being prepared.
+                      </span>{" "}
+                      This takes a little time — please search again later to
+                      download it.
                       {candidate.downloadUrl
-                        ? " The copy below still shows the earlier name."
-                        : " Please check back later."}
+                        ? " The copy below was made before your correction, so it still shows your earlier name."
+                        : ""}
                     </p>
                   ) : null}
 
@@ -301,9 +310,12 @@ export default function CertificateClient() {
                           className="mt-1 w-full rounded-lg border border-[#e5c18e] bg-white px-3 py-2 text-sm focus:border-[#d8792d] focus:outline-none focus:ring-1 focus:ring-[#d8792d]"
                         />
                         <p className="mt-1 text-xs text-[#8a5a2a]">
-                          You can do this only once. Please check the spelling
-                          carefully before saving. If you registered more than
-                          once, all of your registrations are updated together.
+                          You can do this only once, so please check the
+                          spelling carefully before saving. If you registered
+                          more than once, all of your registrations are updated
+                          together. Your certificate then has to be prepared
+                          again with the new name, which takes a little time —
+                          you will need to come back later to download it.
                         </p>
                         {correctionError ? (
                           <p
