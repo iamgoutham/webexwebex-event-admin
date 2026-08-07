@@ -54,10 +54,12 @@ export type CertificateCandidate = {
   /** True once the one allowed name correction has been used. */
   nameChangeUsed: boolean;
   /**
-   * True when the name was corrected but the stored PDF still predates that change,
-   * i.e. the external job has not re-rendered it yet.
+   * True while the corrected certificate is still coming: either a regeneration is
+   * queued or running, or the stored PDF simply predates the name change.
    */
   regenerationPending: boolean;
+  /** Status of the latest queued regeneration, or null when none was ever queued. */
+  regenStatus: RegenStatus | null;
 };
 
 type SheetRow = {
@@ -68,7 +70,13 @@ type SheetRow = {
   s3_location: string | null;
   name_change_count: number;
   name_changed_at: Date | null;
+  regen_status: RegenStatus | null;
 };
+
+/** Status of the most recent `mission.certificate_regen_queue` row for a registration. */
+export type RegenStatus = "pending" | "processing" | "done" | "failed";
+
+const REGEN_ACTIVE: ReadonlySet<string> = new Set(["pending", "processing"]);
 
 const normalizeDigits = (value: string) => value.replace(/[^0-9]/g, "");
 
@@ -192,8 +200,16 @@ async function findRowsByContact(
         NULLIF(btrim(s.prtcpnt_phone_no), '')                AS phone,
         NULLIF(btrim(s.certificate_s3_location), '')         AS s3_location,
         COALESCE(s.name_change_count, 0)::int                AS name_change_count,
-        s.name_changed_at                                    AS name_changed_at
+        s.name_changed_at                                    AS name_changed_at,
+        q.status                                             AS regen_status
       FROM mission.participant_data_sheet_set s
+      LEFT JOIN LATERAL (
+        SELECT r.status
+        FROM mission.certificate_regen_queue r
+        WHERE r.prtcpnt_entry_id = s.prtcpnt_entry_id
+        ORDER BY r.id DESC
+        LIMIT 1
+      ) q ON TRUE
       WHERE ${match}
       ORDER BY
         (NULLIF(btrim(s.certificate_s3_location), '') IS NULL),
@@ -293,7 +309,13 @@ export async function lookupCertificateCandidates(
       const nameChangedAt =
         row.name_changed_at instanceof Date ? row.name_changed_at : null;
 
-      const [downloadUrl, regenerationPending] = location
+      const regenStatus = row.regen_status ?? null;
+      // A queued or running job is authoritative; otherwise fall back to comparing
+      // the stored PDF against the name change, which also covers corrections made
+      // before the queue existed.
+      const queued = regenStatus !== null && REGEN_ACTIVE.has(regenStatus);
+
+      const [downloadUrl, staleAgainstS3] = location
         ? await Promise.all([
             generateCertificateDownloadUrl(location),
             isRegenerationPending(location, nameChangedAt),
@@ -308,7 +330,8 @@ export async function lookupCertificateCandidates(
           ? new Date(Date.now() + CERTIFICATE_LINK_TTL_SECONDS * 1000).toISOString()
           : null,
         nameChangeUsed: Number(row.name_change_count ?? 0) > 0,
-        regenerationPending,
+        regenerationPending: queued || staleAgainstS3,
+        regenStatus,
       } satisfies CertificateCandidate;
     }),
   );
@@ -422,18 +445,36 @@ export async function applyNameCorrection(
 
     const target = buildCorrectionTargetSql(id, anchor);
 
-    const updated = await postgres.$executeRaw(Prisma.sql`
-      UPDATE mission.participant_data_sheet_set s
-      SET orig_prtcpnt_name = COALESCE(s.orig_prtcpnt_name, s.prtcpnt_name),
-          prtcpnt_name      = ${name},
-          name_change_count = COALESCE(s.name_change_count, 0) + 1,
-          name_changed_at   = now()
-      WHERE ${target}
-        AND COALESCE(s.name_change_count, 0) = 0
-    `);
+    // The rename and the regeneration requests commit together. A rename that
+    // failed to enqueue would leave the sheet saying one name and the PDF another
+    // with nothing scheduled to reconcile them, and the participant's one
+    // correction already spent.
+    const entryIds = await postgres.$transaction(async (tx) => {
+      const rows = await tx.$queryRaw<{ prtcpnt_entry_id: string }[]>(Prisma.sql`
+        UPDATE mission.participant_data_sheet_set s
+        SET orig_prtcpnt_name = COALESCE(s.orig_prtcpnt_name, s.prtcpnt_name),
+            prtcpnt_name      = ${name},
+            name_change_count = COALESCE(s.name_change_count, 0) + 1,
+            name_changed_at   = now()
+        WHERE ${target}
+          AND COALESCE(s.name_change_count, 0) = 0
+        RETURNING s.prtcpnt_entry_id
+      `);
 
-    if (updated === 0) return spent;
-    return { ok: true, updated };
+      const ids = rows.map((r) => r.prtcpnt_entry_id);
+      if (ids.length === 0) return ids;
+
+      // One request per registration: certificates are keyed by prtcpnt_entry_id.
+      // The queue's AFTER INSERT trigger notifies the worker as this commits.
+      await tx.$executeRaw(Prisma.sql`
+        INSERT INTO mission.certificate_regen_queue (prtcpnt_entry_id)
+        VALUES ${Prisma.join(ids.map((entry) => Prisma.sql`(${entry})`))}
+      `);
+      return ids;
+    });
+
+    if (entryIds.length === 0) return spent;
+    return { ok: true, updated: entryIds.length };
   } catch {
     return { ok: false, error: "Could not save the name. Please try again." };
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { certificateLookupAction, correctNameAction } from "./actions";
 import type {
   CertificateCandidate,
@@ -8,6 +8,10 @@ import type {
 } from "@/lib/certificate-lookup";
 
 const SUPPORT_EMAIL = "cgs@chinmayavrindavan.org";
+
+/** Regeneration usually finishes in well under a second; poll briefly, then stop. */
+const POLL_INTERVAL_MS = 3000;
+const POLL_ATTEMPTS = 20;
 
 export default function CertificateClient() {
   const [mode, setMode] = useState<CertificateLookupMode>("phone");
@@ -27,6 +31,35 @@ export default function CertificateClient() {
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [savedEntryId, setSavedEntryId] = useState<string | null>(null);
   const [savedCount, setSavedCount] = useState(0);
+
+  const [pollsLeft, setPollsLeft] = useState(0);
+  /** Latest searched contact, so the poller never races a newer search. */
+  const searchRef = useRef({ mode: searchedMode, contact: searchedContact });
+  searchRef.current = { mode: searchedMode, contact: searchedContact };
+
+  const awaitingRegeneration = useMemo(
+    () => candidates.some((c) => c.regenerationPending),
+    [candidates],
+  );
+
+  const refresh = useCallback(async () => {
+    const { mode: m, contact: c } = searchRef.current;
+    if (!c) return;
+    const data = await certificateLookupAction(m, c);
+    // Ignore a response that arrived after the user searched for someone else.
+    if (data.ok && searchRef.current.contact === c) setCandidates(data.candidates);
+  }, []);
+
+  // Poll while a regeneration is outstanding so the corrected certificate appears
+  // without the participant having to search again.
+  useEffect(() => {
+    if (!awaitingRegeneration || pollsLeft <= 0) return;
+    const timer = setTimeout(() => {
+      setPollsLeft((n) => n - 1);
+      void refresh();
+    }, POLL_INTERVAL_MS);
+    return () => clearTimeout(timer);
+  }, [awaitingRegeneration, pollsLeft, refresh]);
 
   const canSearch = useMemo(() => {
     if (status === "loading") return false;
@@ -54,9 +87,16 @@ export default function CertificateClient() {
         setCandidates(data.candidates);
         setSearchedContact(value);
         setSearchedMode(mode);
+        searchRef.current = { mode, contact: value };
+        // Someone returning to collect a corrected certificate should see it
+        // appear without searching a third time.
+        setPollsLeft(
+          data.candidates.some((c) => c.regenerationPending) ? POLL_ATTEMPTS : 0,
+        );
       } else {
         setCandidates([]);
         setError(data.error);
+        setPollsLeft(0);
       }
     } finally {
       setSearched(true);
@@ -85,6 +125,7 @@ export default function CertificateClient() {
         setDraftName("");
         setSavedEntryId(entryId);
         setSavedCount(res.updated);
+        setPollsLeft(POLL_ATTEMPTS);
       } else {
         setCorrectionError(res.error);
       }
@@ -241,13 +282,27 @@ export default function CertificateClient() {
                     </p>
                   ) : null}
 
-                  {candidate.regenerationPending && !justSaved ? (
+                  {candidate.regenStatus === "failed" ? (
+                    <p className="mt-2 rounded-lg bg-[#fdecec] px-3 py-2 text-xs text-[#8b2d2d]">
+                      <span className="font-semibold">
+                        We could not prepare your corrected certificate.
+                      </span>{" "}
+                      Please email{" "}
+                      <a
+                        className="underline underline-offset-2"
+                        href={`mailto:${SUPPORT_EMAIL}`}
+                      >
+                        {SUPPORT_EMAIL}
+                      </a>{" "}
+                      and we will sort it out for you.
+                    </p>
+                  ) : candidate.regenerationPending && !justSaved ? (
                     <p className="mt-2 rounded-lg bg-[#fff4df] px-3 py-2 text-xs text-[#8a5a2a]">
                       <span className="font-semibold">
                         Your corrected certificate is still being prepared.
                       </span>{" "}
-                      This takes a little time — please search again later to
-                      download it.
+                      This page will update on its own in a few moments — you can
+                      also come back and search again later.
                       {candidate.downloadUrl
                         ? " The copy below was made before your correction, so it still shows your earlier name."
                         : ""}
