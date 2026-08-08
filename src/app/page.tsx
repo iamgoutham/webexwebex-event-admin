@@ -1,6 +1,5 @@
 import Link from "next/link";
 import AuthButtons from "@/components/auth-buttons";
-import CountdownTimer from "@/components/countdown-timer";
 import LandingRegistrationBanner from "@/components/landing-registration-banner";
 import ParticipantAtTimeOfChantingSection from "@/components/participant-at-time-of-chanting-section";
 import ParticipantRequiredAndPreparationSections from "@/components/participant-required-and-prep-sections";
@@ -47,11 +46,6 @@ export default async function Home() {
             </div>
           </div>
           <div className="flex w-full shrink-0 flex-col items-center gap-4 md:ml-4 md:w-auto md:items-end">
-            <CountdownTimer
-              targetDate={new Date("2026-05-09T10:00:00-04:00")}
-              label="Event Countdown"
-              sublabel="Global Gita Chanting Day — May 9, 2026 at 10:00 AM Eastern Time"
-            />
             <Link
               href="/help"
               className="inline-flex w-full max-w-[min(100%,20rem)] items-center justify-center rounded-full bg-[#8a2f2a] px-5 py-2.5 text-sm font-semibold text-[#fff9ef] shadow-md transition hover:bg-[#722825] md:w-auto md:min-w-[11rem]"
