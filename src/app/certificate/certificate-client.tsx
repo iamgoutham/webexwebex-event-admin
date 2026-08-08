@@ -9,10 +9,61 @@ import type {
 } from "@/lib/certificate-lookup";
 
 const SUPPORT_EMAIL = "cgs@chinmayavrindavan.org";
+const SUPPORT_WHATSAPP = "+91 89768 84787";
+/** wa.me needs the number in full international form with no spaces or plus. */
+const SUPPORT_WHATSAPP_URL = "https://wa.me/918976884787";
 
 /** Regeneration usually finishes in well under a second; poll briefly, then stop. */
 const POLL_INTERVAL_MS = 3000;
 const POLL_ATTEMPTS = 20;
+
+/**
+ * How to reach a human. Shown when a lookup finds nothing — a participant who
+ * cannot remember either the number or the email they registered with has no way
+ * forward on their own — and again at the foot of the page.
+ */
+function SupportContact({ className = "" }: { className?: string }) {
+  return (
+    <div className={className}>
+      <p className="text-sm font-semibold text-[#3b1a1f]">
+        Can&apos;t find your registration? We can help.
+      </p>
+      <p className="text-sm text-[#6b4e3d]">
+        अपना पंजीकरण नहीं मिल रहा? हमसे संपर्क करें।
+      </p>
+      <ul className="mt-2 space-y-1 text-sm text-[#6b4e3d]">
+        <li>
+          Email / ईमेल:{" "}
+          <a
+            className="font-medium text-[#8a2f2a] underline underline-offset-2"
+            href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+              "Gita Samarpanam certificate — cannot find my registration",
+            )}`}
+          >
+            {SUPPORT_EMAIL}
+          </a>
+        </li>
+        <li>
+          WhatsApp / व्हाट्सएप:{" "}
+          <a
+            className="font-medium text-[#8a2f2a] underline underline-offset-2"
+            href={SUPPORT_WHATSAPP_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {SUPPORT_WHATSAPP}
+          </a>
+        </li>
+      </ul>
+      <p className="mt-2 text-xs text-[#6b4e3d]">
+        Please include the name you registered with, so we can find you.
+        <span className="mt-0.5 block">
+          कृपया वह नाम बताएं जिससे आपने पंजीकरण किया था।
+        </span>
+      </p>
+    </div>
+  );
+}
 
 export default function CertificateClient() {
   const [mode, setMode] = useState<CertificateLookupMode>("phone");
@@ -275,16 +326,14 @@ export default function CertificateClient() {
             <p className="mt-2">
               {searchedMode === "phone"
                 ? "If you registered with a different number, try searching by email address instead."
-                : "If you registered with a different email, try searching by phone number instead."}{" "}
-              Still stuck? Email{" "}
-              <a
-                className="underline underline-offset-2"
-                href={`mailto:${SUPPORT_EMAIL}`}
-              >
-                {SUPPORT_EMAIL}
-              </a>
-              .
+                : "If you registered with a different email, try searching by phone number instead."}
             </p>
+            <p className="mt-1">
+              {searchedMode === "phone"
+                ? "यदि आपने किसी दूसरे नंबर से पंजीकरण किया था, तो ईमेल पते से खोजें।"
+                : "यदि आपने किसी दूसरे ईमेल से पंजीकरण किया था, तो फ़ोन नंबर से खोजें।"}
+            </p>
+            <SupportContact className="mt-3 border-t border-[#f0e0c6] pt-3" />
           </div>
         ) : null}
 
@@ -363,6 +412,15 @@ export default function CertificateClient() {
                       >
                         {SUPPORT_EMAIL}
                       </a>{" "}
+                      or WhatsApp{" "}
+                      <a
+                        className="underline underline-offset-2"
+                        href={SUPPORT_WHATSAPP_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {SUPPORT_WHATSAPP}
+                      </a>{" "}
                       and we will sort it out for you.
                     </p>
                   ) : candidate.regenerationPending && !justSaved ? (
@@ -421,6 +479,15 @@ export default function CertificateClient() {
                           href={`mailto:${SUPPORT_EMAIL}`}
                         >
                           {SUPPORT_EMAIL}
+                        </a>{" "}
+                        or WhatsApp{" "}
+                        <a
+                          className="underline underline-offset-2"
+                          href={SUPPORT_WHATSAPP_URL}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {SUPPORT_WHATSAPP}
                         </a>
                         .
                       </p>
@@ -501,6 +568,11 @@ export default function CertificateClient() {
             })}
           </div>
         ) : null}
+      </div>
+
+      {/* Always reachable, not only after a failed search. */}
+      <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 shadow-sm">
+        <SupportContact />
       </div>
     </div>
   );

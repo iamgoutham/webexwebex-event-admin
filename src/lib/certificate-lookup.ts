@@ -24,6 +24,7 @@ export const CERTIFICATE_LINK_TTL_SECONDS = 7 * 24 * 60 * 60; // 604800
 
 /** Where participants are sent once their single name correction is spent. */
 export const CERTIFICATE_SUPPORT_EMAIL = "cgs@chinmayavrindavan.org";
+export const CERTIFICATE_SUPPORT_WHATSAPP = "+91 89768 84787";
 
 /**
  * Distinct participants shown after duplicate registrations are collapsed.
@@ -444,7 +445,7 @@ export async function applyNameCorrection(
   const spent: NameCorrectionResult = {
     ok: false,
     alreadyUsed: true,
-    error: `This registration's one-time name change has already been used. Please email ${CERTIFICATE_SUPPORT_EMAIL} for further changes.`,
+    error: `This registration's one-time name change has already been used. Please email ${CERTIFICATE_SUPPORT_EMAIL} or WhatsApp ${CERTIFICATE_SUPPORT_WHATSAPP} for further changes.`,
   };
 
   try {
