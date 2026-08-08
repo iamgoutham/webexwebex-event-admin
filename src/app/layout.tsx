@@ -36,7 +36,7 @@ function resolveSiteUrl(): URL {
   return new URL("https://webex-usa.chinmayavrindavan.org");
 }
 
-const SITE_NAME = "Chinmaya Gita Samarpanam Website";
+const SITE_NAME = "Chinmaya Gita Samarpanam";
 const SITE_DESCRIPTION =
   "Chinmaya Gita Samarpanam — chanting information, meeting links, and participation certificates for participants and hosts.";
 

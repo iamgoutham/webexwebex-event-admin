@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     type: "website",
     // Page-level openGraph replaces the layout's rather than merging into it,
     // so the site name is repeated here to keep it in the share preview.
-    siteName: "Chinmaya Gita Samarpanam Website",
+    siteName: "Chinmaya Gita Samarpanam",
     title: TITLE,
     description: DESCRIPTION,
     images: [
