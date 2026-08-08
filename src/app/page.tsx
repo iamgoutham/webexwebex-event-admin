@@ -27,9 +27,13 @@ export default async function Home() {
               Participants and Hosts
             </h1>
             <p className="max-w-2xl text-base text-[#5b3b2b] md:text-lg">
-              Thank you for supporting the Chinmaya Gita Samarpanam. This portal
-              will help you prepare, practice, and confidently host your Webex
-              meeting on the event day.
+              Thank you for being part of the Chinmaya Gita Samarpanam. Collect
+              your participation certificate below, and find the chanting
+              resources and meeting details here whenever you need them.
+            </p>
+            <p className="max-w-2xl text-sm text-[#6b4e3d]">
+              चिन्मय गीता समर्पणम् का हिस्सा बनने के लिए धन्यवाद। नीचे अपना
+              प्रमाणपत्र प्राप्त करें।
             </p>
             <div className="flex flex-wrap items-center justify-center gap-4 md:justify-start">
               <AuthButtons
