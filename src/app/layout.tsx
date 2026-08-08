@@ -15,33 +15,18 @@ const geistMono = Geist_Mono({
 });
 
 /**
- * Absolute base for share previews. WhatsApp and other scrapers need absolute
- * image URLs, and the site answers on more than one host, so this is taken from
- * the environment where possible rather than hard-coded.
+ * Absolute base for share previews. WhatsApp and other scrapers cannot resolve
+ * relative image paths, and previews should point at one canonical host whichever
+ * domain the page was opened on, so this is fixed rather than read per request.
  */
-function resolveSiteUrl(): URL {
-  const candidates = [
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.NEXTAUTH_URL,
-    "https://webex-usa.chinmayavrindavan.org",
-  ];
-  for (const candidate of candidates) {
-    if (!candidate?.trim()) continue;
-    try {
-      return new URL(candidate.trim());
-    } catch {
-      /* try the next one */
-    }
-  }
-  return new URL("https://webex-usa.chinmayavrindavan.org");
-}
+const SITE_URL = new URL("https://webex-usa.chinmayavrindavan.org");
 
 const SITE_NAME = "Chinmaya Gita Samarpanam";
 const SITE_DESCRIPTION =
   "Chinmaya Gita Samarpanam — chanting information, meeting links, and participation certificates for participants and hosts.";
 
 export const metadata: Metadata = {
-  metadataBase: resolveSiteUrl(),
+  metadataBase: SITE_URL,
   title: SITE_NAME,
   description: SITE_DESCRIPTION,
   openGraph: {
