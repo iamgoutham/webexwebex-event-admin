@@ -62,6 +62,37 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Certificates are the live task now that the event has passed, so the
+          record and the download sit high on the page. */}
+      <section className="rounded-3xl border border-[#c9a227] bg-[#101f3c] p-6 text-[#fdf6e9] shadow-xl sm:p-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="flex-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#e3c46a]">
+              Officially Amazing
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold md:text-3xl">
+              We set a GUINNESS WORLD RECORDS&trade; title together
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm text-[#d5dbea] md:text-base">
+              On 9 May 2026, <strong className="text-white">8,277 people</strong>{" "}
+              chanted online simultaneously — the most ever — achieved by Central
+              Chinmaya Mission Trust (India). Your participation certificate is
+              ready to download.
+            </p>
+            <p className="mt-2 max-w-2xl text-sm text-[#b9c2d6]">
+              9 मई 2026 को 8,277 लोगों ने एक साथ ऑनलाइन जप कर विश्व रिकॉर्ड बनाया।
+              आपका प्रमाणपत्र तैयार है।
+            </p>
+          </div>
+          <Link
+            href="/certificate"
+            className="inline-flex w-full items-center justify-center rounded-full bg-[#e3c46a] px-6 py-3 text-sm font-semibold text-[#101f3c] shadow-md transition hover:bg-[#f0d68b] md:w-auto"
+          >
+            Download your certificate
+          </Link>
+        </div>
+      </section>
+
       <section className="rounded-2xl border border-[#e5c18e] bg-[#fff4df] p-6 text-[#3b1a1f] shadow-md sm:p-8">
         <div className="overflow-hidden rounded-xl border border-[#e5c18e] bg-[#1a1208]">
           <video

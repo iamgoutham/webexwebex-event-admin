@@ -137,27 +137,68 @@ export default function CertificateClient() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 text-[#3b1a1f]">
+      {/* The achievement first — the certificate is the proof of it. */}
+      <div className="rounded-3xl border border-[#c9a227] bg-[#101f3c] p-6 text-[#fdf6e9] shadow-xl sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#e3c46a]">
+          Officially Amazing
+        </p>
+        <h1 className="mt-2 text-2xl font-semibold md:text-3xl">
+          You are part of a GUINNESS WORLD RECORDS&trade; title
+        </h1>
+        <p className="mt-3 text-sm text-[#d5dbea] md:text-base">
+          On 9 May 2026, <strong className="text-white">8,277 people</strong>{" "}
+          chanted online simultaneously — the most ever — achieved by Central
+          Chinmaya Mission Trust (India). Collect the certificate with your name
+          on it below.
+        </p>
+        <p className="mt-2 text-sm text-[#b9c2d6]">
+          9 मई 2026 को 8,277 लोगों ने एक साथ ऑनलाइन जप कर विश्व रिकॉर्ड बनाया।
+          नीचे अपना प्रमाणपत्र प्राप्त करें।
+        </p>
+      </div>
+
       <div className="rounded-3xl border border-[#e5c18e] bg-[#fff4df] p-6 shadow-lg sm:p-8">
-        <h1 className="text-2xl font-semibold">Download your certificate</h1>
+        <h2 className="text-2xl font-semibold">
+          Download your certificate
+          <span className="mt-1 block text-base font-medium text-[#6b4e3d]">
+            अपना प्रमाणपत्र डाउनलोड करें
+          </span>
+        </h2>
         <p className="mt-2 text-sm text-[#6b4e3d]">
           Look yourself up with your registered phone number — or your registered
           email if you don&apos;t remember the number — to generate a link to your
           PDF certificate.
         </p>
+        <p className="mt-1 text-sm text-[#6b4e3d]">
+          अपने पंजीकृत फ़ोन नंबर से खोजें — या यदि नंबर याद न हो तो अपने पंजीकृत
+          ईमेल पते से।
+        </p>
 
         {/* Sample of the certificate, so participants can see what they are
-            collecting before they enter a phone number. */}
+            collecting before they enter a phone number. It opens full size
+            because the landscape artwork is small on a phone screen. */}
         <figure className="mt-5">
-          <Image
-            src="/images/sample-certificate.png"
-            alt="Sample Guinness World Records participation certificate, with the participant's name shown as 'Your Name'"
-            width={1200}
-            height={848}
-            className="h-auto w-full rounded-xl border border-[#e5c18e] shadow-md"
-            priority
-          />
+          <a
+            href="/images/sample-certificate.png"
+            target="_blank"
+            rel="noreferrer"
+            className="block rounded-xl focus:outline-none focus:ring-2 focus:ring-[#d8792d]"
+          >
+            <Image
+              src="/images/sample-certificate.png"
+              alt="Sample Guinness World Records participation certificate, with the participant's name shown as 'Your Name'"
+              width={1200}
+              height={848}
+              className="h-auto w-full rounded-xl border border-[#e5c18e] shadow-md transition hover:shadow-lg"
+              priority
+            />
+          </a>
           <figcaption className="mt-2 text-center text-xs text-[#6b4e3d]">
-            A sample certificate — yours will carry your registered name.
+            A sample certificate — yours will carry your registered name. Tap to
+            view full size.
+            <span className="mt-0.5 block">
+              नमूना प्रमाणपत्र — पूरा आकार देखने के लिए टैप करें।
+            </span>
           </figcaption>
         </figure>
       </div>
@@ -180,7 +221,7 @@ export default function CertificateClient() {
                   : "border border-[#e5c18e] bg-white text-[#6b4e3d] hover:bg-[#fff4df]"
               }`}
             >
-              {m === "phone" ? "Phone number" : "Email address"}
+              {m === "phone" ? "Phone number / फ़ोन नंबर" : "Email / ईमेल"}
             </button>
           ))}
         </div>
@@ -189,7 +230,9 @@ export default function CertificateClient() {
           htmlFor="certificate-contact"
           className="mt-4 block text-sm font-semibold text-[#3b1a1f]"
         >
-          {mode === "phone" ? "Registered phone number" : "Registered email address"}
+          {mode === "phone"
+            ? "Registered phone number / पंजीकृत फ़ोन नंबर"
+            : "Registered email address / पंजीकृत ईमेल पता"}
         </label>
         <input
           id="certificate-contact"
@@ -208,7 +251,9 @@ export default function CertificateClient() {
           disabled={!canSearch}
           className="mt-4 rounded-full bg-[#d8792d] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:bg-[#d8792d]/40"
         >
-          {status === "loading" ? "Searching..." : "Find my certificate"}
+          {status === "loading"
+            ? "Searching..."
+            : "Find my certificate / मेरा प्रमाणपत्र खोजें"}
         </button>
 
         {error ? (
@@ -222,6 +267,10 @@ export default function CertificateClient() {
             <p>
               No registration was found for that{" "}
               {searchedMode === "phone" ? "phone number" : "email address"}.
+            </p>
+            <p className="mt-1">
+              इस {searchedMode === "phone" ? "फ़ोन नंबर" : "ईमेल पते"} के लिए कोई
+              पंजीकरण नहीं मिला।
             </p>
             <p className="mt-2">
               {searchedMode === "phone"
@@ -243,8 +292,8 @@ export default function CertificateClient() {
           <div className="mt-6 space-y-3">
             <p className="text-sm font-semibold text-[#3b1a1f]">
               {candidates.length === 1
-                ? "We found your registration"
-                : `We found ${candidates.length} registrations`}
+                ? "We found your registration / आपका पंजीकरण मिला"
+                : `We found ${candidates.length} registrations / ${candidates.length} पंजीकरण मिले`}
             </p>
 
             {candidates.map((candidate) => {
@@ -265,7 +314,7 @@ export default function CertificateClient() {
                       ) : (
                         // Case 1: no name on record for this registration.
                         <span className="text-[#8b2d2d]">
-                          No name on record
+                          No name on record / नाम दर्ज नहीं है
                         </span>
                       )}
                     </p>
@@ -295,6 +344,10 @@ export default function CertificateClient() {
                       corrected name, which takes a little time. Please come
                       back later and search again — the new certificate will be
                       ready for download here.
+                      <span className="mt-1 block">
+                        नाम सहेज लिया गया। नया प्रमाणपत्र तैयार होने में कुछ समय लगेगा —
+                        कृपया बाद में दोबारा खोजें।
+                      </span>
                     </p>
                   ) : null}
 
@@ -319,6 +372,10 @@ export default function CertificateClient() {
                       </span>{" "}
                       This page will update on its own in a few moments — you can
                       also come back and search again later.
+                      <span className="mt-1 block">
+                        आपका सुधारा हुआ प्रमाणपत्र तैयार हो रहा है — कृपया थोड़ी देर
+                        प्रतीक्षा करें।
+                      </span>
                       {candidate.downloadUrl
                         ? " The copy below was made before your correction, so it still shows your earlier name."
                         : ""}
@@ -334,7 +391,7 @@ export default function CertificateClient() {
                         rel="noreferrer"
                         className="inline-block rounded-full bg-[#d8792d] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#b86425]"
                       >
-                        Download certificate (PDF)
+                        Download certificate (PDF) / प्रमाणपत्र डाउनलोड करें
                       </a>
                       {candidate.expiresAt ? (
                         <p className="mt-2 text-xs text-[#6b4e3d]">
@@ -346,6 +403,9 @@ export default function CertificateClient() {
                   ) : (
                     <p className="mt-3 text-xs text-[#6b4e3d]">
                       No certificate is available for this registration yet.
+                      <span className="mt-0.5 block">
+                        इस पंजीकरण के लिए अभी प्रमाणपत्र उपलब्ध नहीं है।
+                      </span>
                     </p>
                   )}
 
@@ -387,6 +447,10 @@ export default function CertificateClient() {
                           together. Your certificate then has to be prepared
                           again with the new name, which takes a little time —
                           you will need to come back later to download it.
+                          <span className="mt-1 block">
+                            नाम केवल एक बार बदला जा सकता है। नया प्रमाणपत्र बनने में
+                            कुछ समय लगेगा — कृपया बाद में आकर डाउनलोड करें।
+                          </span>
                         </p>
                         {correctionError ? (
                           <p
@@ -403,7 +467,7 @@ export default function CertificateClient() {
                             disabled={isSaving}
                             className="rounded-full bg-[#d8792d] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#b86425] disabled:cursor-not-allowed disabled:bg-[#d8792d]/40"
                           >
-                            {isSaving ? "Saving..." : "Save name"}
+                            {isSaving ? "Saving..." : "Save name / नाम सहेजें"}
                           </button>
                           <button
                             type="button"
@@ -411,7 +475,7 @@ export default function CertificateClient() {
                             disabled={isSaving}
                             className="rounded-full border border-[#e5c18e] px-4 py-1.5 text-xs font-semibold text-[#6b4e3d] transition hover:bg-[#fff4df]"
                           >
-                            Cancel
+                            Cancel / रद्द करें
                           </button>
                         </div>
                       </div>
@@ -427,8 +491,8 @@ export default function CertificateClient() {
                         className="text-xs font-semibold text-[#8a2f2a] underline underline-offset-2"
                       >
                         {hasName
-                          ? "This name is wrong — correct it (once)"
-                          : "Add my name"}
+                          ? "This name is wrong — correct it (once) / यह नाम ग़लत है — इसे सुधारें (केवल एक बार)"
+                          : "Add my name / मेरा नाम जोड़ें"}
                       </button>
                     )}
                   </div>
