@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { certificateLookupAction, correctNameAction } from "./actions";
 import type {
@@ -143,6 +144,22 @@ export default function CertificateClient() {
           email if you don&apos;t remember the number — to generate a link to your
           PDF certificate.
         </p>
+
+        {/* Sample of the certificate, so participants can see what they are
+            collecting before they enter a phone number. */}
+        <figure className="mt-5">
+          <Image
+            src="/images/sample-certificate.png"
+            alt="Sample Guinness World Records participation certificate, with the participant's name shown as 'Your Name'"
+            width={1200}
+            height={848}
+            className="h-auto w-full rounded-xl border border-[#e5c18e] shadow-md"
+            priority
+          />
+          <figcaption className="mt-2 text-center text-xs text-[#6b4e3d]">
+            A sample certificate — yours will carry your registered name.
+          </figcaption>
+        </figure>
       </div>
 
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 shadow-sm">
