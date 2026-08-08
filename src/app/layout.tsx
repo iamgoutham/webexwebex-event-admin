@@ -14,9 +14,49 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/**
+ * Absolute base for share previews. WhatsApp and other scrapers need absolute
+ * image URLs, and the site answers on more than one host, so this is taken from
+ * the environment where possible rather than hard-coded.
+ */
+function resolveSiteUrl(): URL {
+  const candidates = [
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.NEXTAUTH_URL,
+    "https://webex-usa.chinmayavrindavan.org",
+  ];
+  for (const candidate of candidates) {
+    if (!candidate?.trim()) continue;
+    try {
+      return new URL(candidate.trim());
+    } catch {
+      /* try the next one */
+    }
+  }
+  return new URL("https://webex-usa.chinmayavrindavan.org");
+}
+
+const SITE_NAME = "Chinmaya Gita Samarpanam Website";
+const SITE_DESCRIPTION =
+  "Chinmaya Gita Samarpanam — chanting information, meeting links, and participation certificates for participants and hosts.";
+
 export const metadata: Metadata = {
-  title: "Webex Event Admin",
-  description: "Console for CMSamarpanam Webex hosts",
+  metadataBase: resolveSiteUrl(),
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [{ url: "/CMW-lamp-logo-1.png", width: 500, height: 500 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: ["/CMW-lamp-logo-1.png"],
+  },
 };
 
 export default function RootLayout({
