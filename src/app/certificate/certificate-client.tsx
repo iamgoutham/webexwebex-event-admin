@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Confetti from "./confetti";
 import { certificateLookupAction, correctNameAction } from "./actions";
 import type {
   CertificateCandidate,
@@ -188,6 +189,8 @@ export default function CertificateClient() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 text-[#3b1a1f]">
+      <Confetti />
+
       {/* The achievement first — the certificate is the proof of it. */}
       <div className="rounded-3xl border border-[#c9a227] bg-[#101f3c] p-6 text-[#fdf6e9] shadow-xl sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#e3c46a]">
@@ -198,9 +201,8 @@ export default function CertificateClient() {
         </h1>
         <p className="mt-3 text-sm text-[#d5dbea] md:text-base">
           On 9 May 2026, <strong className="text-white">8,277 people</strong>{" "}
-          chanted online simultaneously — the most ever — achieved by Central
-          Chinmaya Mission Trust (India). Collect the certificate with your name
-          on it below.
+          chanted online simultaneously — the most ever — achieved by Chinmaya
+          Mission. Collect the certificate with your name on it below.
         </p>
         <p className="mt-2 text-sm text-[#b9c2d6]">
           9 मई 2026 को 8,277 लोगों ने एक साथ ऑनलाइन जप कर विश्व रिकॉर्ड बनाया।
@@ -344,6 +346,30 @@ export default function CertificateClient() {
                 ? "We found your registration / आपका पंजीकरण मिला"
                 : `We found ${candidates.length} registrations / ${candidates.length} पंजीकरण मिले`}
             </p>
+
+            {/* Shown once the registration is found and before the download
+                button, so it is read rather than scrolled past. */}
+            <div className="rounded-xl border border-[#c9a227] bg-[#fff4df] p-4">
+              <p className="text-sm font-semibold text-[#3b1a1f]">
+                Your certificate is free — your support keeps this work going
+              </p>
+              <p className="mt-1 text-sm text-[#6b4e3d]">
+                If the Gita Samarpanam meant something to you, please consider a
+                contribution to Chinmaya Mission before you download.
+              </p>
+              <p className="mt-1 text-sm text-[#6b4e3d]">
+                यदि गीता समर्पणम् आपके लिए विशेष रहा, तो कृपया डाउनलोड करने से पहले
+                चिन्मय मिशन को सहयोग देने पर विचार करें।
+              </p>
+              <a
+                href="https://cmw.chinmaya75.org/donations/cm-gita-samarpanam/"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center justify-center rounded-full bg-[#8a2f2a] px-5 py-2.5 text-sm font-semibold text-[#fff9ef] shadow-md transition hover:bg-[#722825]"
+              >
+                Donate in US$ / सहयोग करें
+              </a>
+            </div>
 
             {candidates.map((candidate) => {
               const isEditing = editingEntryId === candidate.entryId;
@@ -569,6 +595,28 @@ export default function CertificateClient() {
           </div>
         ) : null}
       </div>
+
+      {/* Placed after the form so it celebrates without pushing the search box
+          further down a phone screen. */}
+      <figure className="overflow-hidden rounded-2xl border border-[#e5c18e] bg-[#fff9ef] shadow-sm">
+        <Image
+          src="/images/msc-participants.jpg"
+          alt="Chinmaya Mission members gathered outside the Chinmaya Amrit Mahotsav, holding the Guinness World Records certificate"
+          width={1600}
+          height={1067}
+          sizes="(max-width: 768px) 100vw, 42rem"
+          className="h-auto w-full"
+        />
+        <figcaption className="px-5 py-4 text-sm text-[#6b4e3d]">
+          Receiving the GUINNESS WORLD RECORDS&trade; certificate at the Chinmaya
+          Amrit Mahotsav — on behalf of every one of the 8,277 people who chanted
+          together.
+          <span className="mt-1 block">
+            चिन्मय अमृत महोत्सव में गिनीज़ वर्ल्ड रिकॉर्ड्स प्रमाणपत्र प्राप्त करते
+            हुए — उन सभी 8,277 प्रतिभागियों की ओर से।
+          </span>
+        </figcaption>
+      </figure>
 
       {/* Always reachable, not only after a failed search. */}
       <div className="rounded-2xl border border-[#e5c18e] bg-[#fff9ef] p-6 shadow-sm">

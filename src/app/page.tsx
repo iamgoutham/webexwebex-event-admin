@@ -73,9 +73,9 @@ export default async function Home() {
             </h2>
             <p className="mt-3 max-w-2xl text-sm text-[#d5dbea] md:text-base">
               On 9 May 2026, <strong className="text-white">8,277 people</strong>{" "}
-              chanted online simultaneously — the most ever — achieved by Central
-              Chinmaya Mission Trust (India). Your participation certificate is
-              ready to download.
+              chanted online simultaneously — the most ever — achieved by
+              Chinmaya Mission. Your participation certificate is ready to
+              download.
             </p>
             <p className="mt-2 max-w-2xl text-sm text-[#b9c2d6]">
               9 मई 2026 को 8,277 लोगों ने एक साथ ऑनलाइन जप कर विश्व रिकॉर्ड बनाया।
