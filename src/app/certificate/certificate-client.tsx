@@ -361,14 +361,26 @@ export default function CertificateClient() {
                 यदि गीता समर्पणम् आपके लिए विशेष रहा, तो कृपया डाउनलोड करने से पहले
                 चिन्मय मिशन को सहयोग देने पर विचार करें।
               </p>
-              <a
-                href="https://cmw.chinmaya75.org/donations/cm-gita-samarpanam/"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex items-center justify-center rounded-full bg-[#8a2f2a] px-5 py-2.5 text-sm font-semibold text-[#fff9ef] shadow-md transition hover:bg-[#722825]"
-              >
-                Donate in US$ / सहयोग करें
-              </a>
+              {/* Two currencies, side by side: participants are spread across
+                  India and the diaspora, and each gateway takes only its own. */}
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <a
+                  href="https://www.chinmayamission.com/global/donation/chinmaya-gita-samarpanam"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex flex-1 items-center justify-center rounded-full bg-[#8a2f2a] px-5 py-2.5 text-center text-sm font-semibold text-[#fff9ef] shadow-md transition hover:bg-[#722825]"
+                >
+                  Donate in ₹ (INR) / भारत से सहयोग करें
+                </a>
+                <a
+                  href="https://cmw.chinmaya75.org/donations/cm-gita-samarpanam/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex flex-1 items-center justify-center rounded-full bg-[#8a2f2a] px-5 py-2.5 text-center text-sm font-semibold text-[#fff9ef] shadow-md transition hover:bg-[#722825]"
+                >
+                  Donate in US$ / अमेरिका से सहयोग करें
+                </a>
+              </div>
             </div>
 
             {candidates.map((candidate) => {
