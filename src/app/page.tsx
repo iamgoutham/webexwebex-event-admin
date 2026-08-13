@@ -35,14 +35,30 @@ export default async function Home() {
                 We set a GUINNESS WORLD RECORDS&trade; title together
               </h2>
               <p className="mt-3 text-sm text-[#d5dbea] md:text-base">
-                On 9 May 2026, <strong className="text-white">8,277 people</strong>{" "}
-                chanted online simultaneously — the most ever — achieved by
-                Chinmaya Mission. Your participation certificate is ready to
-                download.
+                On May 9th, 2026, Chinmaya Mission set a new Guinness World
+                Record&trade; for{" "}
+                <strong className="text-white">
+                  &ldquo;Most people chanting online simultaneously - 8277&rdquo;
+                </strong>
               </p>
-              <p className="mt-2 text-sm text-[#b9c2d6]">
-                9 मई 2026 को 8,277 लोगों ने एक साथ ऑनलाइन जप कर विश्व रिकॉर्ड बनाया।
-                आपका प्रमाणपत्र तैयार है।
+              <p className="mt-3 text-sm text-[#d5dbea] md:text-base">
+                That historic day, nearly 32,000 devotees successfully logged in
+                across hundreds of Webex meetings and chanted Chapter 15 of the
+                Bhagavad Gita as one family!
+              </p>
+              <p className="mt-3 text-sm text-[#d5dbea] md:text-base">
+                This record belongs to EACH ONE OF YOU who joined. Thank you for
+                making history with us!
+              </p>
+              <p className="mt-3 text-sm text-[#d5dbea] md:text-base">
+                🎉 Every participant can now download their official
+                participation certificate with your name on it from the link
+                below.
+              </p>
+              <p className="mt-3 text-sm text-[#b9c2d6]">
+                9 मई 2026 को चिन्मय मिशन ने &ldquo;एक साथ ऑनलाइन जप करने वाले सबसे
+                अधिक लोग — 8277&rdquo; का नया गिनीज़ विश्व रिकॉर्ड बनाया। यह रिकॉर्ड
+                आप सभी का है — नीचे दिए लिंक से अपना प्रमाणपत्र प्राप्त करें।
               </p>
               <Link
                 href="/certificate"
