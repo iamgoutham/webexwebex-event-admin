@@ -31,8 +31,10 @@ export default async function Home() {
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#e3c46a]">
                 Officially Amazing
               </p>
+              {/* Short on purpose: the paragraphs below carry the record title,
+                  the count and the thanks, so the heading only has to celebrate. */}
               <h2 className="mt-2 text-xl font-semibold md:text-2xl">
-                We set a GUINNESS WORLD RECORDS&trade; title together
+                We did it together
               </h2>
               <p className="mt-3 text-sm text-[#d5dbea] md:text-base">
                 On May 9th, 2026, Chinmaya Mission set a new Guinness World
