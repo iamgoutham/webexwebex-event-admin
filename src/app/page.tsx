@@ -23,18 +23,35 @@ export default async function Home() {
             </div>
             <h1 className="text-3xl font-semibold leading-tight md:text-5xl">
               Welcome
-              <br />
-              Participants and Hosts
             </h1>
-            <p className="max-w-2xl text-base text-[#5b3b2b] md:text-lg">
-              Thank you for being part of the Chinmaya Gita Samarpanam. Collect
-              your participation certificate below, and find the chanting
-              resources and meeting details here whenever you need them.
-            </p>
-            <p className="max-w-2xl text-sm text-[#6b4e3d]">
-              चिन्मय गीता समर्पणम् का हिस्सा बनने के लिए धन्यवाद। नीचे अपना
-              प्रमाणपत्र प्राप्त करें।
-            </p>
+
+            {/* The record and the certificate are what visitors come for now, so
+                they lead the hero instead of sitting in a section below it. */}
+            <div className="rounded-2xl border border-[#c9a227] bg-[#101f3c] p-5 text-[#fdf6e9] shadow-lg sm:p-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#e3c46a]">
+                Officially Amazing
+              </p>
+              <h2 className="mt-2 text-xl font-semibold md:text-2xl">
+                We set a GUINNESS WORLD RECORDS&trade; title together
+              </h2>
+              <p className="mt-3 text-sm text-[#d5dbea] md:text-base">
+                On 9 May 2026, <strong className="text-white">8,277 people</strong>{" "}
+                chanted online simultaneously — the most ever — achieved by
+                Chinmaya Mission. Your participation certificate is ready to
+                download.
+              </p>
+              <p className="mt-2 text-sm text-[#b9c2d6]">
+                9 मई 2026 को 8,277 लोगों ने एक साथ ऑनलाइन जप कर विश्व रिकॉर्ड बनाया।
+                आपका प्रमाणपत्र तैयार है।
+              </p>
+              <Link
+                href="/certificate"
+                className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[#e3c46a] px-6 py-3 text-sm font-semibold text-[#101f3c] shadow-md transition hover:bg-[#f0d68b] sm:w-auto"
+              >
+                Download your certificate
+              </Link>
+            </div>
+
             <div className="flex flex-wrap items-center justify-center gap-4 md:justify-start">
               <AuthButtons
                 isAuthenticated={!!session?.user}
@@ -57,37 +74,6 @@ export default async function Home() {
               CGS Helpdesk
             </Link>
           </div>
-        </div>
-      </section>
-
-      {/* Certificates are the live task now that the event has passed, so the
-          record and the download sit high on the page. */}
-      <section className="rounded-3xl border border-[#c9a227] bg-[#101f3c] p-6 text-[#fdf6e9] shadow-xl sm:p-8">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#e3c46a]">
-              Officially Amazing
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold md:text-3xl">
-              We set a GUINNESS WORLD RECORDS&trade; title together
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm text-[#d5dbea] md:text-base">
-              On 9 May 2026, <strong className="text-white">8,277 people</strong>{" "}
-              chanted online simultaneously — the most ever — achieved by
-              Chinmaya Mission. Your participation certificate is ready to
-              download.
-            </p>
-            <p className="mt-2 max-w-2xl text-sm text-[#b9c2d6]">
-              9 मई 2026 को 8,277 लोगों ने एक साथ ऑनलाइन जप कर विश्व रिकॉर्ड बनाया।
-              आपका प्रमाणपत्र तैयार है।
-            </p>
-          </div>
-          <Link
-            href="/certificate"
-            className="inline-flex w-full items-center justify-center rounded-full bg-[#e3c46a] px-6 py-3 text-sm font-semibold text-[#101f3c] shadow-md transition hover:bg-[#f0d68b] md:w-auto"
-          >
-            Download your certificate
-          </Link>
         </div>
       </section>
 
