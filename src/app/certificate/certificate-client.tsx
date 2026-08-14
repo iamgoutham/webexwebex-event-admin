@@ -412,6 +412,11 @@ export default function CertificateClient() {
                   key={candidate.entryId}
                   className="rounded-xl border border-[#ead2ae] bg-white p-4"
                 >
+                  {/* The registration id is deliberately not shown. Ids look like
+                      "128.00", and next to a name directly below a donation ask
+                      one participant read it as an amount they owed. It is
+                      internal, means nothing to them, and stays in the markup
+                      only as the React key and the correction target. */}
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-sm font-semibold text-[#3b1a1f]">
                       {hasName ? (
@@ -422,9 +427,6 @@ export default function CertificateClient() {
                           No name on record / नाम दर्ज नहीं है
                         </span>
                       )}
-                    </p>
-                    <p className="font-mono text-xs text-[#b08b6b]">
-                      {candidate.entryId}
                     </p>
                   </div>
 
