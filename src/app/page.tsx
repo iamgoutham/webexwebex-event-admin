@@ -57,10 +57,24 @@ export default async function Home() {
                 participation certificate with your name on it from the link
                 below.
               </p>
-              <p className="mt-3 text-sm text-[#b9c2d6]">
+              {/* Hindi mirrors the four paragraphs above rather than summarising
+                  them, so a Hindi reader gets the same account. */}
+              <p className="mt-4 text-sm text-[#b9c2d6]">
                 9 मई 2026 को चिन्मय मिशन ने &ldquo;एक साथ ऑनलाइन जप करने वाले सबसे
-                अधिक लोग — 8277&rdquo; का नया गिनीज़ विश्व रिकॉर्ड बनाया। यह रिकॉर्ड
-                आप सभी का है — नीचे दिए लिंक से अपना प्रमाणपत्र प्राप्त करें।
+                अधिक लोग — 8277&rdquo; का नया गिनीज़ विश्व रिकॉर्ड बनाया।
+              </p>
+              <p className="mt-2 text-sm text-[#b9c2d6]">
+                उस ऐतिहासिक दिन लगभग 32,000 भक्तों ने सैकड़ों वेबेक्स मीटिंग्स में
+                शामिल होकर, एक परिवार की तरह श्रीमद्भगवद्गीता के पंद्रहवें अध्याय
+                का पाठ किया!
+              </p>
+              <p className="mt-2 text-sm text-[#b9c2d6]">
+                यह रिकॉर्ड आप सभी का है जिन्होंने इसमें भाग लिया। हमारे साथ इतिहास
+                रचने के लिए धन्यवाद!
+              </p>
+              <p className="mt-2 text-sm text-[#b9c2d6]">
+                🎉 अब हर प्रतिभागी अपने नाम वाला आधिकारिक प्रमाणपत्र नीचे दिए लिंक
+                से डाउनलोड कर सकता है।
               </p>
               <Link
                 href="/certificate"
