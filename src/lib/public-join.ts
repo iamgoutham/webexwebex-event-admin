@@ -32,7 +32,9 @@ type JoinMapRow = {
   rec_create_tstmp: Date | null;
 };
 
-const normalizeDigits = (value: string) => value.replace(/[^0-9]/g, "");
+/** Digits of a phone number, dropping a trailing ".0" left by spreadsheet export. */
+const normalizeDigits = (value: string) =>
+  value.trim().replace(/\.0+$/, "").replace(/[^0-9]/g, "");
 
 function phoneMatchSql(
   columnName: string,
@@ -40,7 +42,9 @@ function phoneMatchSql(
   last10: string,
 ): Prisma.Sql {
   const column = Prisma.raw(columnName);
-  const normalized = Prisma.sql`regexp_replace(btrim(COALESCE(${column}::text, '')), '[^0-9]', '', 'g')`;
+  // Mirrors normalizeDigits: a ".0" left by a float-formatted export would
+  // otherwise shift the last-ten window and stop the number matching.
+  const normalized = Prisma.sql`regexp_replace(regexp_replace(btrim(COALESCE(${column}::text, '')), '\\.0+$', ''), '[^0-9]', '', 'g')`;
   return Prisma.sql`(${normalized} = ${digits} OR right(${normalized}, 10) = ${last10})`;
 }
 

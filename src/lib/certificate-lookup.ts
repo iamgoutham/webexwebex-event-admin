@@ -79,7 +79,23 @@ export type RegenStatus = "pending" | "processing" | "done" | "failed";
 
 const REGEN_ACTIVE: ReadonlySet<string> = new Set(["pending", "processing"]);
 
-const normalizeDigits = (value: string) => value.replace(/[^0-9]/g, "");
+/**
+ * Digits of a phone number.
+ *
+ * A trailing ".0" is dropped first. Thousands of numbers were stored through a
+ * spreadsheet that treated them as floats, so they arrive as "19143439103.0";
+ * stripping non-digits alone turns that ".0" into a trailing zero and shifts the
+ * last-ten window, which is what stopped those participants finding themselves by
+ * phone. Only a decimal part of zeros is removed, never one carrying digits:
+ * values mangled into scientific notation ("4.40044E+16") must be left alone
+ * rather than silently truncated into a different number.
+ */
+const normalizeDigits = (value: string) =>
+  value.trim().replace(/\.0+$/, "").replace(/[^0-9]/g, "");
+
+/** SQL-side equivalent of `normalizeDigits` — keep the two in step. */
+const phoneDigitsSql = (column: string): Prisma.Sql =>
+  Prisma.sql`regexp_replace(regexp_replace(btrim(COALESCE(${Prisma.raw(column)}, '')), '\\.0+$', ''), '[^0-9]', '', 'g')`;
 
 /** Split an `s3://bucket/key` URI (or bare key) into bucket + key. */
 function parseS3Location(
@@ -175,7 +191,7 @@ function contactMatchSql(mode: CertificateLookupMode, contact: string): Prisma.S
   const digits = normalizeDigits(contact);
   if (digits.length < 10) return null;
   const last10 = digits.slice(-10);
-  const normalized = Prisma.sql`regexp_replace(btrim(COALESCE(s.prtcpnt_phone_no, '')), '[^0-9]', '', 'g')`;
+  const normalized = phoneDigitsSql("s.prtcpnt_phone_no");
   return Prisma.sql`(${normalized} = ${digits} OR right(${normalized}, 10) = ${last10})`;
 }
 
@@ -531,7 +547,7 @@ function buildCorrectionTargetSql(
   }
   if (digits.length >= 10) {
     contactKeys.push(
-      Prisma.sql`right(regexp_replace(btrim(COALESCE(s.prtcpnt_phone_no, '')), '[^0-9]', '', 'g'), 10) = ${digits.slice(-10)}`,
+      Prisma.sql`right(${phoneDigitsSql("s.prtcpnt_phone_no")}, 10) = ${digits.slice(-10)}`,
     );
   }
   // No usable contact key to group on: fall back to the selected row only.
